@@ -1,0 +1,82 @@
+stack:
+  backend: Django 5.2 + DRF
+  language: Python 3.11+
+  db: MySQL (PyMySQL)
+  async: Celery + Redis
+  storage: Azure Blob Storage
+  auth: JWT (SimpleJWT)
+  payment: Innopay
+  infra: Docker Swarm on Azure VM
+  testing: pytest
+
+services:
+  nginx:
+    role: reverse proxy, static files fallback
+    routes_to: [django]
+    ports: [80, 443]
+    notes: Docker Swarm 내 서비스 간 DNS 캐싱 주의
+
+  django:
+    role: API server
+    framework: Django 5.2 + DRF
+    python: "3.11+"
+    wsgi: gunicorn
+    depends_on: [mysql, redis, azure-blob]
+    settings_module: buccl_back.settings.{environment}
+    env_var: DJANGO_ENV  # local | dev | production
+
+  mysql:
+    role: primary datastore
+    driver: PyMySQL
+    notes: utf8mb4
+
+  redis:
+    role: Celery broker, cache, JWT token blacklist
+
+  celery_worker:
+    role: async tasks (notifications, SMS, blob upload)
+    broker: redis
+    notes: local 환경에서는 CELERY_TASK_ALWAYS_EAGER=True
+
+  celery_beat:
+    role: scheduled tasks
+    broker: redis
+
+external_services:
+  innopay:
+    role: 결제 게이트웨이
+    integration: REST API + callback webhook
+    related_apps: [buccl_main, buccl_payment]
+
+  azure_blob:
+    role: 미디어 파일 저장 (이미지, 동영상)
+    related_apps: [buccl_user, buccl_main]
+    env_var: AZURE_STORAGE_CONNECTION_STRING
+
+  azure_front_door:
+    role: CDN, 글로벌 라우팅, WAF, HTTPS 종단
+    notes: |
+      - production 트래픽의 진입점
+      - origin: Azure VM (Docker Swarm)
+      - 캐싱 정책 / WAF 규칙은 Azure Portal에서 관리
+
+  bunch_cm:
+    role: 커뮤니티 백엔드 (별도 Node.js 레포)
+    integration: MSA 연동 (JWT 공유)
+    notes: hb-cm 플러그인이 담당하는 별도 시스템
+
+request_flow:
+  api:
+    - "Client → Azure Front Door → nginx → gunicorn → DRF View → Serializer → Service → Model → MySQL"
+  async:
+    - "View → celery.delay() → Redis → Celery worker → 외부 API/Blob"
+  auth:
+    - "Client → /server/user/login → SimpleJWT → access+refresh → Redis blacklist 관리"
+
+deploy:
+  method: Docker Swarm (docker stack deploy)
+  environments:
+    local: Docker Compose, DEBUG=True, eager Celery
+    dev: Azure VM Swarm (1 replica)
+    production: Azure Front Door → Azure VM Swarm, HTTPS
+  secrets: Docker secrets + 환경변수

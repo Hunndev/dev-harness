@@ -1,0 +1,105 @@
+general:
+  - id: GEN-001
+    rule: 함수는 단일 책임 원칙을 따른다. 50줄을 넘으면 분리를 검토한다.
+    stacks: [all]
+  - id: GEN-002
+    rule: 매직 넘버를 사용하지 않는다. 상수로 선언한다.
+    stacks: [all]
+  - id: GEN-003
+    rule: 에러 핸들링은 발생 지점에서 처리한다. 호출자에게 무조건 위임하지 않는다.
+    stacks: [all]
+  - id: GEN-004
+    rule: console.log를 프로덕션 코드에 사용하지 않는다. logger 모듈을 사용한다.
+    stacks: [all]
+  - id: GEN-005
+    rule: any 타입을 사용하지 않는다. unknown 또는 명시적 타입을 사용한다.
+    stacks: [typescript]
+  - id: GEN-006
+    rule: 비밀번호, 토큰, PII는 로깅하지 않는다.
+    stacks: [all]
+
+typescript:
+  - id: TS-001
+    rule: 파일명은 kebab-case (post.service.ts), 클래스는 PascalCase, 변수는 camelCase, DB 컬럼은 snake_case
+    stacks: [typescript]
+  - id: TS-002
+    rule: tsconfig strict 모드 필수. strict 옵션을 끄지 않는다.
+    stacks: [typescript]
+  - id: TS-003
+    rule: 경로 별칭 사용 (@config, @controllers, @services, @repositories, @middlewares, @routes, @utils, @types). 상대경로 ../../ 두 단계 이상 금지.
+    stacks: [typescript]
+  - id: TS-004
+    rule: as 단언 (type assertion)은 최후 수단. 가능하면 type guard 또는 명시적 변환.
+    stacks: [typescript]
+  - id: TS-005
+    rule: async 함수는 반드시 try/catch 또는 호출자 측 .catch()로 unhandled rejection을 막는다.
+    stacks: [typescript]
+
+express:
+  - id: EXP-001
+    rule: Controller는 요청/응답 변환만 담당한다. 비즈니스 로직은 Service로 위임한다.
+    stacks: [express]
+  - id: EXP-002
+    rule: 응답은 src/utils/response.ts의 successResponse / errorResponse 헬퍼를 사용한다. res.json() 직접 사용 금지.
+    stacks: [express]
+  - id: EXP-003
+    rule: 에러는 src/utils/errors.ts의 ApiError 계층(400~503)을 사용한다. 일반 Error throw 금지.
+    stacks: [express]
+  - id: EXP-004
+    rule: 인증/권한 미들웨어는 라우터 레벨에서 명시적으로 적용한다. 글로벌 의존 금지.
+    stacks: [express]
+  - id: EXP-005
+    rule: 입력 검증 미들웨어를 controller 진입 전에 둔다. controller 안에서 raw req.body 검증 금지.
+    stacks: [express]
+  - id: EXP-006
+    rule: 적절한 HTTP 상태 코드 사용 — 400 (입력), 401 (인증), 403 (권한), 404, 409 (충돌), 422 (검증), 500 (서버), 503 (외부 의존성).
+    stacks: [express]
+
+repository:
+  - id: REPO-001
+    rule: SQL 쿼리는 parameterized binding (? 플레이스홀더)만 사용한다. 문자열 concatenation 금지.
+    stacks: [express]
+  - id: REPO-002
+    rule: DB 접근은 repository 레이어에 캡슐화한다. service/controller에서 직접 SQL 실행 금지.
+    stacks: [express]
+  - id: REPO-003
+    rule: connection은 반드시 release/finally로 반환한다. leak 금지.
+    stacks: [express]
+
+websocket:
+  - id: WS-001
+    rule: Socket.io 이벤트 핸들러도 인증 미들웨어를 거친다. 익명 연결 금지.
+    stacks: [express]
+  - id: WS-002
+    rule: 이벤트 listener를 등록한 곳에서 disconnect 시 반드시 제거한다 (memory leak 방지).
+    stacks: [express]
+  - id: WS-003
+    rule: 다중 replica 환경에서는 Redis adapter를 사용한다. 단일 인스턴스에 의존하지 않는다.
+    stacks: [express]
+
+testing:
+  - id: TEST-001
+    rule: 새로운 엔드포인트/이벤트 핸들러는 반드시 Jest 테스트를 작성한다.
+    stacks: [all]
+  - id: TEST-002
+    rule: 외부 시스템(BE API, MySQL, Redis 등) 호출은 mock 처리한다. src/__tests__/mocks/index.ts 사용.
+    stacks: [express]
+  - id: TEST-003
+    rule: 커버리지 임계값 — branches 70%, functions/lines/statements 80%.
+    stacks: [express]
+
+eslint:
+  - id: LINT-001
+    rule: single quotes, always semi, prefer-const, eqeqeq. ESLint 설정 변경 시 사용자 승인 필요.
+    stacks: [express]
+
+git:
+  - id: GIT-001
+    rule: "브랜치: feature/{issue}-desc, bugfix/{issue}-desc, refactor/{desc}, infra/{desc}"
+    stacks: [all]
+  - id: GIT-002
+    rule: "커밋: type(scope): description. types: feat, fix, refactor, docs, test, chore, infra"
+    stacks: [all]
+  - id: GIT-003
+    rule: main 브랜치에 직접 커밋하지 않는다.
+    stacks: [all]

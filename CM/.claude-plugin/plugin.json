@@ -1,0 +1,7 @@
+{
+  "name": "hb-cm",
+  "description": "BUCCL 커뮤니티(Node.js) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
+  "version": "0.3.0",
+  "author": { "name": "buccl" },
+  "license": "MIT"
+}

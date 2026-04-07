@@ -1,0 +1,130 @@
+general:
+  - id: GEN-001
+    rule: 함수는 단일 책임 원칙을 따른다. 50줄을 넘으면 분리를 검토한다.
+    stacks: [all]
+  - id: GEN-002
+    rule: 매직 넘버를 사용하지 않는다. 상수로 선언한다.
+    stacks: [all]
+  - id: GEN-003
+    rule: 에러 핸들링은 발생 지점에서 처리한다. 호출자에게 무조건 위임하지 않는다.
+    stacks: [all]
+  - id: GEN-004
+    rule: print()를 사용하지 않는다. logging.getLogger(__name__)를 사용한다.
+    stacks: [all]
+  - id: GEN-005
+    rule: bare except를 사용하지 않는다. 구체적인 예외 타입을 명시한다.
+    stacks: [all]
+  - id: GEN-006
+    rule: 비밀번호, 토큰, PII는 로깅하지 않는다.
+    stacks: [all]
+
+django:
+  - id: DJ-001
+    rule: View는 흐름 제어만 담당한다. 비즈니스 로직은 services.py에 둔다 (fat models, thin views, service layer).
+    stacks: [django]
+  - id: DJ-002
+    rule: 트랜잭션은 서비스 레이어에서 @transaction.atomic으로 감싼다.
+    stacks: [django]
+  - id: DJ-003
+    rule: QuerySet은 select_related / prefetch_related로 N+1을 방지한다.
+    stacks: [django]
+  - id: DJ-004
+    rule: 동시성 안전 업데이트는 F() expression을 사용한다.
+    stacks: [django]
+  - id: DJ-005
+    rule: 자주 조회되는 필드에 db_index를, 데이터 무결성에는 unique_together / constraints를 사용한다.
+    stacks: [django]
+  - id: DJ-006
+    rule: 모델 레벨 검증은 clean()에 둔다.
+    stacks: [django]
+  - id: DJ-007
+    rule: ForeignKey의 on_delete는 명시적으로 선택한다. CASCADE를 기본값으로 쓰지 않고 도메인에 맞게 판단한다.
+    stacks: [django]
+  - id: DJ-008
+    rule: 마이그레이션 파일명은 auto-generated 이름을 그대로 쓰지 않는다. --name 옵션으로 의미 있는 이름을 부여한다.
+    stacks: [django]
+  - id: DJ-009
+    rule: settings는 base/local/dev/production으로 분리한다. 환경별 설정은 환경변수로 주입한다. SECRET_KEY/DB password/API key 하드코딩 금지.
+    stacks: [django]
+  - id: DJ-010
+    rule: DEBUG = True 프로덕션 설정 금지. eval() / exec() 사용 금지.
+    stacks: [django]
+  - id: DJ-011
+    rule: "@csrf_exempt 사용 시 문서화된 사유 필수."
+    stacks: [django]
+
+drf:
+  - id: DRF-001
+    rule: "Serializer 네이밍: {Model}{Action}Serializer (예: BookingCreateSerializer)"
+    stacks: [drf]
+  - id: DRF-002
+    rule: "View 네이밍: {Model}{Action}View (예: BookingCreateView)"
+    stacks: [drf]
+  - id: DRF-003
+    rule: API 응답은 DRF의 Response를 사용한다. JsonResponse 직접 사용 금지.
+    stacks: [drf]
+  - id: DRF-004
+    rule: permission_classes는 View 레벨에서 명시적으로 선언한다 (빈 리스트 불가). 글로벌 기본값에 의존하지 않는다.
+    stacks: [drf]
+  - id: DRF-005
+    rule: Serializer에서 validate_{field}로 필드별 검증, validate()로 교차 필드 검증을 분리한다.
+    stacks: [drf]
+  - id: DRF-006
+    rule: ListAPIView에는 pagination_class를 반드시 명시한다.
+    stacks: [drf]
+  - id: DRF-007
+    rule: "Serializer fields = '__all__' 금지. 명시적 필드 나열만 허용."
+    stacks: [drf]
+  - id: DRF-008
+    rule: 민감/계산 필드는 read_only_fields로 보호한다.
+    stacks: [drf]
+  - id: DRF-009
+    rule: 적절한 HTTP 상태 코드 사용 — 400 (입력 오류), 401 (인증), 403 (권한), 404, 409 (충돌), 422 (검증), 500 (서버).
+    stacks: [drf]
+  - id: DRF-010
+    rule: "에러 응답 형식: {error, code, details, timestamp} 4-필드 표준."
+    stacks: [drf]
+
+celery:
+  - id: CEL-001
+    rule: 외부 API 호출/blob upload/SMS 발송 등 I/O 무거운 작업은 Celery task로 분리한다.
+    stacks: [celery]
+  - id: CEL-002
+    rule: Celery task는 idempotent하게 작성한다. 재시도해도 부작용이 없도록.
+    stacks: [celery]
+  - id: CEL-003
+    rule: local 환경 디버깅 시 CELERY_TASK_ALWAYS_EAGER=True로 동기 실행을 보장한다.
+    stacks: [celery]
+
+docker:
+  - id: DOCK-001
+    rule: Docker Swarm 서비스 업데이트 시 rolling update 설정을 확인한다.
+    stacks: [docker]
+  - id: DOCK-002
+    rule: 환경변수와 시크릿은 Docker secrets로 관리한다. compose 파일에 직접 기입 금지.
+    stacks: [docker]
+  - id: DOCK-003
+    rule: health check를 모든 서비스에 설정한다.
+    stacks: [docker]
+
+testing:
+  - id: TEST-001
+    rule: 새로운 API 엔드포인트는 반드시 pytest 테스트를 작성한다.
+    stacks: [all]
+  - id: TEST-002
+    rule: 외부 API 호출(Innopay, Azure Blob, SMS 등)은 반드시 mock 처리한다.
+    stacks: [django]
+  - id: TEST-003
+    rule: "테스트 실행: pytest -rA. 특정 클래스: pytest path/to/test.py::TestClass -v"
+    stacks: [django]
+
+git:
+  - id: GIT-001
+    rule: "브랜치: feature/{issue}-desc, bugfix/{issue}-desc, refactor/{desc}, infra/{desc}"
+    stacks: [all]
+  - id: GIT-002
+    rule: "커밋: type(scope): description. types: feat, fix, refactor, docs, test, chore, infra"
+    stacks: [all]
+  - id: GIT-003
+    rule: main 브랜치에 직접 커밋하지 않는다.
+    stacks: [all]

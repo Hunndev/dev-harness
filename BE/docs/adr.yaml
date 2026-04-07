@@ -1,0 +1,9 @@
+# BUCCL BE의 Architecture Decision Records.
+#
+# planning 트랙(/hb-be:planning)에서 decision-draft.md 작성 →
+# /hb-be:update-docs adr 로 사용자 승인 후 이 파일에 편입.
+#
+# 처음에는 빈 배열로 시작하고, 실제 의사결정 이력으로 점진적으로 채워나간다.
+# 기존 BE 레포에 이미 결정된 사항이 있으면 회고 형식으로 기록할 수 있다.
+
+[]

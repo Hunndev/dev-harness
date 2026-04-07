@@ -1,0 +1,68 @@
+modules:
+  - name: buccl_back
+    path: buccl_back/
+    purpose: Django 프로젝트 settings, middleware, Celery 설정, URL 라우팅
+    models: []
+    depends_on: []
+    notes: |
+      - settings: base.py / local.py / dev.py / production.py (DJANGO_ENV로 분기)
+      - Celery beat 스케줄 정의
+      - 공통 미들웨어 (CORS, JWT, 로깅)
+      - **변경 시 반드시 사용자 승인 필요**
+
+  - name: buccl_user
+    path: buccl_user/
+    purpose: 회원 인증, SMS, 알림
+    models: [User, Profile]  # 실제 모델은 코드 확인 후 갱신
+    depends_on: []
+    api_prefix: /server/user/
+    notes: |
+      - SimpleJWT 인증 (access + refresh + blacklist)
+      - SMS 발송 (외부 API)
+      - 푸시 알림 발송
+      - 토큰 자동 갱신
+
+  - name: buccl_lessons
+    path: buccl_lessons/
+    purpose: 프리다이빙 레슨, 예약, 티켓
+    models: [Lesson, Schedule, SessionReservation, Ticket]  # 실제 모델은 코드 확인 후 갱신
+    depends_on: [buccl_user]
+    api_prefix: /server/lessons/
+    notes: |
+      - 순차 레슨 진행 검증 (이전 day 완료 후 다음 day 예약)
+      - SessionReservation 상태 머신: RESERVED / ATTENDED / COMPLETED / RETAKE_RESERVED / NEEDS_RETAKE
+      - day_order로 레슨 순서 강제
+
+  - name: buccl_main
+    path: buccl_main/
+    purpose: 상품, 주문, 투어, 결제
+    models: [Product, Order, Tour]  # 실제 모델은 코드 확인 후 갱신
+    depends_on: [buccl_user, buccl_payment]
+    api_prefix: /server/main/
+    notes: |
+      - **Product API는 read-only** — 생성/수정은 Django Admin에서만
+      - 투어 예약
+      - Innopay 결제 연동
+      - 주문 상태 관리
+
+  - name: buccl_payment
+    path: buccl_payment/
+    purpose: 정산
+    models: [Payment, PaymentLog, Settlement]  # 실제 모델은 코드 확인 후 갱신
+    depends_on: [buccl_user]
+    api_prefix: /server/payment/
+    notes: |
+      - Innopay REST API 클라이언트
+      - 결제 콜백 웹훅
+      - 환불 처리
+      - 정산 데이터 집계
+
+  - name: buccl_sharing
+    path: buccl_sharing/
+    purpose: 외부 공유용 Open Graph 메타데이터 생성
+    models: []
+    depends_on: []
+    api_prefix: /server/sharing/
+    notes: |
+      - SNS 공유 시 OG 태그 동적 생성
+      - 미리보기 이미지/제목/설명

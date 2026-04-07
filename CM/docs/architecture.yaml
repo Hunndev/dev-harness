@@ -1,0 +1,62 @@
+stack:
+  runtime: Node.js 18+
+  language: TypeScript 5.3 (strict)
+  framework: Express 4.18
+  db: MySQL
+  cache: Redis
+  realtime: Socket.io
+  auth: JWT (메인 BE와 공유)
+  testing: Jest
+  linter: ESLint
+  build: tsc
+  infra: Docker Swarm on Azure VM
+
+services:
+  node:
+    role: API server + WebSocket server
+    runtime: Node.js 18+
+    framework: Express 4.18
+    entry: dist/server.js
+    depends_on: [mysql, redis]
+    notes: |
+      - HTTP REST + Socket.io 단일 프로세스
+      - sticky session 필요 (다중 replica 시 Redis adapter)
+
+  mysql:
+    role: primary datastore
+    notes: |
+      - 메인 BE와 동일 DB 인스턴스 또는 별도 인스턴스 (배포 환경별)
+      - Parameterized SQL만 사용
+
+  redis:
+    role: cache, pub/sub, Socket.io adapter
+    notes: |
+      - 다중 replica 환경에서 Socket.io 메시지 브로드캐스트용
+      - 캐시 TTL 정책 명시 필요
+
+external_services:
+  buccl_be:
+    role: 메인 백엔드 (Django) — hb-be 플러그인이 담당
+    integration: JWT 시그니처 공유 / REST API 호출
+    notes: |
+      - SimpleJWT 토큰 검증
+      - 사용자 정보 조회 위임
+      - MSA 연동 (별도 레포)
+
+request_flow:
+  http:
+    - "Client → Express → Auth Middleware (JWT) → Validation Middleware → Controller → Service → Repository → MySQL"
+    - "Error → Error Handler Middleware → ApiError → response.ts (errorResponse)"
+  websocket:
+    - "Client → Socket.io connect → Auth Middleware (JWT) → Event Handler → Service → Repository"
+    - "Broadcast → Redis adapter → 다른 replica의 Socket.io 인스턴스 → Client"
+  cache:
+    - "Service → Redis (read) → cache miss 시 Repository → MySQL → Redis (write, TTL)"
+
+deploy:
+  method: Docker Swarm (docker stack deploy)
+  environments:
+    local: docker-compose
+    dev: Azure VM Swarm (1 replica)
+    production: Azure VM Swarm (2 replicas, sticky session, Redis adapter)
+  build: 멀티스테이지 Dockerfile (node:20-alpine, ffmpeg/libheif 포함)
