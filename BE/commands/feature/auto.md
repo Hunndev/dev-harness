@@ -4,7 +4,7 @@
 
 ## 사전 조건
 
-- `docs/code-convention.yaml`과 `docs/adr.yaml`이 작성되어 있어야 한다.
+- `.harness/docs/code-convention.yaml`과 `.harness/docs/adr.yaml`이 작성되어 있어야 한다.
 - 요구사항이 확정되어 있어야 한다. 확정되지 않았으면 planning 트랙으로.
 - 구현이 완료된 feature branch이거나, 새로 생성할 branch.
 
@@ -28,14 +28,14 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - branch명
    - base branch (기본: `main`)
    - 변경 파일 수 (있으면)
-4. `.harness-artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
+4. `.harness/artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
 
 ### [F2] 요구사항 정리 (Fork)
 
 1. **worktree(fork)를 생성**하여 요구사항을 정리한다.
 2. planning 트랙의 산출물이 있으면 가져온다:
    - `requirements-interview.md` → 요약
-   - `decision-draft.md` 또는 관련 `docs/adr.yaml` 항목 → 참조
+   - `decision-draft.md` 또는 관련 `.harness/docs/adr.yaml` 항목 → 참조
 3. 없으면 사용자에게 질문하여 수집한다.
 4. 요구사항을 MUST / SHOULD / NICE로 분류한다.
 5. `requirements.md`를 저장한다.
@@ -46,7 +46,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 1. **sub-agent를 호출**하여 기존 코드베이스에서 유사 구현을 조사한다.
 2. sub-agent에게 전달:
    - `requirements.md`
-   - `docs/module-registry.yaml`
+   - `.harness/docs/module-registry.yaml`
    - 기존 코드 (관련 모듈)
 3. sub-agent는 다음을 조사:
    - 기존 코드에 비슷한 패턴이 이미 있는가? (재사용 가능성)
@@ -70,11 +70,11 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 ### [F5] 평가기준 수립 (Fork + Sub-agent)
 
 1. **worktree(fork)를 생성**한다.
-2. **sub-agent를 호출**하여 `docs/adr.yaml`에서 관련 항목을 추출한다:
+2. **sub-agent를 호출**하여 `.harness/docs/adr.yaml`에서 관련 항목을 추출한다:
    - stacks 필드로 1차 필터
    - context/decision 내용으로 2차 판단
    - 관련 없는 항목은 제외
-3. `docs/code-convention.yaml`에서 관련 규칙을 필터링한다.
+3. `.harness/docs/code-convention.yaml`에서 관련 규칙을 필터링한다.
 4. convention(공통 기준) + ADR(작업별 기준)을 병합하여 `code-quality-guide.md` 초안을 작성한다.
 5. 초안과 **기준 적용 범위 논의점**을 사용자에게 제시한다.
 6. 사용자 피드백을 반영하여 확정한다.
@@ -139,7 +139,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 ## 산출물
 
 ```
-.harness-artifacts/feature/{branch-name}/
+.harness/artifacts/feature/{branch-name}/
   requirements.md
   prior-art.md
   design-intent.md

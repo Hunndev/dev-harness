@@ -28,13 +28,13 @@
    - `refactor` — 코드 구조 개선, 기술 부채 해소
    - `performance` — 느린 응답, 타임아웃, 메모리
    - `dependency` — 패키지 업그레이드, 보안 패치
-3. `docs/module-registry.yaml`을 읽고, 관련 모듈을 식별한다.
+3. `.harness/docs/module-registry.yaml`을 읽고, 관련 모듈을 식별한다.
 4. 사용자에게 다음을 확인한다:
    - 이슈 유형
    - 관련 모듈
    - 긴급도 (hotfix 여부)
    - 재현 가능 여부
-5. `.harness-artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
+5. `.harness/artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
 
 ### [M2] 이슈 재현 (Fork)
 
@@ -54,8 +54,8 @@
 2. sub-agent에게 전달:
    - `reproduction.md`
    - 관련 모듈 코드 (models.py, views.py, serializers.py, signals.py)
-   - `docs/adr.yaml`
-   - `docs/architecture.yaml`
+   - `.harness/docs/adr.yaml`
+   - `.harness/docs/architecture.yaml`
 3. sub-agent는 tracer 스타일로 분석:
    - traceback에서 발생 지점 특정
    - request flow를 따라 문제 지점 추적
@@ -124,8 +124,8 @@
 2. sub-agent에게 전달:
    - `root-cause.md`
    - `impact-analysis.md`
-   - `docs/adr.yaml` 전문
-   - `docs/code-convention.yaml` 전문
+   - `.harness/docs/adr.yaml` 전문
+   - `.harness/docs/code-convention.yaml` 전문
 3. sub-agent는 다음을 확인:
    - 수정 방향이 기존 ADR 결정을 위반하는가?
    - 수정 방향이 convention 규칙을 위반하는가?
@@ -229,7 +229,7 @@ python manage.py test --verbosity=2
 ## 산출물
 
 ```
-.harness-artifacts/maintenance/{identifier}/
+.harness/artifacts/maintenance/{identifier}/
   reproduction.md
   root-cause.md
   impact-analysis.md         ← Team 병합본

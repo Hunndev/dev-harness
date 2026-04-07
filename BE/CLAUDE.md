@@ -28,20 +28,20 @@
 
 ## 산출물 경로
 
-모든 산출물은 `.harness-artifacts/{track}/{identifier}/` 하위에 저장한다.
+모든 산출물은 `.harness/artifacts/{track}/{identifier}/` 하위에 저장한다.
 
-- planning: `.harness-artifacts/planning/{plan-YYYYMMDD-slug}/`
-- maintenance: `.harness-artifacts/maintenance/{issue-id}/`
-- feature: `.harness-artifacts/feature/{branch-name}/`
+- planning: `.harness/artifacts/planning/{plan-YYYYMMDD-slug}/`
+- maintenance: `.harness/artifacts/maintenance/{issue-id}/`
+- feature: `.harness/artifacts/feature/{branch-name}/`
 
 ## 참조 문서
 
-플러그인은 작업 디렉토리의 `docs/` 하위 4개 YAML 파일을 진실의 원천으로 사용한다.
+플러그인은 작업 디렉토리의 `.harness/docs/` 하위 4개 YAML 파일을 진실의 원천으로 사용한다.
 
-- `docs/code-convention.yaml` — 코딩 컨벤션 (Django/DRF/pytest 특화)
-- `docs/adr.yaml` — Architecture Decision Records
-- `docs/architecture.yaml` — 시스템 구조 맵
-- `docs/module-registry.yaml` — Django 앱 모듈 레지스트리
+- `.harness/docs/code-convention.yaml` — 코딩 컨벤션 (Django/DRF/pytest 특화)
+- `.harness/docs/adr.yaml` — Architecture Decision Records
+- `.harness/docs/architecture.yaml` — 시스템 구조 맵
+- `.harness/docs/module-registry.yaml` — Django 앱 모듈 레지스트리
 
 플러그인 자체의 `docs/`는 BE 레포에 옮겨 쓸 수 있는 템플릿이다.
 
@@ -60,7 +60,7 @@
    │  decision-draft.md
    ▼
 /hb-be:update-docs adr  ← 사용자 승인 게이트
-   │  docs/adr.yaml
+   │  .harness/docs/adr.yaml
    ▼
 신규개발 (feature)       ← 새 ADR을 평가기준으로 흡수
    │  review-comments.md

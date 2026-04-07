@@ -27,7 +27,7 @@ python manage.py test --verbosity=2           # 전체 (회귀 확인)
 ```
 
 ### 4. Convention 체크
-변경된 파일에 대해 `docs/code-convention.yaml` 위반 여부를 확인:
+변경된 파일에 대해 `.harness/docs/code-convention.yaml` 위반 여부를 확인:
 - print() 사용 (GEN-004)
 - bare except (GEN-005)
 - 50줄 초과 함수 (GEN-001)

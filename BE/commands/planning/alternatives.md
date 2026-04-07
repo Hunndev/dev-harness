@@ -12,8 +12,8 @@
 - `scope.md`
 - `requirements-interview.md`
 - `external-research.md`
-- `docs/module-registry.yaml` (있으면)
-- `docs/architecture.yaml` (있으면)
+- `.harness/docs/module-registry.yaml` (있으면)
+- `.harness/docs/architecture.yaml` (있으면)
 - `stakeholders.md`
 
 ## Agent A: 기술 실현성
