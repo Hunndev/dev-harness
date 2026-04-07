@@ -1,82 +1,526 @@
 stack:
-  backend: Django 5.2 + DRF
-  language: Python 3.11+
-  db: MySQL (PyMySQL)
+  backend: Django 5.2.4 + DRF
+  language: Python 3.11 (slim)
+  db: MySQL (PyMySQL 1.1.1, utf8mb4)
   async: Celery + Redis
-  storage: Azure Blob Storage
-  auth: JWT (SimpleJWT)
-  payment: Innopay
+  storage: Azure Blob Storage (커스텀 AzureStorageService)
+  auth: JWT (SimpleJWT, rotation + blacklist)
+  payment: Innopay (결제창 redirect)
   infra: Docker Swarm on Azure VM
   testing: pytest
+  monitoring: Prometheus (django-prometheus) + Loki (logs)
+  error_tracking: 없음
+  alerting: Email
+  wsgi: gunicorn
+  edge_proxy: nginx (별도 stack/레포에서 관리)
+
+domains:
+  - host: api.buccl.com
+    role: API 진입점
+    proxies_to:
+      - "/server/* → backend-prod:8000 (Django)"
+      - "/community/* → community-prod:4000 (bunch_cm)"
+      - "/community/api/v1/upload → community-prod:4000 (timeout 300s, 200M)"
+  - host: link.buccl.com
+    role: 딥링크 / Universal Link 도메인
+    proxies_to:
+      - "/* → backend-prod:8000 (buccl_sharing 포함 전체 Django)"
+  - host: buccl.com / www.buccl.com
+    role: React 프론트엔드 + 정적 파일
+    serves:
+      - React 빌드 (/usr/share/nginx/html)
+      - /.well-known/apple-app-site-association  (정적 파일)
+      - /.well-known/assetlinks.json              (정적 파일)
+      - /health (nginx 자체 응답, 200 "healthy")
+      - /static/* (장기 캐싱 1y)
 
 services:
   nginx:
-    role: reverse proxy, static files fallback
-    routes_to: [django]
-    ports: [80, 443]
-    notes: Docker Swarm 내 서비스 간 DNS 캐싱 주의
+    role: edge proxy, SSL 종단, 정적 파일/React 서빙, rate limit
+    location: 백엔드 레포에 없음 (별도 stack 또는 레포로 관리)
+    listen: [80, 443, 8080]   # 8080은 stub_status 모니터링
+    ssl:
+      protocols: [TLSv1.2, TLSv1.3]
+      cert: /run/secrets/ssl_cert
+      key: /run/secrets/ssl_key
+    resolver: "127.0.0.11 valid=10s ipv6=off"   # Docker 내장 DNS (서비스 재배포 IP 변경 대응)
+    rate_limit:
+      api_limit: "burst 50 (api.buccl.com, link.buccl.com)"
+      web_limit: "burst 50 (buccl.com)"
+    security_headers:
+      - HSTS max-age 1년 + includeSubDomains
+      - X-Frame-Options SAMEORIGIN
+      - X-Content-Type-Options nosniff
+      - X-XSS-Protection 1; mode=block
+      - Referrer-Policy strict-origin-when-cross-origin
+      - Content-Security-Policy (buccl.com만, Kakao/GA/Innopay/Azure 허용)
+    body_limits:
+      api: 200M (client_max_body_size)
+      community_upload: 200M, timeout 300s
+      web: 100M
+    monitoring: /stub_status (port 8080, 10.0.0.0/8 only)
+    healthcheck: 없음   # TODO: nginx 자체 컨테이너 헬스체크 추가 권장
 
   django:
     role: API server
-    framework: Django 5.2 + DRF
-    python: "3.11+"
+    framework: Django 5.2.4 + DRF
+    python: "3.11-slim"
     wsgi: gunicorn
-    depends_on: [mysql, redis, azure-blob]
-    settings_module: buccl_back.settings.{environment}
-    env_var: DJANGO_ENV  # local | dev | production
+    dockerfiles:
+      local: Dockerfile.dev
+      dev_prod: Dockerfile.prod
+    entrypoint: entrypoint.sh
+    swarm_stack: buccl-prod-be
+    swarm_service_names:
+      dev: backend-dev
+      production: backend-prod
+    listen_port: 8000
+    replicas:
+      local: 1
+      dev: 1
+      production: 8
+    runtime_dependencies:        # 코드 레벨 의존 (compose의 depends_on 아님)
+      mysql: hard       # 다운 시 503
+      redis: hard       # JWT blacklist + cache 의존 — 다운 시 logout 토큰 재유효화 위험
+      azure_blob: soft  # 다운 시 업로드만 실패
+    settings_module: buccl_back.settings  # 단일 파일, 환경 분기는 DJANGO_ENV로
+    env_var: DJANGO_ENV
+    healthcheck: 없음             # TODO: Django 자체 /health 엔드포인트 없음
+    metrics: /server/metrics/     # django-prometheus
+
+  bunch_cm:
+    role: 커뮤니티 백엔드 (별도 Node.js 레포)
+    swarm_stack: buccl-prod-community
+    swarm_service_name: community-prod
+    listen_port: 4000
+    proxied_via: nginx (api.buccl.com/community/*)
+    auth: JWT SECRET_KEY 공유 (BUCCL Django와 동일 키)
 
   mysql:
     role: primary datastore
-    driver: PyMySQL
-    notes: utf8mb4
+    deployment: 단일 인스턴스 (Azure VM 내)
+    driver: PyMySQL 1.1.1
+    charset: utf8mb4
+    replica: 없음
+    backup:
+      method: cron
+      frequency: 1회/일
+      rpo: 최대 24시간 데이터 유실 가능   # TODO
+    notes: |
+      - production django 8 replica + celery 1 worker가 단일 DB에 몰림
+      - swarm 파일에 정의되어 있지 않음 (외부 인스턴스)
 
   redis:
     role: Celery broker, cache, JWT token blacklist
+    deployment: 단일 인스턴스
+    persistence: 미확인 (AOF/RDB 설정 확인 필요)
+    notes: swarm 파일에 정의되어 있지 않음 (외부 인스턴스)
+    risk: |
+      - 단일 장애점 (SPOF)
+      - 다운 시 logout/rotation된 토큰이 재유효해질 수 있음
+      - 재시작 시 persistence 미설정이면 blacklist 소실
 
   celery_worker:
-    role: async tasks (notifications, SMS, blob upload)
+    role: async tasks (SMS, 알림, 결제 후처리, 토큰 갱신)
     broker: redis
+    swarm_service_names:
+      dev: celery-worker-dev
+      production: celery-worker-prod
+    replicas:
+      dev: 1
+      production: 1
     notes: local 환경에서는 CELERY_TASK_ALWAYS_EAGER=True
 
   celery_beat:
     role: scheduled tasks
     broker: redis
+    swarm_service_names:
+      dev: celery-beat-dev
+      production: celery-beat-prod
+    replicas:
+      dev: 1
+      production: 1
+
+celery_beat_schedule:
+  token_refresh:
+    - biztalk-refresh-token-0330: 매일 03:30 KST
+    - biztalk-refresh-token-1530: 매일 15:30 KST
+    - works-refresh-token-0330:   매일 03:30 KST
+    - works-refresh-token-1530:   매일 15:30 KST
+  cleanup:
+    - cleanup-expired-tokens:           매일 03:00
+    - cleanup-old-blacklisted-tokens:   매주 일요일 03:30
+    - cleanup-old-notifications:        매일 03:00
+    - cleanup-expired-pending-orders:   매 10분
+  reservation:
+    - cancel-expired-practice-reservations:   매 10분
+    - schedule-practice-payment-reminders:    매 30분
+  notification:
+    - send-lesson-reminders:      매일 18:00
+    - send-instructor-reminders:  매일 18:00
+    - send-travel-reminders:      매일 10:00
+
+celery_tasks:
+  buccl_lessons:
+    - cancel_expired_practice_reservations: 결제 기한 만료된 유료 연습반 예약 자동 취소
+    - send_payment_reminder: 결제 기한 2시간 전 알림 발송
+    - schedule_payment_reminders: 결제 기한 임박 예약 스케줄링
+  buccl_main:
+    - biztalk_send_alimtalk: 카카오톡 알림톡 발송
+    - refresh_biztalk_token: Biztalk 액세스 토큰 갱신
+    - refresh_works_token: Works 메신저 토큰 갱신 (RS256 JWT)
+    - works_send_message: Works 메신저 메시지 발송
+    - cleanup_expired_pending_orders: 만료 PENDING 주문 정리
+  buccl_user:
+    - send_sms_task: Naver SENS SMS 인증번호 발송
+    - cleanup_expired_tokens: 만료 OutstandingToken 삭제
+    - cleanup_old_blacklisted_tokens: 7일+ blacklist 정리
 
 external_services:
   innopay:
     role: 결제 게이트웨이
+    method: 결제창 redirect
     integration: REST API + callback webhook
+    callback_url: https://api.buccl.com/server/buccl_main/api/v1/innopay/noti/
+    callback_view: buccl_main.views.innopay_notification (views.py:3577)
+    return_url_env: INNOPAY_RETURN_URL
+    noti_url_env: INNOPAY_NOTI_URL
+    ip_allowlist:
+      env: INNOPAY_NOTIFICATION_ALLOWED_IPS
+      status: 비활성화 (의도적, 사용자 인지)
+      note: views.py:3601 부근 주석 처리. 추후 활성화 예정.
     related_apps: [buccl_main, buccl_payment]
 
   azure_blob:
     role: 미디어 파일 저장 (이미지, 동영상)
-    related_apps: [buccl_user, buccl_main]
-    env_var: AZURE_STORAGE_CONNECTION_STRING
+    storage_backend: buccl_lessons.services.azure_storage_service.AzureStorageService (커스텀)
+    related_apps: [buccl_user, buccl_main, buccl_lessons]
+    cdn: Azure CDN endpoint
 
-  azure_front_door:
-    role: CDN, 글로벌 라우팅, WAF, HTTPS 종단
-    notes: |
-      - production 트래픽의 진입점
-      - origin: Azure VM (Docker Swarm)
-      - 캐싱 정책 / WAF 규칙은 Azure Portal에서 관리
+  firebase_fcm:
+    role: 푸시 알림 (iOS/Android 통합)
+    sdk: firebase-admin (Python)
+    auth: FIREBASE_CREDENTIALS_PATH (Docker secret: firebase-adminsdk.json)
+    note: iOS/Android 모두 FCM 단일 호출 (FCM이 내부적으로 APNs 변환)
+    related_apps: [buccl_user]
 
   bunch_cm:
     role: 커뮤니티 백엔드 (별도 Node.js 레포)
-    integration: MSA 연동 (JWT 공유)
-    notes: hb-cm 플러그인이 담당하는 별도 시스템
+    integration: nginx 프록시 (api.buccl.com/community/*) + JWT SECRET_KEY 공유
+    swarm_stack: buccl-prod-community
+    risk: |
+      - SECRET_KEY 공유 → 한쪽 유출 시 양쪽 토큰 위조 가능
+      - 키 로테이션 시 두 시스템 동시 배포 필요
+
+  naver_sens:
+    role: SMS 발송
+    related_apps: [buccl_user]
+
+  biztalk:
+    role: 카카오톡 알림톡 발송
+    related_apps: [buccl_main]
+
+  works_mobile:
+    role: 사내 메신저 알림 (RS256 JWT 어설션 인증)
+    related_apps: [buccl_main]
+
+auth:
+  framework: SimpleJWT
+  access_token_lifetime: 86400 sec (1일)    # settings.py:487 — TODO: 단축 권장
+  refresh_token_lifetime: 2592000 sec (30일) # settings.py:488
+  rotate_refresh_tokens: true                # settings.py:497
+  blacklist_after_rotation: true             # settings.py:498
+  cookie_policy:
+    secure: DJANGO_ENV != 'local' (settings.py:482)
+    samesite: dev='None', local/prod='Lax' (settings.py:483)
+    path: '/'                                 (settings.py:484)
+    httponly: true (set_cookie 시 명시)
+  blacklist_storage: Redis (캐시 기반)
+  blacklist_manager: buccl_back.token_utils.TokenBlacklistManager (token_utils.py:19-148)
+  logout_view: buccl_user.views.AuthAPIView.delete (views.py:224-261)
+  cleanup:
+    expired_outstanding: 매일 03:00
+    old_blacklist: 매주 일요일 03:30
+
+url_routing:
+  prefix: /server/
+  apps:
+    - /server/admin/                       # admin
+    - /server/buccl_user/                  # 인증, 사용자
+    - /server/buccl_main/                  # 상품, 주문, Innopay
+    - /server/buccl_lessons/               # 강습, 연습반, 예약
+    - /server/buccl_payment/api/v1/        # 정산 서비스
+    - /server/buccl_sharing/               # OG 메타
+    - /server/metrics/                     # django-prometheus
+  health_endpoints:
+    nginx: /health (buccl.com 만, 200 "healthy")
+    django: 없음     # TODO
 
 request_flow:
   api:
-    - "Client → Azure Front Door → nginx → gunicorn → DRF View → Serializer → Service → Model → MySQL"
+    - "Client → DNS → VM IP → nginx(api.buccl.com:443) → SSL 종단 → /server → backend-prod:8000 → DRF View → MySQL"
+
+  community:
+    - "Client → nginx(api.buccl.com:443) → /community → community-prod:4000 (bunch_cm)"
+    - "JWT는 Django와 SECRET_KEY 공유로 공통 검증"
+
+  deeplink:
+    - "Client → nginx(link.buccl.com:443) → backend-prod:8000 → buccl_sharing"
+    - "(.well-known은 buccl.com nginx에서 정적 파일 제공)"
+
+  frontend:
+    - "Client → nginx(buccl.com:443) → React 빌드 정적 파일 (/usr/share/nginx/html)"
+
   async:
-    - "View → celery.delay() → Redis → Celery worker → 외부 API/Blob"
+    - "View → task.delay() → Redis → Celery worker → 외부 API/Blob"
+
   auth:
-    - "Client → /server/user/login → SimpleJWT → access+refresh → Redis blacklist 관리"
+    - "Login: api.buccl.com/server/buccl_user/... → SimpleJWT → access(1d) + refresh(30d) HttpOnly cookie"
+    - "Refresh: 새 토큰 발급 + 이전 refresh blacklist (Redis)"
+    - "Logout: AuthAPIView.delete() → TokenBlacklistManager.blacklist_token() → 쿠키 삭제"
+
+  payment:
+    - "Client → 주문 생성 (Order: PENDING) → Innopay 결제창 redirect"
+    - "사용자 결제 → Innopay → POST https://api.buccl.com/server/buccl_main/api/v1/innopay/noti/"
+    - "nginx → backend-prod → innopay_notification view → 트랜잭션 검증 → Order: CONFIRMED → on_commit → 알림 task"
+    - "미결제 시 cleanup_expired_pending_orders (10분 주기) 가 PENDING 정리"
+    - "⚠️ webhook IP 화이트리스트 검증 비활성화 상태 (사용자 인지)"
+
+  lesson_booking:
+    view: buccl_lessons.views.ApplySessionView (views.py:1502)
+    flow:
+      - "1) 스케줄 select_for_update 행 잠금"
+      - "2) 스케줄 status='OPEN' 검증"
+      - "3) 예약 승인 가능(can_be_reserved) 검증"
+      - "4) 티켓 검증 (스마트 선택, 재수강/일반 구분)"
+      - "5) 같은 티켓 중복 예약 방지"
+      - "6) 정원 체크 (초과 시 대기자 등록)"
+      - "7) 이론 수업 중복 + 순차적 Day 검증"
+      - "8) 시간 충돌 검증 (check_time_conflict)"
+    concurrency:
+      - "@transaction.atomic"
+      - "select_for_update (SessionSchedule, PracticeSchedule, Order, PracticeTicket)"
+      - "F() expression (sessions_used 증감 등)"
+    waiting_promotion: "취소 발생 시 promote_waiting_to_reserved"
+
+env_vars:
+  database: [DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT]
+  django: [DJANGO_ENV, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, SESSION_COOKIE_SECURE, STATIC_URL]
+  admin: [ADMIN_LOGIN_URL, ADMIN_LOGIN_REDIRECT_URL, ADMIN_LOGOUT_REDIRECT_URL]
+  url: [BACKEND_URL, FRONTEND_URL, LINK_URL]
+  app_id: [ANDROID_SHA256, ANDROID_SHA256_DEV]
+  cors: [CORS_ALLOWED_ORIGINS]
+  azure_storage:
+    - AZURE_STORAGE_CONNECTION_STRING
+    - AZURE_STORAGE_CONTAINER_NAME
+    - AZURE_STORAGE_ACCOUNT_NAME
+    - AZURE_STORAGE_ACCOUNT_KEY
+    - AZURE_CDN_ENDPOINT_NAME
+    - AZURE_CDN_ENABLED
+    - AZURE_IMAGE_MAX_WIDTH
+    - AZURE_IMAGE_MAX_HEIGHT
+    - AZURE_IMAGE_QUALITY
+    - AZURE_CDN_COLLECT_STATS
+    - AZURE_CDN_STATS_SAMPLE_RATE
+  celery:
+    - REDIS_URL
+    - CELERY_BROKER_URL
+    - CELERY_RESULT_BACKEND
+    - CELERY_BROKER_URL_EAGER
+    - CELERY_RESULT_BACKEND_EAGER
+    - CELERY_TASK_ALWAYS_EAGER
+    - CELERY_ACCEPT_CONTENT
+    - CELERY_TASK_SERIALIZER
+    - CELERY_RESULT_SERIALIZER
+    - CELERY_TIMEZONE
+    - CELERY_ENABLE_UTC
+  innopay:
+    - INNOPAY_API_URL
+    - INNOPAY_TIMEOUT_SECONDS
+    - INNOPAY_RETURN_URL
+    - INNOPAY_NOTI_URL
+    - INNOPAY_NOTIFICATION_ALLOWED_IPS
+    - TRUSTED_PROXY_COUNT
+  sms_secret_file: [NAVER_SENS_ACCESS_KEY, NAVER_SENS_SECRET_KEY, NAVER_SENS_FROM_NUMBER]
+  firebase: [FIREBASE_CREDENTIALS_PATH]   # Docker secret
+  biztalk: [BIZTALK_API_URL, BIZTALK_ACCESS_TOKEN, BIZTALK_BSID, BIZTALK_PASSWD, BIZTALK_TOKEN_EXPIRE_MIN]
+  works:
+    - WORKS_CLIENT_ID
+    - WORKS_CLIENT_SECRET
+    - WORKS_SERVICE_ACCOUNT
+    - WORKS_PRIVATE_KEY_PATH   # Docker secret
+    - WORKS_SCOPE
+    - WORKS_TOKEN_URL
+    - WORKS_MESSAGE_URL
+    - WORKS_BOT_ID
+    - WORKS_CHANNEL_ID
+  nginx_secrets:
+    - ssl_cert        # /run/secrets/ssl_cert
+    - ssl_key         # /run/secrets/ssl_key
+
+network_security:
+  public_entry: [nginx (api.buccl.com, link.buccl.com, buccl.com)]
+  ssl_termination: nginx
+  domain_to_ip: 도메인 → VM IP 직접 매핑 (DNS A 레코드)
+  edge: nginx
+  internal: [django (backend-prod), bunch_cm (community-prod), celery_worker, celery_beat]
+  data: [mysql, redis]
+  vm_firewall: 수동 관리 (NSG)
+  rate_limit:
+    nginx_zones: [api_limit, web_limit]
+    burst: 50
+  default_server: 모르는 도메인 직접 IP 접근 시 403 + dummy 로그
+  blocked_paths:
+    - /cgi-bin/
+    - /(luci|admin|router|firewall|config)/
+    - 숨겨진 파일 (.*)
+    - .php
+
+observability:
+  metrics:
+    backend: Prometheus
+    library: django-prometheus
+    endpoint: /server/metrics/
+    nginx_stub: nginx :8080/stub_status (10.0.0.0/8 only)
+  logs:
+    transport: stdout → Loki
+    nginx_logs:
+      access: /dev/stdout (frontend, backend, dummy 로그 포맷)
+      error: /dev/stderr (warn level)
+    error_grouping: 없음
+  health_check:
+    nginx: /health (buccl.com 도메인에만, 200 "healthy")
+    django: 없음        # TODO
+    docker_healthcheck: 없음   # TODO
+  alerting:
+    channel: Email
+    rules: TBD
+
+compose_files:
+  local:
+    file: docker-compose.yml
+    defined_services: [docker_local]
+    notes: nginx, mysql, redis 정의 없음 (외부 의존)
+  dev:
+    file: docker-swarm.dev.yml
+    defined_services: [backend-dev, celery-worker-dev, celery-beat-dev]
+    notes: nginx, mysql, redis 모두 별도 stack/외부
+  production:
+    file: docker-swarm.prod.yml
+    defined_services: [backend-prod, celery-worker-prod, celery-beat-prod]
+    replicas: { backend-prod: 8, celery-worker-prod: 1, celery-beat-prod: 1 }
+    notes: |
+      - 이 stack 이름: buccl-prod-be
+      - nginx는 별도 stack/레포에서 관리 (Swarm overlay network 공유)
+      - bunch_cm는 buccl-prod-community stack (community-prod:4000)
 
 deploy:
   method: Docker Swarm (docker stack deploy)
+  trigger: GitHub Actions + 수동 (사용자가 직접 트리거)
+  ci_cd:
+    - .github/workflows/dev-pipeline.yml
+    - .github/workflows/prod-pipeline.yml
+  deploy_scripts: 없음
+  stacks:
+    - buccl-prod-be          # Django + Celery (이 레포)
+    - buccl-prod-community   # bunch_cm (별도 레포)
+    - nginx stack            # 별도 레포/별도 관리
+  rollback: TBD
   environments:
-    local: Docker Compose, DEBUG=True, eager Celery
-    dev: Azure VM Swarm (1 replica)
-    production: Azure Front Door → Azure VM Swarm, HTTPS
-  secrets: Docker secrets + 환경변수
+    local:
+      compose: docker-compose.yml
+      debug: true
+      celery: eager
+      replicas: 1
+    dev:
+      compose: docker-swarm.dev.yml
+      target: Azure VM Swarm
+      debug: false
+      replicas: 1
+    production:
+      compose: docker-swarm.prod.yml
+      entry: 도메인 → VM IP → nginx → backend-prod
+      protocol: HTTPS (nginx에서 종단)
+      debug: false
+      replicas:
+        backend-prod: 8
+        celery-worker-prod: 1
+        celery-beat-prod: 1
+  secrets:
+    - Docker secrets (ssl_cert, ssl_key, firebase-adminsdk.json, works private key)
+    - 환경변수
+
+risks_and_todos:
+  critical:
+    - id: HEALTH-001
+      issue: Django 자체 health 엔드포인트 부재 (nginx /health는 buccl.com만)
+      impact: api.buccl.com / link.buccl.com 백엔드 비정상 감지 못함
+      fix: Django에 /server/health 추가 + nginx에서 api 도메인 health 프록시 또는 직접 응답
+
+    - id: HEALTH-002
+      issue: Docker/Swarm healthcheck 미정의 (backend, celery, nginx 모두)
+      impact: 컨테이너 비정상 시 자동 재시작 안 됨
+      fix: docker-swarm.{dev,prod}.yml + nginx stack에 healthcheck 블록 추가
+
+    - id: SEC-001
+      issue: 도메인이 VM IP에 직접 매핑됨 (Front Door / WAF 미사용)
+      impact: DDoS, 봇 공격, 0-day exploit에 직접 노출
+      mitigation_existing: nginx rate_limit + default_server 403 + 의심 경로 차단
+      fix: Azure Front Door + WAF 도입 고려
+
+    - id: SEC-002
+      issue: Redis 단일 인스턴스에 JWT blacklist 의존
+      impact: Redis 장애 시 logout된 토큰 재유효 가능
+      fix: Redis HA(Sentinel) 또는 blacklist persistence 강화
+
+    - id: DB-001
+      issue: production 8 replica → 단일 MySQL
+      impact: connection pool 부하 집중, SPOF
+      fix: connection pool 튜닝 + replica 검토
+
+    - id: NGINX-001
+      issue: nginx 설정이 백엔드 레포 외부에 있음 (이 레포만 보면 보이지 않음)
+      impact: 신규 개발자가 production 흐름 파악 어려움, 변경 추적 분산
+      fix: 최소한 README에 nginx stack 위치/관리 방식 문서화
+
+  high:
+    - id: AUTH-001
+      issue: bunch_cm와 SECRET_KEY 공유
+      impact: 한쪽 유출 시 양쪽 토큰 위조 가능
+      fix: JWKS 또는 introspection 방식 전환
+
+    - id: AUTH-002
+      issue: ACCESS_TOKEN_LIFETIME 86400초 (1일)
+      impact: 탈취 시 24시간 동안 유효
+      fix: 15분~1시간으로 단축 + refresh로 갱신
+
+    - id: BACKUP-001
+      issue: MySQL 백업 cron 1회/일, replica 없음
+      impact: RPO 최대 24시간
+      fix: 백업 주기 단축 + binlog PITR 검토
+
+    - id: REDIS-001
+      issue: Redis AOF/RDB 설정 미확인
+      fix: 영속성 정책 확인 및 명시
+
+    - id: SETTINGS-001
+      issue: settings.py 단일 파일 (827줄), 환경별 분리 안 됨
+      impact: 환경별 설정 변경 시 사이드이펙트 위험
+      fix: settings/{base,local,dev,production}.py 로 분리
+
+  medium:
+    - id: DEPLOY-001
+      issue: 롤백 절차 미문서화
+      fix: 롤백 runbook 작성
+
+    - id: NOTIFY-001
+      issue: 알림이 Email만 (즉시성 부족)
+      fix: Slack/Discord/Telegram 등 push 채널 추가
+
+  acknowledged:
+    - id: SEC-003
+      issue: Innopay webhook IP 화이트리스트 검증 비활성화
+      location: buccl_main/views.py:3601 부근 주석 처리
+      impact: 결제 콜백 위조 가능 (이론적)
+      status: 사용자 인지 + 추후 활성화 예정
+      priority: 별도 작업으로 진행

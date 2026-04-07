@@ -1,108 +1,278 @@
+# BUCCL BE 코딩 컨벤션
+#
+# 스키마:
+#   - id:      카테고리-번호 (GEN, DJ, DRF, AUTH, CEL, DOCK, TEST, GIT)
+#   - rule:    실행 가능한 규칙 서술
+#   - stacks:  적용 영역 (django, drf, celery, docker, all 등)
+#   - enforce: (선택) 자동화 도구 매핑. 사람이 외워서 지키지 않도록 가능한 항목은 CI에서 강제한다.
+#
+# 자동화 도구 전체 매핑은 파일 끝의 `automation:` 섹션 참조.
+
 general:
   - id: GEN-001
-    rule: 함수는 단일 책임 원칙을 따른다. 50줄을 넘으면 분리를 검토한다.
+    rule: |
+      함수는 단일 책임 원칙을 따른다. 50줄 또는 cyclomatic complexity 10을 초과하면 분리한다.
+      줄 수는 신호일 뿐 — 진짜 기준은 복잡도다. 린터로 강제한다.
     stacks: [all]
+    enforce: ruff (C901 max-complexity=10)
+
   - id: GEN-002
-    rule: 매직 넘버를 사용하지 않는다. 상수로 선언한다.
+    rule: 매직 넘버를 사용하지 않는다. 의미 있는 상수로 선언한다.
     stacks: [all]
+
   - id: GEN-003
-    rule: 에러 핸들링은 발생 지점에서 처리한다. 호출자에게 무조건 위임하지 않는다.
+    rule: |
+      예외 처리는 두 갈래를 명확히 구분한다.
+      - 도메인 의미 있는 예외(권한, 검증, 충돌, 비즈니스 위반)는 발생 지점에서 잡거나
+        명시적 ApiException(또는 DRF의 APIException 하위 클래스)으로 변환한다.
+      - 시스템/일반 예외는 잡지 말고 DRF 전역 exception_handler가 처리하게 둔다.
+      - 절대 `except Exception: pass` 또는 silent swallow 금지.
+      → 어디서 잡고 어디서 흘려보낼지 의도를 코드에 남겨야 한다.
     stacks: [all]
+
   - id: GEN-004
     rule: print()를 사용하지 않는다. logging.getLogger(__name__)를 사용한다.
     stacks: [all]
+    enforce: ruff (T201)
+
   - id: GEN-005
     rule: bare except를 사용하지 않는다. 구체적인 예외 타입을 명시한다.
     stacks: [all]
+    enforce: ruff (E722)
+
   - id: GEN-006
-    rule: 비밀번호, 토큰, PII는 로깅하지 않는다.
+    rule: |
+      비밀번호, 토큰, PII(이름·전화·이메일·주민번호 등)는 로깅하지 않는다.
+      로깅 시 화이트리스트 기반 필드 마스킹을 적용한다.
+      에러 객체를 그대로 logger.exception에 던질 때도 PII가 메시지에 섞이지 않았는지 확인.
     stacks: [all]
+    enforce: bandit, 코드리뷰
+
+  - id: GEN-007
+    rule: |
+      시간 처리는 timezone.now()만 사용한다.
+      datetime.now() / datetime.utcnow() 사용 금지 (naive datetime 발생).
+      USE_TZ = True 가정. 비교/저장 모두 timezone-aware datetime만 허용.
+    stacks: [all]
+    enforce: ruff custom rule, 코드리뷰
 
 django:
   - id: DJ-001
     rule: View는 흐름 제어만 담당한다. 비즈니스 로직은 services.py에 둔다 (fat models, thin views, service layer).
     stacks: [django]
+
   - id: DJ-002
-    rule: 트랜잭션은 서비스 레이어에서 @transaction.atomic으로 감싼다.
+    rule: |
+      트랜잭션은 서비스 레이어에서 @transaction.atomic으로 감싼다.
+      - 중첩 트랜잭션이 필요한 부분 롤백은 명시적으로 atomic 블록을 중첩한다(savepoint).
+      - **트랜잭션 커밋 후에 발행되어야 하는 부수효과**(Celery task dispatch,
+        외부 API 호출, 알림 전송)는 반드시 transaction.on_commit(...)으로 등록한다.
+        커밋 전에 task가 실행되면 worker가 ORM 객체를 못 찾아 race condition이 발생한다.
+      - CEL-005와 함께 적용.
     stacks: [django]
+
   - id: DJ-003
     rule: QuerySet은 select_related / prefetch_related로 N+1을 방지한다.
     stacks: [django]
+    enforce: nplusone 또는 django-silk CI 연동
+
   - id: DJ-004
-    rule: 동시성 안전 업데이트는 F() expression을 사용한다.
+    rule: |
+      동시성 안전 업데이트는 F() expression을 사용한다.
+      금액·재고·예약 가능여부 같은 동시성 민감 필드는 무조건 F() 또는 select_for_update.
     stacks: [django]
+
   - id: DJ-005
     rule: 자주 조회되는 필드에 db_index를, 데이터 무결성에는 unique_together / constraints를 사용한다.
     stacks: [django]
+
   - id: DJ-006
     rule: 모델 레벨 검증은 clean()에 둔다.
     stacks: [django]
+
   - id: DJ-007
     rule: ForeignKey의 on_delete는 명시적으로 선택한다. CASCADE를 기본값으로 쓰지 않고 도메인에 맞게 판단한다.
     stacks: [django]
+
   - id: DJ-008
     rule: 마이그레이션 파일명은 auto-generated 이름을 그대로 쓰지 않는다. --name 옵션으로 의미 있는 이름을 부여한다.
     stacks: [django]
+
   - id: DJ-009
     rule: settings는 base/local/dev/production으로 분리한다. 환경별 설정은 환경변수로 주입한다. SECRET_KEY/DB password/API key 하드코딩 금지.
     stacks: [django]
+    enforce: bandit, gitleaks
+
   - id: DJ-010
     rule: DEBUG = True 프로덕션 설정 금지. eval() / exec() 사용 금지.
     stacks: [django]
+    enforce: ruff (S102), bandit
+
   - id: DJ-011
     rule: "@csrf_exempt 사용 시 문서화된 사유 필수."
+    stacks: [django]
+
+  - id: DJ-012
+    rule: |
+      migrations에 RunPython을 사용할 때는 reverse_code도 반드시 정의한다.
+      되돌릴 수 없는 작업이라도 noop = lambda apps, schema_editor: None 으로 명시하고,
+      "왜 reverse가 noop인가"를 주석으로 남긴다.
+      → 마이그레이션 롤백 시 silent skip을 막는다.
+    stacks: [django]
+
+  - id: DJ-013
+    rule: |
+      파일 저장은 default_storage(또는 FileField/ImageField의 storage 인자)만 사용한다.
+      AzureStorage / FileSystemStorage 등 환경별 backend를 코드에서 직접 import 금지.
+      → settings로 env별 storage가 결정되어야 local/dev/prod 분기가 깨끗해진다.
     stacks: [django]
 
 drf:
   - id: DRF-001
     rule: "Serializer 네이밍: {Model}{Action}Serializer (예: BookingCreateSerializer)"
     stacks: [drf]
+
   - id: DRF-002
     rule: "View 네이밍: {Model}{Action}View (예: BookingCreateView)"
     stacks: [drf]
+
   - id: DRF-003
     rule: API 응답은 DRF의 Response를 사용한다. JsonResponse 직접 사용 금지.
     stacks: [drf]
+
   - id: DRF-004
-    rule: permission_classes는 View 레벨에서 명시적으로 선언한다 (빈 리스트 불가). 글로벌 기본값에 의존하지 않는다.
+    rule: |
+      permission_classes는 View 레벨에서 명시적으로 선언한다. 빈 리스트 [] 금지.
+      DEFAULT_PERMISSION_CLASSES는 IsAuthenticated 한 줄로만 두고, 모든 View는 자기 권한을 자기가 명시한다.
+      → 글로벌 기본값에 의존하면 신규 View가 의도와 다르게 열릴 위험이 있다.
     stacks: [drf]
+
   - id: DRF-005
     rule: Serializer에서 validate_{field}로 필드별 검증, validate()로 교차 필드 검증을 분리한다.
     stacks: [drf]
+
   - id: DRF-006
     rule: ListAPIView에는 pagination_class를 반드시 명시한다.
     stacks: [drf]
+
   - id: DRF-007
-    rule: "Serializer fields = '__all__' 금지. 명시적 필드 나열만 허용."
+    rule: |
+      Serializer fields = '__all__' 금지. 명시적 필드 나열만 허용.
+      잔존 코드 처리 정책:
+      - 신규 코드는 무조건 명시 필드.
+      - 기존 잔존 코드는 마이그레이션 대상으로 표기.
+      - 신규 PR이 잔존 Serializer를 변경할 때 같이 정리(boy scout rule).
     stacks: [drf]
+    enforce: 커스텀 lint 또는 pylint-django, 코드리뷰
+
   - id: DRF-008
     rule: 민감/계산 필드는 read_only_fields로 보호한다.
     stacks: [drf]
+
   - id: DRF-009
     rule: 적절한 HTTP 상태 코드 사용 — 400 (입력 오류), 401 (인증), 403 (권한), 404, 409 (충돌), 422 (검증), 500 (서버).
     stacks: [drf]
+
   - id: DRF-010
     rule: "에러 응답 형식: {error, code, details, timestamp} 4-필드 표준."
     stacks: [drf]
+
+  - id: DRF-011
+    rule: |
+      get_queryset에서 request.user 또는 권한 컨텍스트로 1차 필터링을 강제한다.
+      "List에서는 가려주지만 Detail에서는 PK만으로 접근 가능"한 IDOR 패턴을 차단.
+      RetrieveAPIView도 get_queryset이 user 필터를 거쳐야 한다.
+      → permission_classes만으로 부족할 때가 많다. queryset 레벨에서 막아야 안전.
+    stacks: [drf]
+
+  - id: DRF-012
+    rule: |
+      응답 직렬화에서 ForeignKey/관계 필드를 단순 노출할 때 PII 유출을 검토한다.
+      User FK를 nested로 풀면 이름·전화·이메일이 새어나갈 수 있다.
+      필요한 필드만 SerializerMethodField 또는 별도 mini-serializer(UserPublicSerializer 등)로 노출.
+    stacks: [drf]
+
+  - id: DRF-013
+    rule: |
+      비싸거나 외부에 영향 주는 endpoint(푸시 발송, SMS, 결제 콜백, 가입/로그인)는
+      throttle_classes를 명시한다.
+      AnonRateThrottle / UserRateThrottle / ScopedRateThrottle 중 적합한 것 선택.
+      누구나 호출 가능한 unauthenticated endpoint는 반드시 throttle.
+    stacks: [drf]
+
+auth:
+  - id: AUTH-001
+    rule: |
+      refresh token은 HttpOnly + Secure + SameSite 쿠키로만 전송한다.
+      응답 body에 refresh token 노출 금지. body에는 access token만 담는다.
+      → JS에서 접근 불가능해야 XSS 시 탈취가 차단된다.
+    stacks: [django, drf]
+
+  - id: AUTH-002
+    rule: |
+      JWT 자동 갱신은 미들웨어 또는 클라이언트 인터셉터에서 처리한다.
+      - 웹: HttpOnly 쿠키 → 서버 미들웨어가 만료 직전 자동 갱신
+      - 앱(WebView): native cookie-sync로 OS 키체인과 동기화
+      access token 만료는 짧게(15~30분), refresh token은 길게(2주~30일) + rotation 적용.
+    stacks: [django, drf]
+
+  - id: AUTH-003
+    rule: |
+      로그아웃 / 탈퇴 / 비밀번호 변경 시 refresh token blacklist에 등록한다.
+      SimpleJWT BlacklistedToken 사용. blacklist 정리 정책(만료된 토큰 cleanup) 정의.
+    stacks: [django, drf]
+
+  - id: AUTH-004
+    rule: |
+      SECRET_KEY와 SIMPLE_JWT signing key는 환경변수로만 주입한다.
+      코드/로그/에러 메시지에 절대 노출 금지. 키 로테이션 절차 문서화.
+    stacks: [django, drf]
+    enforce: bandit, gitleaks
 
 celery:
   - id: CEL-001
     rule: 외부 API 호출/blob upload/SMS 발송 등 I/O 무거운 작업은 Celery task로 분리한다.
     stacks: [celery]
+
   - id: CEL-002
-    rule: Celery task는 idempotent하게 작성한다. 재시도해도 부작용이 없도록.
+    rule: |
+      Celery task는 idempotent하게 작성한다 — 같은 입력으로 두 번 실행해도 부작용이 누적되지 않아야 한다.
+      구체 패턴:
+      - 진입 시점에 외부 키(주문번호, payment_id, notification_id)로 중복 실행 가드
+      - 상태 머신: PENDING → PROCESSING → DONE. DONE 재진입 시 즉시 return.
+      - 외부 API 호출은 가능한 idempotency-key 헤더 사용 (Innopay 등 지원 시)
+      - retry 시 같은 task가 재실행되어도 같은 결과가 나오는지 단위 테스트로 확인.
     stacks: [celery]
+
   - id: CEL-003
     rule: local 환경 디버깅 시 CELERY_TASK_ALWAYS_EAGER=True로 동기 실행을 보장한다.
     stacks: [celery]
+
+  - id: CEL-004
+    rule: |
+      Celery task는 ORM 객체가 아니라 PK(또는 자연키)를 인자로 받는다.
+      이유:
+      - 직렬화 안전: 객체 직렬화는 stale 상태를 worker로 전달
+      - race 방지: task 실행 시점에 fresh fetch
+      task 안에서 Model.objects.get(pk=pk) 또는 select_for_update 패턴.
+    stacks: [celery]
+
+  - id: CEL-005
+    rule: |
+      트랜잭션 내부에서 Celery dispatch는 transaction.on_commit(lambda: task.delay(...))로 감싼다.
+      커밋 전에 worker가 객체를 못 찾아 race condition이 발생.
+      DJ-002와 함께 적용.
+    stacks: [celery, django]
 
 docker:
   - id: DOCK-001
     rule: Docker Swarm 서비스 업데이트 시 rolling update 설정을 확인한다.
     stacks: [docker]
+
   - id: DOCK-002
     rule: 환경변수와 시크릿은 Docker secrets로 관리한다. compose 파일에 직접 기입 금지.
     stacks: [docker]
+
   - id: DOCK-003
     rule: health check를 모든 서비스에 설정한다.
     stacks: [docker]
@@ -111,20 +281,66 @@ testing:
   - id: TEST-001
     rule: 새로운 API 엔드포인트는 반드시 pytest 테스트를 작성한다.
     stacks: [all]
+
   - id: TEST-002
     rule: 외부 API 호출(Innopay, Azure Blob, SMS 등)은 반드시 mock 처리한다.
     stacks: [django]
+
   - id: TEST-003
     rule: "테스트 실행: pytest -rA. 특정 클래스: pytest path/to/test.py::TestClass -v"
+    stacks: [django]
+
+  - id: TEST-004
+    rule: |
+      금액·재고·예약 가능여부 등 동시성에 민감한 로직은 동시성 테스트를 포함한다.
+      - transaction.atomic + select_for_update / F() 동작 검증
+      - pytest-django의 transactional_db fixture 사용
+      - 여러 클라이언트 동시 호출 시뮬레이션 (TransactionTestCase 또는 threading)
+      - 결제 / 예약 / 재고 차감 / 티켓 발급은 필수.
     stacks: [django]
 
 git:
   - id: GIT-001
     rule: "브랜치: feature/{issue}-desc, bugfix/{issue}-desc, refactor/{desc}, infra/{desc}"
     stacks: [all]
+
   - id: GIT-002
     rule: "커밋: type(scope): description. types: feat, fix, refactor, docs, test, chore, infra"
     stacks: [all]
+
   - id: GIT-003
     rule: main 브랜치에 직접 커밋하지 않는다.
     stacks: [all]
+
+  - id: GIT-004
+    rule: |
+      breaking change(API 시그니처 변경, 응답 포맷 변경, 마이그레이션 비가역 등)는 명시한다.
+      형식: 커밋 본문에 'BREAKING CHANGE: {요약}'. PR title에도 [BREAKING] 접두어 권장.
+      → 자동 changelog/release note 생성 기준이 된다.
+    stacks: [all]
+
+# ─────────────────────────────────────────────────────────────────
+# 자동화 매핑
+# 사람이 매번 챙기지 않도록 다음 도구들을 CI 파이프라인에 포함한다.
+# ─────────────────────────────────────────────────────────────────
+automation:
+  ruff:
+    - GEN-001    # C901 max-complexity=10
+    - GEN-004    # T201 print
+    - GEN-005    # E722 bare except
+    - GEN-007    # custom rule: datetime.now / utcnow 금지
+    - DJ-010     # S102 exec
+  bandit:
+    - GEN-006    # PII / secret 로깅
+    - DJ-009     # 하드코딩 secret
+    - DJ-010     # eval / exec
+    - AUTH-004   # JWT signing key 노출
+  gitleaks:
+    - DJ-009     # SECRET_KEY 등 시크릿
+    - AUTH-004   # JWT signing key
+  pylint_django_or_custom_lint:
+    - DRF-007    # fields = '__all__' 금지
+  nplusone_or_django_silk:
+    - DJ-003     # N+1 검출 (CI 단계 또는 dev 환경)
+  pytest_concurrency:
+    - TEST-004   # transactional_db + threading

@@ -5,64 +5,164 @@ modules:
     models: []
     depends_on: []
     notes: |
-      - settings: base.py / local.py / dev.py / production.py (DJANGO_ENV로 분기)
-      - Celery beat 스케줄 정의
-      - 공통 미들웨어 (CORS, JWT, 로깅)
+      - settings: 단일 settings.py 827줄 (DJANGO_ENV 환경변수로 분기)
+      - middleware.py: JWTTokenRefreshMiddleware, PrometheusHostFixMiddleware
+      - middleware_link.py: LinkDomainRoutingMiddleware
+      - token_utils.py: TokenBlacklistManager (Redis 기반 JWT blacklist)
+      - urls.py: /server/ prefix로 모든 앱 라우팅
+      - Celery beat 스케줄 정의 (CELERY_BEAT_SCHEDULE, 13개 작업)
       - **변경 시 반드시 사용자 승인 필요**
 
   - name: buccl_user
     path: buccl_user/
-    purpose: 회원 인증, SMS, 알림
-    models: [User, Profile]  # 실제 모델은 코드 확인 후 갱신
-    depends_on: []
-    api_prefix: /server/user/
+    purpose: 회원 인증, SMS, 푸시 알림, 장바구니, 강사 프로필
+    api_prefix: /server/buccl_user/
+    models:
+      - UserLevel
+      - UserAddress
+      - AuthSMS
+      - CertificateUpload
+      - Cart
+      - CartItem
+      - Brand
+      - InstructorProfile
+      - UserDevice          # FCM 디바이스 토큰
+      - Notification
+      - NotificationSetting
+    depends_on:
+      - buccl_main          # Sport, Order, Product import (models.py:4)
+      - buccl_lessons       # LessonProduct import (models.py:6)
+    services:
+      - notification_service.py   # FCM 푸시, 카카오톡, Works 알림
+    tasks:
+      - send_sms_task                    # Naver SENS SMS
+      - cleanup_expired_tokens           # 매일 03:00
+      - cleanup_old_blacklisted_tokens   # 매주 일요일 03:30
     notes: |
-      - SimpleJWT 인증 (access + refresh + blacklist)
-      - SMS 발송 (외부 API)
-      - 푸시 알림 발송
-      - 토큰 자동 갱신
+      - SimpleJWT 인증 (access 1d + refresh 30d + rotation + blacklist)
+      - SMS 발송: Naver SENS
+      - 푸시 알림: Firebase Admin SDK → FCM (Firebase Cloud Messaging)
+        · 서버 SDK: firebase-admin (Python)
+        · 인증: FIREBASE_CREDENTIALS_PATH (Docker secret: firebase-adminsdk.json)
+        · 채널: iOS/Android 모두 FCM 단일 호출 (FCM이 내부적으로 APNs 변환)
+      - models_notification.py 별도 파일 분리
 
   - name: buccl_lessons
     path: buccl_lessons/
-    purpose: 프리다이빙 레슨, 예약, 티켓
-    models: [Lesson, Schedule, SessionReservation, Ticket]  # 실제 모델은 코드 확인 후 갱신
-    depends_on: [buccl_user]
-    api_prefix: /server/lessons/
+    purpose: 프리다이빙/스포츠 강습, 연습반, 예약, 티켓
+    api_prefix: /server/buccl_lessons/
+    models:
+      - Association
+      - LessonProduct
+      - LessonProductImage
+      - SessionSchedule           # 강습 스케줄
+      - Ticket                    # 강습 티켓
+      - SessionReservation        # 강습 예약
+      - PracticeSchedule          # 연습반 스케줄
+      - PracticeTicket            # 연습반 횟수권
+      - PracticeReservation       # 연습반 예약
+      - LessonOptionGroup
+      - LessonOptionValue
+    depends_on:
+      - buccl_main                # Sport import (models.py:4)
+    services:
+      - azure_storage_service.py  # 커스텀 DEFAULT_FILE_STORAGE
+      - azure_cdn_service.py
+    constants:
+      - BASIC_COURSE_PRODUCTS
+      - ALLOWED_PRODUCTS_BY_DAY
     notes: |
-      - 순차 레슨 진행 검증 (이전 day 완료 후 다음 day 예약)
-      - SessionReservation 상태 머신: RESERVED / ATTENDED / COMPLETED / RETAKE_RESERVED / NEEDS_RETAKE
-      - day_order로 레슨 순서 강제
+      - 핵심 view: ApplySessionView (views.py:1502) — 8단계 검증
+      - SessionReservation status choices: RESERVED, ATTENDED, ABSENT, NEEDS_RETAKE, CANCELLED, COMPLETED
+        # ⚠️ RETAKE_RESERVED 는 존재하지 않음
+      - day_order: PositiveIntegerField (순차 강습 강제)
+      - 동시성: @transaction.atomic + select_for_update + F() expression
+      - 정원 초과 시 대기자(queue_position) 등록 → 취소 시 promote_waiting_to_reserved
 
   - name: buccl_main
     path: buccl_main/
-    purpose: 상품, 주문, 투어, 결제
-    models: [Product, Order, Tour]  # 실제 모델은 코드 확인 후 갱신
-    depends_on: [buccl_user, buccl_payment]
-    api_prefix: /server/main/
+    purpose: 상품, 주문, 여행 상품, 투어, 결제(Innopay), 리뷰, 배너/팝업
+    api_prefix: /server/buccl_main/
+    models:
+      # 카테고리/도메인
+      - Sport
+      - Location
+      - Category
+      # 여행/투어
+      - TravelProduct
+      - TravelProductGuide
+      - TourDeparture
+      - TourDepartureGuide
+      - TravelProductImage
+      # 상품
+      - Product
+      - ProductImage
+      - OptionGroup
+      - OptionValue
+      - ProductOption
+      - ProductVariant
+      # 리뷰
+      - Review
+      - ReviewImage
+      # 주문/결제
+      - Order
+      - OrderItem
+      - InnopayPayment
+      - InnopayNotification
+      - InnopayPaymentCancel
+      # 정책
+      - ShippingPolicy
+      - RegionSurcharge
+      - ReturnExchangePolicy
+      - AfterServicePolicy
+      # 마케팅
+      - BaseBanner
+      - Popup
+    depends_on: []                # 모델 레벨에서 다른 buccl_* import 없음
     notes: |
-      - **Product API는 read-only** — 생성/수정은 Django Admin에서만
-      - 투어 예약
-      - Innopay 결제 연동
-      - 주문 상태 관리
+      - **Product API는 admin 전용** (permission_classes=[IsAdminUser])
+        # ⚠️ http_method_names 명시 제약은 없음 — admin이면 write 가능
+      - Innopay 결제 통합은 **이 앱에 있음** (buccl_payment 아님)
+      - 결제 콜백: /server/buccl_main/api/v1/innopay/noti/ → innopay_notification view (views.py:3577)
+      - 결제 webhook IP 화이트리스트 검증: 코드 존재하나 비활성화 (사용자 인지)
+      - notifications/: kakao_notifications.py, works_notifications.py
+      - tasks: biztalk_send_alimtalk, refresh_biztalk_token, refresh_works_token, works_send_message, cleanup_expired_pending_orders
 
   - name: buccl_payment
     path: buccl_payment/
-    purpose: 정산
-    models: [Payment, PaymentLog, Settlement]  # 실제 모델은 코드 확인 후 갱신
-    depends_on: [buccl_user]
-    api_prefix: /server/payment/
+    purpose: 강사/연습반 정산 (Instructor & Practice payout)
+    api_prefix: /server/buccl_payment/api/v1/
+    models:
+      - InstructorPaymentSetting   # 강사별 정산 설정
+      - InstructorPaymentRecord    # 강사 정산 기록
+      - PracticePaymentSetting     # 연습반 정산 설정
+      - PracticePaymentRecord      # 연습반 정산 기록
+    depends_on: []
+    services:
+      - payment_service.py
+      - practice_payment_service.py
     notes: |
-      - Innopay REST API 클라이언트
-      - 결제 콜백 웹훅
-      - 환불 처리
-      - 정산 데이터 집계
+      - **Innopay 통합 없음** — Innopay는 buccl_main 담당
+      - 정산 방식 4종: PERCENTAGE, PER_PERSON, FIXED, TIERED
+      - 우선순위: Instructor-specific > Product-specific > Default
+      - Settlement 라는 이름의 모델은 없음 (PaymentRecord 가 그 역할)
 
   - name: buccl_sharing
     path: buccl_sharing/
-    purpose: 외부 공유용 Open Graph 메타데이터 생성
-    models: []
-    depends_on: []
-    api_prefix: /server/sharing/
+    purpose: 외부 공유용 Open Graph 메타데이터, deeplink well-known
+    api_prefix: /server/buccl_sharing/
+    models: []                    # models.py 자체 없음
+    depends_on:
+      - buccl_main                # services/share_metadata.py에서 모델 참조
+      - buccl_lessons             # services/share_metadata.py에서 모델 참조
+    services:
+      - share_metadata.py         # get_lesson_product_metadata, get_product_metadata 등
+    views:
+      - BaseShareView             # OG 메타 렌더링 (소셜 크롤러 탐지)
+      - well_known views          # AASA(iOS), assetlinks.json(Android)
     notes: |
-      - SNS 공유 시 OG 태그 동적 생성
-      - 미리보기 이미지/제목/설명
+      - 크롤러 탐지 → OG HTML, 일반 브라우저 → 프론트 redirect (3-tier 분기)
+      - IP 기반 rate limiting
+      - .well-known 엔드포인트로 Universal Link / App Link 지원
+      - 주의: production에서 buccl.com 도메인의 .well-known은 nginx가 정적 파일로 직접 서빙
+        link.buccl.com 도메인은 nginx → Django(buccl_sharing) 프록시 경로
