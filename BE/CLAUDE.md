@@ -43,8 +43,6 @@
 - `.harness/docs/architecture.yaml` — 시스템 구조 맵
 - `.harness/docs/module-registry.yaml` — Django 앱 모듈 레지스트리
 
-플러그인 자체의 `docs/`는 BE 레포에 옮겨 쓸 수 있는 템플릿이다.
-
 ## 실행 모드 정의
 
 | 모드 | 설명 | 사용자 상호작용 |
