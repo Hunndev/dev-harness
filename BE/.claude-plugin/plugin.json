@@ -1,7 +1,7 @@
 {
   "name": "hb-be",
   "description": "BUCCL 메인 백엔드(Django) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": { "name": "buccl" },
   "license": "MIT"
 }
