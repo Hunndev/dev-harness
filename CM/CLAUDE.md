@@ -19,14 +19,27 @@
 - Build: tsc
 - Infra: Docker Swarm on Azure VM
 
-## 트랙 목록
+## 트랙 목록 (tier 체계)
 
-| 커맨드 | 트랙 | 언제 쓰나 | 코드 수정 |
-|--------|------|----------|----------|
-| `/hb-cm:planning` | 기획 | 무엇을 만들지 확정 전. 요구사항 수집, 대안 탐색, 타당성 검토 | 없음 (문서만) |
-| `/hb-cm:maintenance` | 유지보수 | 버그 수정, 리팩토링, 성능/의존성 업그레이드 | 있음 (범위 제한적) |
-| `/hb-cm:feature` | 신규개발 | 새 API/이벤트 핸들러/도메인 추가 | 있음 (범위 큼) |
-| `/hb-cm:update-docs` | 공통 | convention / ADR / architecture / module-registry 갱신 | 문서만 |
+각 트랙은 **tier**로 운용된다. 기본값은 `:auto` (T1 standard, lightweight).
+더 가벼운 것이 필요하면 `:hotfix` (maintenance 전용), 더 깊은 분석이 필요하면 `:deep`을 명시적으로 호출한다.
+
+| 커맨드 | tier | 트랙 | 언제 쓰나 | 코드 수정 |
+|--------|------|------|----------|----------|
+| `/hb-cm:planning:auto`      | T1 | 기획     | 간이 기획 (스코프 → 타당성 → ADR 드래프트 → 편입) | 없음 |
+| `/hb-cm:planning:deep`      | T2 | 기획     | 인터뷰 + 외부조사 + 3관점 Team 포함 full ceremony | 없음 |
+| `/hb-cm:feature:auto`       | T1 | 신규개발 | 일반 API/핸들러 (요구사항 → 설계의도 → 리뷰 → QA) | 있음 |
+| `/hb-cm:feature:deep`       | T2 | 신규개발 | prior-art + quality-guide 재생성 + PR본문 Fork 포함 | 있음 |
+| `/hb-cm:maintenance:hotfix` | T0 | 유지보수 | 오타·한 줄 fix·긴급 (재현 테스트 → 수정 → 단위 테스트) | 있음 (최소) |
+| `/hb-cm:maintenance:auto`   | T1 | 유지보수 | 일상 유지보수 (RCA → 수정 → 회귀) | 있음 (범위 제한) |
+| `/hb-cm:maintenance:deep`   | T2 | 유지보수 | 영향도 3방향 Team + ADR 충돌 체크 포함 | 있음 |
+| `/hb-cm:shared:update-docs` | —  | 공통     | convention / ADR / architecture / module-registry 갱신 | 문서만 |
+
+### tier 선택 기준
+
+- **T0 hotfix** — 수정 범위가 한 파일·한 라인으로 명확하고, 재현 테스트 + 수정 + 단위 테스트만으로 충분한 경우
+- **T1 auto** (기본값) — 일상 작업. 사용자 핑퐁 최소화, Agent Team 없음
+- **T2 deep** — 아키텍처급 결정, 다중 모듈 영향, 기존 ADR 위반 의심 등 full ceremony가 필요한 경우
 
 ## 산출물 경로
 
@@ -59,7 +72,7 @@
 기획 (planning)
    │  decision-draft.md
    ▼
-/hb-cm:update-docs adr  ← 사용자 승인 게이트
+/hb-cm:shared:update-docs adr  ← 사용자 승인 게이트
    │  docs/adr.yaml
    ▼
 신규개발 (feature)       ← 새 ADR을 평가기준으로 흡수
@@ -71,7 +84,7 @@
 전이 규칙:
 1. 유지보수 중 새 설계 결정이 필요하면 → planning 트랙으로 에스컬레이션
 2. 신규개발 중 요구사항이 흔들리면 → planning 트랙으로 되돌아감
-3. planning 결과물은 자동으로 코드에 반영되지 않음 → 반드시 `/hb-cm:update-docs adr`로 사용자 승인 게이트 통과
+3. planning 결과물은 자동으로 코드에 반영되지 않음 → 반드시 `/hb-cm:shared:update-docs adr`로 사용자 승인 게이트 통과
 4. 새 ADR 생성은 planning 트랙에서만 허용. maintenance 트랙에서 자체적으로 ADR을 만들지 않는다.
 5. 다른 레포(메인 BE) 작업이 필요하면 `hb-be` 플러그인으로 전환한다.
 

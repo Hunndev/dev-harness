@@ -1,20 +1,20 @@
 # 문서 업데이트
 
-`docs/` 하위 문서를 갱신한다. 모든 트랙의 마지막 단계에서 호출된다.
+`.harness/docs/` 하위 문서를 갱신한다. 모든 트랙의 마지막 단계에서 호출된다.
 
 ## 사용법
 
 ```
-/buccl:update-docs                — 전체 문서 대상으로 변경 필요 항목 분석
-/buccl:update-docs convention     — code-convention.yaml만
-/buccl:update-docs adr            — adr.yaml만
-/buccl:update-docs architecture   — architecture.yaml만
-/buccl:update-docs modules        — module-registry.yaml만
+/hb-be:shared:update-docs                — 전체 문서 대상으로 변경 필요 항목 분석
+/hb-be:shared:update-docs convention     — code-convention.yaml만
+/hb-be:shared:update-docs adr            — adr.yaml만
+/hb-be:shared:update-docs architecture   — architecture.yaml만
+/hb-be:shared:update-docs modules        — module-registry.yaml만
 ```
 
 ## 공통: 컨텍스트 분석 우선 원칙
 
-1. `docs/` 하위 4개 문서를 **모두** 읽는다.
+1. `.harness/docs/` 하위 4개 문서를 **모두** 읽는다.
 2. 현재 작업의 변경 내용과 기존 항목을 대조하여 다음을 판단한다:
    - **충돌 항목**: 이번 변경이 기존 항목과 모순되는가?
    - **연쇄 수정**: 한 문서의 변경이 다른 문서에도 영향을 미치는가?

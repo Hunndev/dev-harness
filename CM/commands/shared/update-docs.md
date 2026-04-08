@@ -5,11 +5,11 @@
 ## 사용법
 
 ```
-/buccl:update-docs                — 전체 문서 대상으로 변경 필요 항목 분석
-/buccl:update-docs convention     — code-convention.yaml만
-/buccl:update-docs adr            — adr.yaml만
-/buccl:update-docs architecture   — architecture.yaml만
-/buccl:update-docs modules        — module-registry.yaml만
+/hb-cm:shared:update-docs                — 전체 문서 대상으로 변경 필요 항목 분석
+/hb-cm:shared:update-docs convention     — code-convention.yaml만
+/hb-cm:shared:update-docs adr            — adr.yaml만
+/hb-cm:shared:update-docs architecture   — architecture.yaml만
+/hb-cm:shared:update-docs modules        — module-registry.yaml만
 ```
 
 ## 공통: 컨텍스트 분석 우선 원칙

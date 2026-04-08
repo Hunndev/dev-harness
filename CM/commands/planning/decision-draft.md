@@ -9,7 +9,7 @@
 ## 중요 규칙
 
 **이 단계에서 adr.yaml에 자동 편입하지 않는다.**
-decision-draft.md는 반드시 사용자 명시 승인 후 `/buccl:update-docs adr`로 흘려보낸다.
+decision-draft.md는 반드시 사용자 명시 승인 후 `/hb-cm:shared:update-docs adr`로 흘려보낸다.
 
 ## 절차
 
@@ -35,7 +35,7 @@ decision-draft.md는 반드시 사용자 명시 승인 후 `/buccl:update-docs a
 
 ## 편입 상태: 미승인
 
-> 이 문서는 adr.yaml 후보입니다. 편입하려면 사용자 승인 후 `/buccl:update-docs adr`을 실행하세요.
+> 이 문서는 adr.yaml 후보입니다. 편입하려면 사용자 승인 후 `/hb-cm:shared:update-docs adr`을 실행하세요.
 
 ## adr.yaml 항목
 
