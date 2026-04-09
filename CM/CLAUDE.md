@@ -97,3 +97,4 @@
 5. DB 마이그레이션이 포함된 변경은 반드시 마이그레이션 파일을 별도로 리뷰한다.
 6. `tsconfig.json` / `eslint` / `jest.config.js` / 환경변수 (`src/config/`) 변경은 사용자 승인 없이 수행하지 않는다.
 7. SQL은 반드시 parameterized binding(`?`)만 사용한다. 문자열 concatenation 금지.
+8. TDD: feature/maintenance 트랙은 Red→Green→Refactor 사이클을 따른다. 실패 테스트를 먼저 작성(Red), 최소 구현으로 PASS(Green), 테스트 녹색 유지하며 정리(Refactor). 증거 로그는 아티팩트 디렉토리의 `tdd-baseline-log.txt`(bug/feature는 FAIL, refactor는 PASS baseline) / `tdd-green-log.txt` / `tdd-refactor-notes.md`에 캡처한다. 테스트 러너는 **Jest**. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.

@@ -19,7 +19,7 @@
 5. QA를 수행한다:
    - `python manage.py check`
    - `python manage.py makemigrations --check`
-   - `python manage.py test {app}`
+   - `pytest {app}/tests/ -v`
 6. 실패 시 수정 루프 (수정 → QA → 재확인, 최대 3회).
 7. 핵심 변경사항을 사용자에게 보고한다.
 

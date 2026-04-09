@@ -8,6 +8,8 @@
 
 ## 절차
 
+> 이 skill은 TDD 사이클의 **Red 단계** 역할을 한다. 자세한 사이클 정의는 `commands/shared/tdd.md` 참조.
+
 ### bug 유형
 1. 에러 로그/재현 절차/Socket.io 이벤트 로그를 분석한다.
 2. 버그를 재현하는 Jest 테스트를 작성한다:
@@ -15,7 +17,8 @@
    - 외부 의존성은 `src/__tests__/mocks/index.ts`로 mock
    - DB는 in-memory / testcontainers / mock repository 중 적합한 것 선택
    - 현재 상태에서 **FAIL** 확인
-3. 재현 불가 시 가능한 원인과 추가 필요 정보를 보고한다.
+3. FAIL 출력을 `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 캡처한다. 실패 이유가 **'올바른 이유'(버그 때문)**인지 확인한다. TypeScript 컴파일/import/mock 오류이면 Red 재작성 (최대 3회, 자세한 규칙은 `commands/shared/tdd.md` 참조).
+4. 재현 불가 시 가능한 원인과 추가 필요 정보를 보고한다.
 
 ### refactor 유형
 1. 리팩토링 대상 코드의 현재 동작을 캡처한다.
@@ -23,6 +26,7 @@
    - 현재 동작을 "정답"으로 간주하고, 그대로 캡처
    - 리팩토링 후에도 이 테스트가 PASS해야 함
 3. 테스트 커버리지가 부족한 영역을 식별한다.
+4. **TDD 관점**: characterization test는 '현재 동작'을 Green baseline으로 고정하는 역할. 리팩토링 후에도 이 테스트가 PASS해야 하며, 이는 Refactor 단계의 안전망이다.
 
 ### performance 유형
 1. 성능 기준선을 측정한다:
@@ -30,6 +34,7 @@
    - EventLoop lag 측정 (clinic.js / 0x / autocannon 등)
    - DB 쿼리 수와 N+1 여부
 2. 기준선을 `reproduction.md`에 기록한다.
+3. **TDD 관점**: 기준선과 목표치를 명확히 기록하여 Green 단계의 수용기준으로 사용한다.
 
 ## CM 특화 재현 체크리스트
 
@@ -60,6 +65,7 @@
 - 파일: src/__tests__/{module}.maint.{identifier}.test.ts
 - 테스트명: {describe} > {it}
 - 결과: FAIL (expected) | 재현 불가
+- 연관 아티팩트: tdd-baseline-log.txt (FAIL 출력 캡처)
 
 ## 성능 기준선 (performance 유형)
 | 항목 | 현재 값 | 목표 값 |

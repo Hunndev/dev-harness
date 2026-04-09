@@ -1,7 +1,7 @@
 # 검증 (QA)
 
 구현/수정 완료 후 코드 품질과 동작을 검증한다.
-maintenance(M8), feature(F8) 트랙에서 사용한다.
+feature(F8/F11) 및 maintenance(M6/M8) 트랙에서 사용한다.
 
 ## 실행 방식
 
@@ -22,8 +22,8 @@ python manage.py makemigrations --check --dry-run
 
 ### 3. 테스트 실행
 ```bash
-python manage.py test {app} --verbosity=2    # 대상 앱
-python manage.py test --verbosity=2           # 전체 (회귀 확인)
+pytest {app}/tests/ -v                        # 대상 앱
+pytest -v                                     # 전체 (회귀 확인)
 ```
 
 ### 4. Convention 체크

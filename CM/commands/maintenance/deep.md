@@ -18,26 +18,31 @@
 - 수정 범위 폭주 방지 → fix-plan.md에서 범위 명시
 - 신규 ADR 생성 금지 → 새 결정이 필요하면 planning 트랙으로 에스컬레이션
 - TypeScript strict 모드 위반 금지
+- **TDD 사이클**: M2=Red, M7=Green, M7.5=Refactor(선택). 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 
 ## 파이프라인
 
 ### [M1] 상태 점검 (메인)
 
-1. 사용자가 제시한 이슈를 정리한다.
-2. 이슈 유형을 분류한다:
+1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
+   - `npx jest --listTests --silent` → exit 0 확인 (아니면 중단 + 사용자 보고)
+   - `npx jest --version`으로 Jest 버전 확인 → 플래그 선택 (`--testPathPattern` vs `--testPathPatterns`)
+   - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
+2. 사용자가 제시한 이슈를 정리한다.
+3. 이슈 유형을 분류한다:
    - `bug` — 서버 에러, 예외, 잘못된 응답, Socket.io 이벤트 오류
    - `refactor` — 코드 구조 개선, 기술 부채 해소
    - `performance` — 느린 응답, EventLoop blocking, 메모리 누수
    - `dependency` — npm 패키지 업그레이드, 보안 패치
-3. `docs/module-registry.yaml`을 읽고, 관련 모듈(controllers/services/repositories/middlewares 등)을 식별한다.
-4. 사용자에게 다음을 확인한다:
+4. `docs/module-registry.yaml`을 읽고, 관련 모듈(controllers/services/repositories/middlewares 등)을 식별한다.
+5. 사용자에게 다음을 확인한다:
    - 이슈 유형
    - 관련 모듈/레이어
    - 긴급도 (hotfix 여부)
    - 재현 가능 여부
-5. `.harness-artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
+6. `.harness-artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
 
-### [M2] 이슈 재현 (Fork)
+### [M2] 이슈 재현 [TDD Red] (Fork)
 
 1. **worktree(fork)를 생성**하여 이슈를 재현한다.
 2. 재현 테스트 케이스를 작성한다:
@@ -45,10 +50,15 @@
    - Jest mock 활용 (`src/__tests__/mocks/index.ts`로 외부 의존성 mock)
    - DB는 in-memory 또는 testcontainers
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
-   - refactor인 경우, 기존 동작을 캡처하는 characterization test를 작성한다.
-3. 재현 불가 시 사용자에게 보고하고 추가 정보를 요청한다.
-4. `reproduction.md`를 저장한다.
-5. worktree를 정리한다.
+   - refactor인 경우, 기존 동작을 캡처하는 characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주).
+3. Baseline 로그를 `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
+   - bug 유형: FAIL 출력 (tail 30줄). 실패 이유가 "올바른 이유"인지 검증 (최대 3회 재작성).
+   - refactor 유형: characterization test PASS 출력을 baseline으로 저장. 이 테스트는 리팩토링 전후 모두 PASS여야 한다.
+   - performance 유형: 기준선(응답시간, 처리량, 메모리, EventLoop lag)을 기록.
+   자세한 프로토콜은 `commands/shared/tdd.md` 참조.
+4. 재현 불가 시 사용자에게 보고하고 추가 정보를 요청한다.
+5. `reproduction.md`를 저장한다.
+6. worktree를 정리한다.
 
 ### [M3] 근본 원인 추적 — RCA (Sub-agent)
 
@@ -153,17 +163,38 @@
 4. `fix-plan.md`를 저장한다.
 5. worktree를 정리한다.
 
-### [M7] 수정 실행 (Fork)
+### [M7] 수정 실행 [TDD Green] (Fork)
 
 1. **worktree(fork)를 생성**하여 수정한다.
 2. 수정 원칙:
-   - **최소 범위**: fix-plan.md에 명시된 범위만 수정
+   - **최소 범위**: M2 재현 테스트가 **PASS**가 되는 '최소 수정'만 수행. fix-plan.md에 명시된 범위 이외 추가 리팩토링 금지 — 리팩토링은 M7.5에서 처리.
    - **convention 준수**: code-convention.yaml 규칙 따름
    - **타입 안정성**: any 사용 금지, strict mode 유지
    - **마이그레이션 분리**: 필요 시 별도 커밋
-3. 수정 내용과 side effect를 사용자에게 보고한다.
+3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness-artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
+4. 수정 내용과 side effect를 사용자에게 보고한다.
+
+### [M7.5] [TDD Refactor] 코드 정리 (Fork, 선택적)
+
+Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
+
+1. worktree(fork)를 생성한다.
+2. 모든 테스트가 PASS인지 먼저 확인 (`npm test`).
+3. **fix-plan.md + impact-analysis.md 범위 내에서** 리팩토링을 수행:
+   - 중복 제거
+   - 네이밍 개선
+   - 구조 정리
+4. **새 기능 금지, 테스트 변경 금지.**
+5. 각 리팩토링 후 단위 테스트 재실행. 깨지면 즉시 revert.
+6. 변경 내용을 `tdd-refactor-notes.md`에 요약.
+7. 리팩토링할 내용이 없으면 `tdd-refactor-notes.md`에 "skipped: no refactoring within fix-plan scope"를 기록하고 넘어간다.
+8. worktree를 정리한다.
+
+> fix-plan + impact-analysis 범위를 벗어나는 리팩토링 유혹이 생기면 별도 maintenance 작업으로 분리한다.
 
 ### [M8] 회귀 테스트 리포트 — 병렬 실행 (Agent Team) ★
+
+M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
 1. **Agent Team을 호출**하여 3개 검증을 동시에 실행한다.
 
@@ -221,6 +252,7 @@ npm test
    - `fix-plan.md` (의도)
    - `convention-check.md` (기준)
    - `git diff` (변경 내용)
+   - **TDD 증거 파일**: `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M7/M8 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M7 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
    - 리뷰 원칙: convention 근거 기반, 취향 리뷰 금지
 2. `review-comments.md`를 저장한다.
 3. **worktree(fork)에서** 리뷰를 반영한다:
@@ -243,10 +275,14 @@ npm test
 ```
 .harness-artifacts/maintenance/{identifier}/
   reproduction.md
+  tdd-baseline-log.txt            ← NEW
+  tdd-red-debug.md                ← NEW (선택: Red 재시도가 발생했을 때만 생성)
   root-cause.md
   impact-analysis.md         ← Team 병합본
   convention-check.md
   fix-plan.md
+  tdd-green-log.txt          ← NEW
+  tdd-refactor-notes.md      ← NEW
   regression-report.md       ← Team 병합본
   review-comments.md
   INDEX.md
