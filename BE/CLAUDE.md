@@ -62,7 +62,7 @@
 |------|------|----------------|
 | Fork | worktree 격리 실행. 사용자와 핑퐁이 많은 구간 | 있음 (피드백 루프) |
 | Sub-agent | 단일 에이전트 위임. 고정 형식 분석/판단 | 없음 (자동) |
-| Agent Team | 다관점 병렬 분석. 각 에이전트가 독립 관점으로 동시 작업 후 메인이 병합 | 없음 (자동) |
+| Agent Team | 다관점 병렬 분석. **Claude Code 네이티브 Teams** (`TeamCreate` + `Agent` + `SendMessage`)로 tmux 패널에 팀원을 스폰하여 동시 작업 후 메인이 병합. 표준 절차는 `commands/shared/team-protocol.md` | 없음 (자동) |
 
 ## 트랙 간 전이 규칙
 

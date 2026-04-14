@@ -79,7 +79,20 @@
 
 ### [M4] 영향도 조사 — 병렬 탐색 (Agent Team) ★
 
-1. **Agent Team을 호출**하여 3개 방향에서 동시에 영향 범위를 탐색한다.
+1. **Claude Code 네이티브 Teams**로 3개 방향을 동시 탐색한다. 표준 절차는 `commands/shared/team-protocol.md` 참조.
+
+   **팀 스펙:**
+   - `team_name`: `maint-impact-{identifier}`
+   - `description`: "영향도 3방향 병렬 탐색"
+   - 팀원 3명 (`subagent_type: general-purpose`, 병렬 스폰):
+
+     | 팀원 이름 | 프롬프트 블록 | 산출 파일 |
+     |----------|--------------|----------|
+     | `layer-tracer`    | 아래 "Agent A" | `.harness-artifacts/maintenance/{identifier}/impact-layer.md` |
+     | `caller-tracer`   | 아래 "Agent B" | `.harness-artifacts/maintenance/{identifier}/impact-caller.md` |
+     | `dataflow-tracer` | 아래 "Agent C" | `.harness-artifacts/maintenance/{identifier}/impact-dataflow.md` |
+
+   팀원 프롬프트는 `team-protocol.md`의 "팀원 프롬프트 템플릿"에 아래 블록을 과제 본문으로 넣는다.
 
 #### Agent A: 모듈/레이어 방향
 ```
@@ -128,11 +141,12 @@
 [architecture.yaml]
 ```
 
-2. **메인이 3개 결과를 병합**:
-   - 영향받는 코드/데이터 전체 목록 통합
-   - 중복 제거 및 우선순위 부여
+2. **메인이 3개 부분 산출물을 병합**:
+   - `impact-layer.md`, `impact-caller.md`, `impact-dataflow.md` Read
+   - 영향받는 코드/데이터 전체 목록 통합, 중복 제거, 우선순위 부여
    - 수정 시 연쇄 영향 정리
-3. `impact-analysis.md`를 저장한다.
+3. 최종 `impact-analysis.md`를 저장한다.
+4. 팀 해체: `shutdown_request` → `TeamDelete`.
 
 ### [M5] 기존 ADR/convention 충돌 체크 (Sub-agent)
 
@@ -196,7 +210,18 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
-1. **Agent Team을 호출**하여 3개 검증을 동시에 실행한다.
+1. **Claude Code 네이티브 Teams**로 3개 검증을 동시 실행한다. 표준 절차는 `commands/shared/team-protocol.md` 참조.
+
+   **팀 스펙:**
+   - `team_name`: `maint-regression-{identifier}`
+   - `description`: "회귀 3스위트 병렬 검증"
+   - 팀원 3명 (`subagent_type: general-purpose`, 병렬 스폰):
+
+     | 팀원 이름 | 프롬프트 블록 | 산출 파일 |
+     |----------|--------------|----------|
+     | `unit-runner`      | 아래 "Agent A" | `.harness-artifacts/maintenance/{identifier}/regression-unit.md` |
+     | `e2e-runner`       | 아래 "Agent B" | `.harness-artifacts/maintenance/{identifier}/regression-e2e.md` |
+     | `typecheck-runner` | 아래 "Agent C" | `.harness-artifacts/maintenance/{identifier}/regression-typecheck.md` |
 
 #### Agent A: 단위 테스트
 ```
@@ -239,12 +264,14 @@ npm test
 - convention 위반: [{파일}: {위반 ID}: {위반 내용}]
 ```
 
-2. **메인이 3개 결과를 병합**:
+2. **메인이 3개 부분 산출물을 병합**:
+   - `regression-unit.md`, `regression-e2e.md`, `regression-typecheck.md` Read
    - 전체 통과/실패 요약
    - 새로 발생한 실패 (회귀) 식별
    - 회귀가 있으면 M7로 돌아가 수정 루프
-3. `regression-report.md`를 저장한다.
-4. 회귀 없으면 다음 단계로 진행.
+3. 최종 `regression-report.md`를 저장한다.
+4. 팀 해체: `shutdown_request` → `TeamDelete`.
+5. 회귀 없으면 다음 단계로 진행.
 
 ### [M9] 리뷰 + 반영 (Sub-agent + Fork)
 

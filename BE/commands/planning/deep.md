@@ -58,8 +58,8 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 
 ### [P4] 대안 분석 — 3관점 병렬 (Agent Team) ★
 
-1. **Agent Team을 호출**하여 3개 관점에서 동시에 대안을 분석한다.
-2. 각 에이전트는 독립적으로 작업한다:
+1. **Claude Code 네이티브 Teams**로 3개 관점을 동시 분석한다. 표준 절차는 `commands/shared/team-protocol.md`, 팀 스펙(팀원 이름/산출 파일)은 `commands/planning/alternatives.md`의 "팀 스펙" 절을 재사용한다.
+2. 각 팀원은 독립적으로 작업한다 (아래 프롬프트 블록을 과제 본문으로 사용):
 
 #### Agent A: 기술 실현성
 ```

@@ -5,7 +5,21 @@
 
 ## 실행 방식
 
-이 skill은 Agent Team으로 실행된다.
+이 skill은 **Claude Code 네이티브 Teams**로 실행된다. 표준 절차는 `commands/shared/team-protocol.md` 참조.
+
+### 팀 스펙
+
+- `team_name`: `maint-impact-{identifier}` (예: `maint-impact-BUCCL-CM-42`)
+- `description`: "영향도 3방향 병렬 탐색 (모듈/호출자/데이터흐름)"
+- 팀원 3명 (모두 `subagent_type: general-purpose`, 병렬 스폰):
+
+  | 팀원 이름 | 사용할 프롬프트 블록 | 산출 파일 |
+  |----------|--------------------|----------|
+  | `layer-tracer`    | 아래 "Agent A: 모듈/레이어 방향" | `.harness-artifacts/maintenance/{identifier}/impact-layer.md` |
+  | `caller-tracer`   | 아래 "Agent B: 호출자 방향"     | `.harness-artifacts/maintenance/{identifier}/impact-caller.md` |
+  | `dataflow-tracer` | 아래 "Agent C: 데이터 흐름 방향" | `.harness-artifacts/maintenance/{identifier}/impact-dataflow.md` |
+
+- 메인: 3개 부분 산출물을 병합하여 최종 `impact-analysis.md` 작성 → 팀 해체 (`TeamDelete`)
 
 ## Agent A: 모듈/레이어 방향
 

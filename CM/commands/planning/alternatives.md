@@ -4,8 +4,23 @@
 
 ## 실행 방식
 
-이 skill은 Agent Team으로 실행된다.
+이 skill은 **Claude Code 네이티브 Teams**로 실행된다. 표준 절차는 `commands/shared/team-protocol.md` 참조.
 1명이 3관점을 순차로 돌리면 뒤 관점이 앞 관점에 편향되므로 반드시 병렬 실행한다.
+
+### 팀 스펙
+
+- `team_name`: `planning-alt-{plan-id}` (예: `planning-alt-plan-20260411-realtime`)
+- `description`: "3관점 대안 분석 (기술/UX/비용)"
+- 팀원 3명 (모두 `subagent_type: general-purpose`, 병렬 스폰):
+
+  | 팀원 이름 | 사용할 프롬프트 블록 | 산출 파일 |
+  |----------|--------------------|----------|
+  | `tech-analyst` | 아래 "Agent A: 기술 실현성" | `.harness-artifacts/planning/{plan-id}/alternatives-tech.md` |
+  | `ux-analyst`   | 아래 "Agent B: UX/제품 관점" | `.harness-artifacts/planning/{plan-id}/alternatives-ux.md` |
+  | `cost-analyst` | 아래 "Agent C: 비용/일정/리스크" | `.harness-artifacts/planning/{plan-id}/alternatives-cost.md` |
+
+- 메인: 3개 부분 산출물을 병합하여 최종 `alternatives.md` 작성 → 팀 해체 (`TeamDelete`)
+- 각 팀원 프롬프트는 `team-protocol.md`의 "팀원 프롬프트 템플릿"을 사용하되, 과제 본문에 아래 "Agent A/B/C" 블록을 그대로 넣는다.
 
 ## 입력 (3개 에이전트 공통)
 
