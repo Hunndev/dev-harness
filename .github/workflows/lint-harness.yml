@@ -1,0 +1,20 @@
+name: Lint Harness Plugins
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x scripts/lint-harness.sh
+
+      - name: Run harness linter
+        run: ./scripts/lint-harness.sh
