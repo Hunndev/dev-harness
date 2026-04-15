@@ -13,17 +13,37 @@
 ### 1. 팀 생성 — `TeamCreate`
 
 - `team_name`: `{track}-{skill}-{identifier}` 형식
-  - 예: `planning-alt-plan-20260411-realtime`, `maint-impact-BUCCL-CM-42`, `maint-regression-maint-20260410-socket`
+  - 예: `planning-alt-plan-20260411-multi-tenant`, `maint-impact-BUCCL-42`, `maint-regression-maint-20260410-review`
   - 재실행 시 충돌하면 `-r2`, `-r3` 접미어
 - `description`: 1-2줄 요약
 
 ### 2. 팀원 스폰 — `Agent` 툴 **병렬** N회
+
+**⚠️ 병렬 실행 필수 조건**: N개의 `Agent` 호출을 **단일 응답(메시지) 안에 여러 tool_use 블록으로 동시에** 발행해야 한다.
+응답을 나눠 Agent를 하나씩 호출하면 **순차 실행**이 되어 병렬의 이점이 사라진다.
+
+```
+✅ 올바른 병렬 호출 (한 응답에 tool_use 3개)
+   응답:
+     Agent(name="tech-analyst", ...)
+     Agent(name="ux-analyst", ...)
+     Agent(name="cost-analyst", ...)
+
+❌ 순차 호출 (응답 분리)
+   응답 1: Agent(name="tech-analyst", ...)
+   응답 2: Agent(name="ux-analyst", ...)
+   응답 3: Agent(name="cost-analyst", ...)
+```
 
 각 호출에 공통:
 - `team_name`: 1단계에서 만든 이름
 - `name`: 팀원 이름 (스킬 문서가 지정하는 역할명)
 - `subagent_type`: `general-purpose` (특수 역할이 필요하지 않으면 기본값)
 - `prompt`: 아래 "팀원 프롬프트 템플릿"을 채운 전문
+
+`TeamCreate`는 Agent 스폰보다 **먼저** 실행되어야 한다 (team_name이 등록돼야 팀원이 가입 가능). 따라서 실행 순서는:
+1. **응답 A**: `TeamCreate` 1회
+2. **응답 B**: `Agent` × N개를 한 응답에 동시 발행 (병렬 스폰)
 
 ### 3. 산출물 규칙 (중요)
 

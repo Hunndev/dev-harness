@@ -98,12 +98,17 @@
 
 ## 메인: 병합
 
-1. 3개 에이전트의 결과를 대안별로 통합한다.
-2. 관점 간 **충돌/모순**을 식별한다:
+1. 3개 팀원이 작성한 부분 산출물을 Read한다:
+   - `.harness/artifacts/planning/{plan-id}/alternatives-tech.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-ux.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-cost.md`
+2. 대안별로 3관점을 통합한다.
+3. 관점 간 **충돌/모순**을 식별한다:
    - 예: 기술적으로 최적인 대안이 비용이 가장 높은 경우
    - 예: UX가 좋은 대안이 기술적으로 가장 복잡한 경우
-3. 충돌이 있으면 사용자에게 명시적으로 제시하고 판단을 요청한다.
-4. 병합 결과를 `alternatives.md`로 저장한다.
+4. 충돌이 있으면 사용자에게 명시적으로 제시하고 판단을 요청한다.
+5. 병합 결과를 최종 `alternatives.md`로 저장한다.
+6. 팀 해체: 팀원 전원에게 `SendMessage({type: "shutdown_request"})` → `TeamDelete`.
 
 ## 산출물: alternatives.md
 

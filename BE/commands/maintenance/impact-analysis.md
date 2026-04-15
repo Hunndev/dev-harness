@@ -73,9 +73,15 @@ Model → Serializer → View → URL 순으로:
 
 ## 메인: 병합
 
-1. 3개 결과를 통합하여 영향받는 코드/데이터 전체 목록 생성
-2. 중복 제거
-3. 수정 시 연쇄 영향을 우선순위별로 정리
+1. 3개 팀원이 작성한 부분 산출물을 Read한다:
+   - `.harness/artifacts/maintenance/{identifier}/impact-layer.md`
+   - `.harness/artifacts/maintenance/{identifier}/impact-caller.md`
+   - `.harness/artifacts/maintenance/{identifier}/impact-dataflow.md`
+2. 영향받는 코드/데이터 전체 목록을 통합한다.
+3. 중복 제거 및 우선순위 부여.
+4. 수정 시 연쇄 영향을 정리한다.
+5. 병합 결과를 최종 `impact-analysis.md`로 저장한다.
+6. 팀 해체: `SendMessage({type: "shutdown_request"})` → `TeamDelete`.
 
 ## 산출물: impact-analysis.md
 
