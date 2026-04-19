@@ -1,2 +1,3 @@
 .harness-artifacts/
 .DS_Store
+.omc/state/*.json

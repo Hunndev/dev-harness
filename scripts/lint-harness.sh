@@ -61,8 +61,8 @@ for be_file in BE/commands/planning/*.md BE/commands/maintenance/*.md BE/command
     info "CM에 대응 파일 없음 (skip): $be_file"
     continue
   fi
-  be_count=$(grep -cE '^### \[[A-Z][0-9]' "$be_file" 2>/dev/null || echo 0)
-  cm_count=$(grep -cE '^### \[[A-Z][0-9]' "$cm_file" 2>/dev/null || echo 0)
+  be_count=$(grep -cE '^### \[[A-Z][0-9]' "$be_file" 2>/dev/null)
+  cm_count=$(grep -cE '^### \[[A-Z][0-9]' "$cm_file" 2>/dev/null)
   if [ "$be_count" != "$cm_count" ]; then
     fail "스텝 수 불일치: $be_file ($be_count) vs $cm_file ($cm_count)"
     r3_violations=$((r3_violations + 1))
@@ -105,14 +105,14 @@ echo
 echo "R5. 아티팩트 경로 일관성"
 r5_violations=0
 # BE에서 .harness-artifacts 사용 금지
-be_wrong=$(grep -rn "\.harness-artifacts" BE/commands 2>/dev/null || true)
+be_wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md 2>/dev/null || true)
 if [ -n "$be_wrong" ]; then
   fail "BE는 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
   echo "$be_wrong" | sed 's/^/    /'
   r5_violations=$((r5_violations + 1))
 fi
 # CM에서 .harness/artifacts 사용 금지
-cm_wrong=$(grep -rn "\.harness/artifacts" CM/commands 2>/dev/null || true)
+cm_wrong=$(grep -rn "\.harness/artifacts" CM/commands CM/CLAUDE.md 2>/dev/null || true)
 if [ -n "$cm_wrong" ]; then
   fail "CM은 .harness-artifacts 사용해야 함. .harness/artifacts 발견:"
   echo "$cm_wrong" | sed 's/^/    /'
