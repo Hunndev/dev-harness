@@ -7,7 +7,7 @@
 #   R3. BE/CM 대응 파일의 스텝 헤더(M1/P1/F1...) 개수 일치
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
 #   R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
-#   R6. 참조 문서 경로 일관성 (BE/CM 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 발견 시 실패)
+#   R6. 참조 문서 경로 일관성 (BE/CM/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -102,6 +102,8 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 [ $r4_violations -eq 0 ] && pass "모든 팀 산출 파일이 병합 섹션에 언급됨"
 
 # ── R5: 아티팩트 경로 일관성 ──────────────────────────────────────
+# R5는 문자열 '.harness-artifacts'가 고유하므로 literal grep.
+# R6은 'docs/'가 다른 맥락(예: "docs 디렉토리")과 충돌할 수 있어 regex로 경계를 제한.
 echo
 echo "R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts)"
 r5_violations=0
@@ -115,15 +117,24 @@ fi
 
 # ── R6: 참조 문서 경로 일관성 ─────────────────────────────────────
 echo
-echo "R6. 참조 문서 경로 일관성 (BE/CM 모두 .harness/docs/*.yaml)"
+echo "R6. 참조 문서 경로 일관성 (BE/CM/README 모두 .harness/docs/*.yaml)"
 r6_violations=0
+R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
 docs_wrong=$(grep -rnE '(^|[^./])docs/(code-convention|adr|architecture|module-registry)\.yaml' \
-  BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md 2>/dev/null || true)
+  "${R6_TARGETS[@]}" 2>/dev/null || true)
 if [ -n "$docs_wrong" ]; then
-  fail "BE/CM 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
+  fail "BE/CM/README 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
   echo "$docs_wrong" | sed 's/^/    /'
+  r6_violations=$((r6_violations + 1))
+fi
+# BE/docs/ 잔재 검출: BE는 플러그인이 docs 템플릿을 싣지 않으므로 BE/docs/ 참조는 드리프트.
+be_docs_wrong=$(grep -rnE 'BE/docs/(code-convention|adr|architecture|module-registry)\.yaml' \
+  "${R6_TARGETS[@]}" 2>/dev/null || true)
+if [ -n "$be_docs_wrong" ]; then
+  fail "BE는 플러그인이 docs 템플릿을 싣지 않음. BE/docs/ 참조 발견:"
+  echo "$be_docs_wrong" | sed 's/^/    /'
   r6_violations=$((r6_violations + 1))
 fi
 [ $r6_violations -eq 0 ] && pass "참조 문서 경로 일관성 OK"
