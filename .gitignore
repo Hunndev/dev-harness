@@ -1,3 +1,6 @@
 .harness/
 .DS_Store
 .omc/state/*.json
+*.tar.gz
+*.tgz
+*.zip
