@@ -6,7 +6,8 @@
 #   R2. 팀 스펙(team_name) 있는 파일엔 TeamDelete 언급 있음
 #   R3. BE/CM 대응 파일의 스텝 헤더(M1/P1/F1...) 개수 일치
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
-#   R5. 아티팩트 경로 일관성 (BE=.harness/artifacts, CM=.harness-artifacts)
+#   R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
+#   R6. 참조 문서 경로 일관성 (BE/CM 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 발견 시 실패)
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -102,29 +103,36 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 
 # ── R5: 아티팩트 경로 일관성 ──────────────────────────────────────
 echo
-echo "R5. 아티팩트 경로 일관성"
+echo "R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts)"
 r5_violations=0
-# BE에서 .harness-artifacts 사용 금지
-be_wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md 2>/dev/null || true)
-if [ -n "$be_wrong" ]; then
-  fail "BE는 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
-  echo "$be_wrong" | sed 's/^/    /'
+wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md 2>/dev/null || true)
+if [ -n "$wrong" ]; then
+  fail "BE/CM 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
+  echo "$wrong" | sed 's/^/    /'
   r5_violations=$((r5_violations + 1))
 fi
-# CM에서 .harness/artifacts 사용 금지
-cm_wrong=$(grep -rn "\.harness/artifacts" CM/commands CM/CLAUDE.md 2>/dev/null || true)
-if [ -n "$cm_wrong" ]; then
-  fail "CM은 .harness-artifacts 사용해야 함. .harness/artifacts 발견:"
-  echo "$cm_wrong" | sed 's/^/    /'
-  r5_violations=$((r5_violations + 1))
+[ $r5_violations -eq 0 ] && pass "아티팩트 경로 일관성 OK"
+
+# ── R6: 참조 문서 경로 일관성 ─────────────────────────────────────
+echo
+echo "R6. 참조 문서 경로 일관성 (BE/CM 모두 .harness/docs/*.yaml)"
+r6_violations=0
+# 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
+# .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
+docs_wrong=$(grep -rnE '(^|[^./])docs/(code-convention|adr|architecture|module-registry)\.yaml' \
+  BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md 2>/dev/null || true)
+if [ -n "$docs_wrong" ]; then
+  fail "BE/CM 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
+  echo "$docs_wrong" | sed 's/^/    /'
+  r6_violations=$((r6_violations + 1))
 fi
-[ $r5_violations -eq 0 ] && pass "경로 일관성 OK"
+[ $r6_violations -eq 0 ] && pass "참조 문서 경로 일관성 OK"
 
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R5)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R6)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
