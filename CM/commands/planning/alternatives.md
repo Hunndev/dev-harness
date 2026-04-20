@@ -15,9 +15,9 @@
 
   | 팀원 이름 | 사용할 프롬프트 블록 | 산출 파일 |
   |----------|--------------------|----------|
-  | `tech-analyst` | 아래 "Agent A: 기술 실현성" | `.harness-artifacts/planning/{plan-id}/alternatives-tech.md` |
-  | `ux-analyst`   | 아래 "Agent B: UX/제품 관점" | `.harness-artifacts/planning/{plan-id}/alternatives-ux.md` |
-  | `cost-analyst` | 아래 "Agent C: 비용/일정/리스크" | `.harness-artifacts/planning/{plan-id}/alternatives-cost.md` |
+  | `tech-analyst` | 아래 "Agent A: 기술 실현성" | `.harness/artifacts/planning/{plan-id}/alternatives-tech.md` |
+  | `ux-analyst`   | 아래 "Agent B: UX/제품 관점" | `.harness/artifacts/planning/{plan-id}/alternatives-ux.md` |
+  | `cost-analyst` | 아래 "Agent C: 비용/일정/리스크" | `.harness/artifacts/planning/{plan-id}/alternatives-cost.md` |
 
 - 메인: 3개 부분 산출물을 병합하여 최종 `alternatives.md` 작성 → 팀 해체 (`TeamDelete`)
 - 각 팀원 프롬프트는 `team-protocol.md`의 "팀원 프롬프트 템플릿"을 사용하되, 과제 본문에 아래 "Agent A/B/C" 블록을 그대로 넣는다.
@@ -27,8 +27,8 @@
 - `scope.md`
 - `requirements-interview.md`
 - `external-research.md`
-- `docs/module-registry.yaml` (있으면)
-- `docs/architecture.yaml` (있으면)
+- `.harness/docs/module-registry.yaml` (있으면)
+- `.harness/docs/architecture.yaml` (있으면)
 - `stakeholders.md`
 
 ## Agent A: 기술 실현성
@@ -106,9 +106,9 @@
 ## 메인: 병합
 
 1. 3개 팀원이 작성한 부분 산출물을 Read한다:
-   - `.harness-artifacts/planning/{plan-id}/alternatives-tech.md`
-   - `.harness-artifacts/planning/{plan-id}/alternatives-ux.md`
-   - `.harness-artifacts/planning/{plan-id}/alternatives-cost.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-tech.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-ux.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-cost.md`
 2. 대안별로 3관점을 통합한다.
 3. 관점 간 **충돌/모순**을 식별한다:
    - 예: 기술적으로 최적인 대안이 비용이 가장 높은 경우

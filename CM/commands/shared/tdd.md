@@ -26,7 +26,7 @@ npx jest --version
 
 ### 2. 이전 TDD 아티팩트 정리 (stale counter 방지)
 
-아티팩트 디렉토리(`.harness-artifacts/{track}/{identifier}/`)에서 이전 run의 잔존 파일을 삭제한다. 이들이 남아있으면 "line count as counter" 규칙이 stale 값을 상속한다:
+아티팩트 디렉토리(`.harness/artifacts/{track}/{identifier}/`)에서 이전 run의 잔존 파일을 삭제한다. 이들이 남아있으면 "line count as counter" 규칙이 stale 값을 상속한다:
 
 ```bash
 rm -f {artifacts-dir}/tdd-red-debug.md
@@ -129,7 +129,7 @@ Green 구현 중 수용기준(AC) 자체가 잘못 서술되었거나 Red 테스
 Red/Green/Refactor가 적용되는 단계에서 다음 파일을 **반드시** 생성:
 
 ```
-.harness-artifacts/{track}/{identifier}/
+.harness/artifacts/{track}/{identifier}/
   tdd-baseline-log.txt     ← Red 단계 baseline (FAIL or PASS per issue type)
   tdd-green-log.txt        ← Green 단계 PASS 증거
   tdd-refactor-notes.md    ← Refactor 내용 요약 (skip 시 "skipped: {reason}")

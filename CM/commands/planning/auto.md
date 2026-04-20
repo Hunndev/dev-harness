@@ -6,7 +6,7 @@
 > - `/hb-cm:planning:auto` — **이 문서.** 일상 기획 기본값. 인터뷰/외부 조사/3관점 대안 분석 없음.
 > - `/hb-cm:planning:deep` — 인터뷰(P2) + 외부 조사(P3) + 3관점 Agent Team 대안 분석(P4)까지 포함하는 full ceremony. 아키텍처급 결정에 사용.
 >
-> 어느 쪽이든 최종 산출물은 `decision-draft.md` → 사용자 승인 → `/hb-cm:shared:update-docs adr`로 `docs/adr.yaml`에 편입된다.
+> 어느 쪽이든 최종 산출물은 `decision-draft.md` → 사용자 승인 → `/hb-cm:shared:update-docs adr`로 `.harness/docs/adr.yaml`에 편입된다.
 
 ## 사전 조건
 
@@ -35,7 +35,7 @@
    - 이해관계자 맵 (간략: 영향받는 사용자 유형 + Node/TS/Express/Socket.io 컴포넌트)
    - **모호한 논의점** 명시
 3. 식별자를 생성한다: `plan-YYYYMMDD-{slug}`
-4. `.harness-artifacts/planning/{identifier}/` 디렉토리를 생성한다.
+4. `.harness/artifacts/planning/{identifier}/` 디렉토리를 생성한다.
 5. `scope.md`와 `stakeholders.md`를 저장한다.
 
 ### [P2] 타당성 판단 (Fork) _(deep의 P5에 해당)_
@@ -51,7 +51,7 @@
 
 ### [P3] ADR 드래프트 (Fork) _(deep의 P6에 해당)_
 
-1. 확정된 방향을 `docs/adr.yaml` 형식의 드래프트로 작성한다.
+1. 확정된 방향을 `.harness/docs/adr.yaml` 형식의 드래프트로 작성한다.
 2. ADR context 작성 가이드라인:
    - "왜 이 결정이 필요했는가"를 구체적으로 서술
    - 당시 문제, 대안, 선택 이유를 포함
@@ -62,7 +62,7 @@
 ### [P4] ADR 편입 (메인, 사용자 승인) _(deep의 P7에 해당)_
 
 1. 사용자가 명시적으로 승인한 경우에만 실행한다.
-2. `/hb-cm:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `docs/adr.yaml`에 편입한다.
+2. `/hb-cm:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `.harness/docs/adr.yaml`에 편입한다.
 3. 기존 ADR/convention과의 충돌을 체크한다.
 4. 편입 결과를 사용자에게 보고한다.
 
@@ -77,7 +77,7 @@
 ## 산출물
 
 ```
-.harness-artifacts/planning/{identifier}/
+.harness/artifacts/planning/{identifier}/
   scope.md
   stakeholders.md
   feasibility.md

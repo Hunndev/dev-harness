@@ -25,7 +25,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
      - 시스템 유형별 (CM 자체, 메인 BE, MySQL/Redis, Socket.io 클라이언트)
    - **모호한 논의점** 제시
 3. 식별자를 생성한다: `plan-YYYYMMDD-{slug}`
-4. `.harness-artifacts/planning/{identifier}/` 디렉토리를 생성한다.
+4. `.harness/artifacts/planning/{identifier}/` 디렉토리를 생성한다.
 5. `scope.md`와 `stakeholders.md`를 저장한다.
 
 ### [P2] 요구사항 인터뷰 정리 (Fork)
@@ -39,7 +39,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
    - "실시간성 요구사항은? (Socket.io 이벤트 필요 여부)"
    - "성능/규모 요구사항은?" (동시 접속, 메시지/이벤트 처리량)
 3. 수집된 요구사항을 MUST / SHOULD / NICE로 분류한다.
-4. `docs/module-registry.yaml`이 있으면 읽고, 기존 모듈과의 관계를 파악한다.
+4. `.harness/docs/module-registry.yaml`이 있으면 읽고, 기존 모듈과의 관계를 파악한다.
 5. **모호한 요구사항**과 **충돌하는 요구사항**을 명시적으로 정리한다.
 6. `requirements-interview.md`를 저장한다.
 
@@ -132,7 +132,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 
 ### [P6] ADR 드래프트 (Fork)
 
-1. 확정된 대안을 `docs/adr.yaml` 형식의 드래프트로 작성한다.
+1. 확정된 대안을 `.harness/docs/adr.yaml` 형식의 드래프트로 작성한다.
 2. ADR context 작성 가이드라인을 따른다:
    - context만 읽고도 "왜 이 결정이 필요했는가"를 연상할 수 있어야 한다.
    - 당시 어떤 문제가 있었는지, 어떤 대안을 검토했는지, 왜 이 선택이 최적인지를 구체적으로 서술한다.
@@ -143,7 +143,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 ### [P7] ADR 편입 (메인, 사용자 승인)
 
 1. 사용자가 명시적으로 승인한 경우에만 실행한다.
-2. `/hb-cm:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `docs/adr.yaml`에 편입한다.
+2. `/hb-cm:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `.harness/docs/adr.yaml`에 편입한다.
 3. 기존 ADR/convention과의 충돌을 체크한다.
 4. 편입 결과를 사용자에게 보고한다.
 
@@ -157,7 +157,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 ## 산출물
 
 ```
-.harness-artifacts/planning/{identifier}/
+.harness/artifacts/planning/{identifier}/
   scope.md
   stakeholders.md
   requirements-interview.md

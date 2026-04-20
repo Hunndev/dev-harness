@@ -38,10 +38,10 @@
 3. 사용자가 제시한 증상을 **FAIL로 입증하는 최소 테스트**를 작성한다.
    - 파일: `tests/test_{module}_hotfix_{identifier}.py`
    - 가장 좁은 범위(단일 함수/뷰/모델)로 한정
-3. `pytest {app}/tests/test_{module}_hotfix_{identifier}.py -v` 로 **FAIL**을 확인한다.
-4. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
-5. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
-6. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
+4. `pytest {app}/tests/test_{module}_hotfix_{identifier}.py -v` 로 **FAIL**을 확인한다.
+5. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
+6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
+7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
    - 재현 단계
    - 테스트 파일 경로
    - FAIL 출력 요약

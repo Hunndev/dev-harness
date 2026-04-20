@@ -39,10 +39,10 @@
 3. 사용자가 제시한 증상을 **FAIL로 입증하는 최소 테스트**를 작성한다.
    - 파일: `src/__tests__/{module}.hotfix.{identifier}.test.ts`
    - 가장 좁은 범위(단일 함수/핸들러/repository)로 한정
-3. `npm test -- --testPathPattern={module}.hotfix.{identifier}` 로 **FAIL**을 확인한다.
-4. FAIL 출력을 `.harness-artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
-5. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
-6. `.harness-artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
+4. `npm test -- --testPathPattern={module}.hotfix.{identifier}` 로 **FAIL**을 확인한다.
+5. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
+6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
+7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
    - 재현 단계
    - 테스트 파일 경로
    - FAIL 출력 요약
@@ -53,7 +53,7 @@
    - **판정 기준**: 이 수정이 아래 "Refactor 금지" 정의의 **허용** 범주인가? "이 변경을 되돌렸을 때 H1 테스트가 다시 FAIL하는가?"의 답이 YES이면 허용, NO이면 Refactor이므로 금지.
    - 금지 범주에 해당하면 즉시 중단하고 `/hb-cm:maintenance:auto`로 에스컬레이션한다.
 2. 수정 즉시 H1 테스트가 **PASS**가 되는지 확인한다.
-3. PASS 확인 후 출력을 `.harness-artifacts/maintenance/{identifier}/hotfix-green-log.txt`에 저장한다.
+3. PASS 확인 후 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-green-log.txt`에 저장한다.
 4. PASS가 아니면 원인을 추정해 다시 시도한다. **2회 실패 시 중단하고 `:auto` 또는 `:deep`으로 전환 제안**.
 5. 수정 내용과 예상되는 side effect를 사용자에게 한 줄로 보고한다.
 
@@ -70,7 +70,7 @@
 4. 새로 실패한 테스트가 있으면:
    - **단위 테스트 범위 내**라면 → H2로 돌아가 수정 루프
    - **다른 모듈의 테스트가 실패**라면 → hotfix 범위를 벗어남. 즉시 중단하고 **에스컬레이션** (아래 참조)
-5. `.harness-artifacts/maintenance/{identifier}/hotfix-summary.md`에 기록:
+5. `.harness/artifacts/maintenance/{identifier}/hotfix-summary.md`에 기록:
    - 수정된 파일 목록
    - H1 재현 테스트 파일 경로
    - 단위 테스트 통과/실패 요약
@@ -94,7 +94,7 @@
 ## 산출물
 
 ```
-.harness-artifacts/maintenance/{identifier}/
+.harness/artifacts/maintenance/{identifier}/
   hotfix-reproduction.md
   hotfix-red-log.txt      ← NEW
   hotfix-green-log.txt    ← NEW

@@ -1,6 +1,6 @@
 # ADR 드래프트
 
-확정된 대안을 docs/adr.yaml 형식의 드래프트로 작성한다.
+확정된 대안을 .harness/docs/adr.yaml 형식의 드래프트로 작성한다.
 
 ## 실행 방식
 
@@ -14,7 +14,7 @@ decision-draft.md는 반드시 사용자 명시 승인 후 `/hb-cm:shared:update
 ## 절차
 
 1. `feasibility.md`에서 확정된 대안을 확인한다.
-2. `docs/adr.yaml`의 기존 항목을 읽고, 새 결정이 기존 결정과 충돌하지 않는지 확인한다.
+2. `.harness/docs/adr.yaml`의 기존 항목을 읽고, 새 결정이 기존 결정과 충돌하지 않는지 확인한다.
 3. 충돌이 있으면 사용자에게 명시적으로 제시한다:
    - 어떤 기존 ADR과 충돌하는지
    - 기존 ADR을 superseded로 변경할지, 새 결정을 수정할지

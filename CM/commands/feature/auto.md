@@ -8,7 +8,7 @@
 
 ## 사전 조건
 
-- `docs/code-convention.yaml`과 `docs/adr.yaml`이 작성되어 있어야 한다.
+- `.harness/docs/code-convention.yaml`과 `.harness/docs/adr.yaml`이 작성되어 있어야 한다.
 - 요구사항이 확정되어 있어야 한다. 확정되지 않았으면 `/hb-cm:planning:auto` 또는 `:deep`으로.
 - feature branch 또는 새로 생성할 branch.
 
@@ -37,7 +37,7 @@
    - branch명
    - base branch (기본: `main`)
    - 변경 파일 수 (있으면)
-5. `.harness-artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
+5. `.harness/artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
 6. 기존 `code-quality-guide.md`가 같은 영역에 이미 있는지 확인하고, 있으면 재사용 후보로 표시한다.
 
 ### [F2] 요구사항 정리 (Fork)
@@ -45,7 +45,7 @@
 1. worktree(fork)를 생성한다.
 2. planning 트랙의 산출물이 있으면 가져온다:
    - `requirements-interview.md` 또는 `feasibility.md` → 요약
-   - `decision-draft.md` 또는 관련 `docs/adr.yaml` 항목 → 참조
+   - `decision-draft.md` 또는 관련 `.harness/docs/adr.yaml` 항목 → 참조
 3. 없으면 사용자에게 질문하여 수집한다.
 4. 요구사항을 MUST / SHOULD / NICE로 분류한다.
 5. `requirements.md`를 저장한다.
@@ -70,7 +70,7 @@
    - 테스트 파일: `src/__tests__/{module}.feature.{branch-name}.test.ts` (factory 또는 test fixture 사용)
    - 하나의 수용기준(AC) = 하나의 테스트 케이스
 3. `npm test -- --testPathPattern={module}.feature.{branch-name}`으로 실행하여 FAIL을 확인한다.
-4. FAIL 출력 tail 30줄을 `.harness-artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다.
+4. FAIL 출력 tail 30줄을 `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다.
 5. 실패 이유가 "올바른 이유"인지 검증한다. 자세한 검증 규칙과 재작성 루프(최대 3회)는 `commands/shared/tdd.md` 참조:
    - 구현 부재로 인한 FAIL → 올바른 Red → F5로 진행
    - TypeScript 컴파일 / import / mock 오류 → Red 아님. 테스트를 수정 후 재실행 (최대 3회). 3회 후에도 올바르지 않으면 `tdd-red-debug.md`에 기록하고 사용자에게 보고.
@@ -83,7 +83,7 @@
    - 범위 폭주 금지: Red 테스트가 요구하지 않는 코드 추가 금지
 3. 기존 테스트 회귀를 확인한다: `npm test` (전체 스위트)
 4. 추가 검증: `npm run typecheck && npm run lint`
-5. PASS 로그를 `.harness-artifacts/feature/{branch-name}/tdd-green-log.txt`에 저장한다.
+5. PASS 로그를 `.harness/artifacts/feature/{branch-name}/tdd-green-log.txt`에 저장한다.
 6. **Red이 틀렸음을 발견한 경우**: Green 구현 중 수용기준 자체가 잘못되었다는 증거가 나오면 구현을 즉시 중단하고 사용자에게 Red 재작성을 제안. 승인 시 F4로 복귀. 테스트를 임의로 수정 금지. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 7. worktree를 정리한다.
 
@@ -94,7 +94,7 @@
 3. 중복 제거, 네이밍 개선, 구조 정리를 수행한다.
    - **새 기능 금지, 테스트 변경 금지**
 4. 각 리팩토링 후 `npm test`로 전체 그린을 확인한다. 깨지면 즉시 revert.
-5. 변경 내용을 `.harness-artifacts/feature/{branch-name}/tdd-refactor-notes.md`에 요약한다.
+5. 변경 내용을 `.harness/artifacts/feature/{branch-name}/tdd-refactor-notes.md`에 요약한다.
    - 리팩토링할 내용이 없으면: "skipped: no refactoring needed — baseline clean"
 6. worktree를 정리한다.
 
@@ -105,10 +105,10 @@
    - `design-intent.md` (의도)
    - **F4 Red 테스트 파일** (`src/__tests__/{module}.feature.{branch-name}.test.ts`)
    - **F5 Green 구현** (`git diff main...HEAD`)
-   - **TDD 증거 파일**: `.harness-artifacts/feature/{branch-name}/tdd-baseline-log.txt` (Red FAIL 증거) + `tdd-green-log.txt` (Green PASS 증거). 리뷰어는 이 두 파일이 실제로 F4 Red 테스트와 F5 Green diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향. 불일치 시 [p1] 이슈로 보고.
+   - **TDD 증거 파일**: `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt` (Red FAIL 증거) + `tdd-green-log.txt` (Green PASS 증거). 리뷰어는 이 두 파일이 실제로 F4 Red 테스트와 F5 Green diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향. 불일치 시 [p1] 이슈로 보고.
    - **기준 선택 로직**:
      - 기존 `code-quality-guide.md`가 있으면 그대로 사용
-     - 없으면 `docs/code-convention.yaml` + `docs/adr.yaml`에서 관련 stacks로 1차 필터
+     - 없으면 `.harness/docs/code-convention.yaml` + `.harness/docs/adr.yaml`에서 관련 stacks로 1차 필터
 3. 리뷰 원칙:
    - 모든 코멘트는 convention/ADR에 근거
    - SQL은 parameterized(`?`)만 사용, 문자열 concatenation 금지
@@ -152,7 +152,7 @@
 ## 산출물
 
 ```
-.harness-artifacts/feature/{branch-name}/
+.harness/artifacts/feature/{branch-name}/
   requirements.md
   design-intent.md
   tdd-baseline-log.txt

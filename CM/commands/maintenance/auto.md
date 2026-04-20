@@ -40,13 +40,13 @@
    - `refactor` — 코드 구조 개선, 기술 부채 해소
    - `performance` — 느린 응답, 타임아웃, 메모리
    - `dependency` — 패키지 업그레이드, 보안 패치
-4. `docs/module-registry.yaml`을 읽고, 관련 모듈(router/service/repository/socket-handler)을 식별한다.
+4. `.harness/docs/module-registry.yaml`을 읽고, 관련 모듈(router/service/repository/socket-handler)을 식별한다.
 5. 사용자에게 다음을 확인한다:
    - 이슈 유형
    - 관련 모듈
    - 긴급도 — **hotfix면 `:hotfix`로 전환 제안**
    - 재현 가능 여부
-6. `.harness-artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
+6. `.harness/artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
 
 ### [M2] 이슈 재현 [TDD Red] (Fork)
 
@@ -55,7 +55,7 @@
    - 테스트 파일: `src/__tests__/{module}.maint.{identifier}.test.ts`
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
    - refactor인 경우, characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주 — 리팩토링 후에도 PASS해야 함).
-3. Baseline 로그를 `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
+3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
    - bug 유형: FAIL 출력 (tail 30줄). 실패 이유가 "올바른 이유"인지 검증 (최대 3회 재작성).
    - refactor 유형: characterization test PASS 출력을 baseline으로 저장. 이 테스트는 리팩토링 전후 모두 PASS여야 한다.
    - performance 유형: 기준선(응답시간, 처리량, 메모리, EventLoop lag)을 기록.
@@ -70,7 +70,7 @@
 2. sub-agent에게 전달:
    - `reproduction.md`
    - 관련 모듈 코드 (router, service, repository, socket handler)
-   - `docs/adr.yaml` (간략 참조용)
+   - `.harness/docs/adr.yaml` (간략 참조용)
 3. sub-agent는 tracer 스타일로 분석:
    - stack trace에서 발생 지점 특정
    - 원인 추정(가능성 순 나열)
@@ -97,7 +97,7 @@
    - **최소 범위**: M2 재현 테스트가 **PASS**가 되는 '최소 수정'만 수행. `fix-plan.md`에 명시된 범위 이외 추가 리팩토링 금지 — 리팩토링은 M5.5에서 처리.
    - **convention 준수**: SQL parameterized binding, 명백한 규칙 위반 즉시 체크
    - **마이그레이션 분리**: 필요 시 별도 커밋
-3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness-artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
+3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness/artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
 4. 수정 내용과 side effect를 사용자에게 보고한다.
 
 ### [M5.5] [TDD Refactor] 코드 정리 (Fork, 선택적)
@@ -136,9 +136,9 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 1. sub-agent를 호출하여 코드리뷰:
    - `fix-plan.md` (의도)
-   - `docs/code-convention.yaml` (기준)
+   - `.harness/docs/code-convention.yaml` (기준)
    - `git diff`
-   - **TDD 증거 파일**: `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M5/M6 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M5 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
+   - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M5/M6 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M5 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
 2. `review-comments.md`를 저장한다.
 3. worktree에서 리뷰 반영:
    - 각 코멘트의 수용/거부를 사용자에게 제시
@@ -157,7 +157,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 ## 산출물
 
 ```
-.harness-artifacts/maintenance/{identifier}/
+.harness/artifacts/maintenance/{identifier}/
   reproduction.md
   tdd-baseline-log.txt          ← NEW
   tdd-red-debug.md              ← NEW (선택: Red 재시도가 발생했을 때만 생성)

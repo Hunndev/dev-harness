@@ -15,9 +15,9 @@
 
   | 팀원 이름 | 사용할 프롬프트 블록 | 산출 파일 |
   |----------|--------------------|----------|
-  | `layer-tracer`    | 아래 "Agent A: 모듈/레이어 방향" | `.harness-artifacts/maintenance/{identifier}/impact-layer.md` |
-  | `caller-tracer`   | 아래 "Agent B: 호출자 방향"     | `.harness-artifacts/maintenance/{identifier}/impact-caller.md` |
-  | `dataflow-tracer` | 아래 "Agent C: 데이터 흐름 방향" | `.harness-artifacts/maintenance/{identifier}/impact-dataflow.md` |
+  | `layer-tracer`    | 아래 "Agent A: 모듈/레이어 방향" | `.harness/artifacts/maintenance/{identifier}/impact-layer.md` |
+  | `caller-tracer`   | 아래 "Agent B: 호출자 방향"     | `.harness/artifacts/maintenance/{identifier}/impact-caller.md` |
+  | `dataflow-tracer` | 아래 "Agent C: 데이터 흐름 방향" | `.harness/artifacts/maintenance/{identifier}/impact-dataflow.md` |
 
 - 메인: 3개 부분 산출물을 병합하여 최종 `impact-analysis.md` 작성 → 팀 해체 (`TeamDelete`)
 
@@ -77,9 +77,9 @@ Repository → Service → Controller → Route 순으로:
 ## 메인: 병합
 
 1. 3개 팀원이 작성한 부분 산출물을 Read한다:
-   - `.harness-artifacts/maintenance/{identifier}/impact-layer.md`
-   - `.harness-artifacts/maintenance/{identifier}/impact-caller.md`
-   - `.harness-artifacts/maintenance/{identifier}/impact-dataflow.md`
+   - `.harness/artifacts/maintenance/{identifier}/impact-layer.md`
+   - `.harness/artifacts/maintenance/{identifier}/impact-caller.md`
+   - `.harness/artifacts/maintenance/{identifier}/impact-dataflow.md`
 2. 영향받는 코드/데이터 전체 목록을 통합한다.
 3. 중복 제거 및 우선순위 부여.
 4. 수정 시 연쇄 영향을 정리한다.

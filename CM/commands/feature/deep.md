@@ -4,7 +4,7 @@
 
 ## 사전 조건
 
-- `docs/code-convention.yaml`과 `docs/adr.yaml`이 작성되어 있어야 한다.
+- `.harness/docs/code-convention.yaml`과 `.harness/docs/adr.yaml`이 작성되어 있어야 한다.
 - 요구사항이 확정되어 있어야 한다. 확정되지 않았으면 planning 트랙으로.
 - 구현이 완료된 feature branch이거나, 새로 생성할 branch.
 
@@ -34,14 +34,14 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - branch명
    - base branch (기본: `main`)
    - 변경 파일 수 (있으면)
-5. `.harness-artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
+5. `.harness/artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
 
 ### [F2] 요구사항 정리 (Fork)
 
 1. **worktree(fork)를 생성**하여 요구사항을 정리한다.
 2. planning 트랙의 산출물이 있으면 가져온다:
    - `requirements-interview.md` → 요약
-   - `decision-draft.md` 또는 관련 `docs/adr.yaml` 항목 → 참조
+   - `decision-draft.md` 또는 관련 `.harness/docs/adr.yaml` 항목 → 참조
 3. 없으면 사용자에게 질문하여 수집한다.
 4. 요구사항을 MUST / SHOULD / NICE로 분류한다.
 5. `requirements.md`를 저장한다.
@@ -52,7 +52,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 1. **sub-agent를 호출**하여 기존 코드베이스에서 유사 구현을 조사한다.
 2. sub-agent에게 전달:
    - `requirements.md`
-   - `docs/module-registry.yaml`
+   - `.harness/docs/module-registry.yaml`
    - 기존 코드 (관련 controllers/services/repositories)
 3. sub-agent는 다음을 조사:
    - 기존 코드에 비슷한 패턴이 이미 있는가? (재사용 가능성)
@@ -77,11 +77,11 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 ### [F5] 평가기준 수립 (Fork + Sub-agent)
 
 1. **worktree(fork)를 생성**한다.
-2. **sub-agent를 호출**하여 `docs/adr.yaml`에서 관련 항목을 추출한다:
+2. **sub-agent를 호출**하여 `.harness/docs/adr.yaml`에서 관련 항목을 추출한다:
    - stacks 필드로 1차 필터
    - context/decision 내용으로 2차 판단
    - 관련 없는 항목은 제외
-3. `docs/code-convention.yaml`에서 관련 규칙을 필터링한다 (TS-, EXP-, REPO-, TEST- 등).
+3. `.harness/docs/code-convention.yaml`에서 관련 규칙을 필터링한다 (TS-, EXP-, REPO-, TEST- 등).
 4. convention(공통 기준) + ADR(작업별 기준)을 병합하여 `code-quality-guide.md` 초안을 작성한다.
 5. 초안과 **기준 적용 범위 논의점**을 사용자에게 제시한다.
 6. 사용자 피드백을 반영하여 확정한다.
@@ -94,7 +94,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - 테스트 파일: `src/__tests__/{module}.feature.{branch-name}.test.ts` (factory 또는 test fixture 사용)
    - 하나의 수용기준(AC) = 하나의 테스트 케이스
 3. `npm test -- --testPathPattern={module}.feature.{branch-name}`으로 실행하여 FAIL을 확인한다.
-4. FAIL 출력 tail 30줄을 `.harness-artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다.
+4. FAIL 출력 tail 30줄을 `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다.
 5. 실패 이유가 "올바른 이유"인지 검증한다. 자세한 검증 규칙과 재작성 루프(최대 3회)는 `commands/shared/tdd.md` 참조:
    - 구현 부재로 인한 FAIL → 올바른 Red → F7로 진행
    - TypeScript 컴파일 / import / mock 오류 → Red 아님. 테스트를 수정 후 재실행 (최대 3회). 3회 후에도 올바르지 않으면 `tdd-red-debug.md`에 기록하고 사용자에게 보고.
@@ -107,7 +107,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - 범위 폭주 금지: Red 테스트가 요구하지 않는 코드 추가 금지
 3. 기존 테스트 회귀를 확인한다: `npm test` (전체 스위트)
 4. 추가 검증: `npm run typecheck && npm run lint`
-5. PASS 로그를 `.harness-artifacts/feature/{branch-name}/tdd-green-log.txt`에 저장한다.
+5. PASS 로그를 `.harness/artifacts/feature/{branch-name}/tdd-green-log.txt`에 저장한다.
 6. **Red이 틀렸음을 발견한 경우**: Green 구현 중 수용기준 자체가 잘못되었다는 증거가 나오면 구현을 즉시 중단하고 사용자에게 Red 재작성을 제안. 승인 시 F6으로 복귀. 테스트를 임의로 수정 금지. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 7. worktree를 정리한다.
 
@@ -118,7 +118,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 3. 중복 제거, 네이밍 개선, 구조 정리를 수행한다.
    - **새 기능 금지, 테스트 변경 금지**
 4. 각 리팩토링 후 `npm test`로 전체 그린을 확인한다. 깨지면 즉시 revert.
-5. 변경 내용을 `.harness-artifacts/feature/{branch-name}/tdd-refactor-notes.md`에 요약한다.
+5. 변경 내용을 `.harness/artifacts/feature/{branch-name}/tdd-refactor-notes.md`에 요약한다.
    - 리팩토링할 내용이 없으면: "skipped: no refactoring needed — baseline clean"
 6. worktree를 정리한다.
 
@@ -146,7 +146,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - `pr-body.md`
    - **F6 Red 테스트 파일** (`src/__tests__/{module}.feature.{branch-name}.test.ts`)
    - **F7 Green 구현** (`git diff main...HEAD`)
-   - **TDD 증거 파일**: `.harness-artifacts/feature/{branch-name}/tdd-baseline-log.txt` (Red FAIL 증거) + `tdd-green-log.txt` (Green PASS 증거). 리뷰어는 이 두 파일이 실제로 F6 Red 테스트와 F7 Green diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향. 불일치 시 [p1] 이슈로 보고.
+   - **TDD 증거 파일**: `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt` (Red FAIL 증거) + `tdd-green-log.txt` (Green PASS 증거). 리뷰어는 이 두 파일이 실제로 F6 Red 테스트와 F7 Green diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향. 불일치 시 [p1] 이슈로 보고.
 3. 리뷰 원칙:
    - 의도를 파악하고, 비판적으로 검토
    - 모든 코멘트는 code-quality-guide.md에 근거
@@ -187,7 +187,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 ## 산출물
 
 ```
-.harness-artifacts/feature/{branch-name}/
+.harness/artifacts/feature/{branch-name}/
   requirements.md
   prior-art.md
   design-intent.md

@@ -9,10 +9,10 @@
 ## 절차
 
 1. planning 트랙 산출물이 있으면 연결한다:
-   - `.harness-artifacts/planning/{관련 identifier}/requirements-interview.md`
-   - 관련 ADR (docs/adr.yaml에 편입된 항목)
+   - `.harness/artifacts/planning/{관련 identifier}/requirements-interview.md`
+   - 관련 ADR (.harness/docs/adr.yaml에 편입된 항목)
 2. 없으면 사용자에게 직접 수집한다.
-3. `docs/module-registry.yaml`을 읽고 기존 모듈과의 관계를 파악한다.
+3. `.harness/docs/module-registry.yaml`을 읽고 기존 모듈과의 관계를 파악한다.
 4. 논의점을 사용자에게 제시한다.
 
 ## 산출물: requirements.md

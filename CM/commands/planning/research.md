@@ -10,8 +10,8 @@
 
 - `scope.md`
 - `requirements-interview.md`
-- `docs/architecture.yaml` (있으면)
-- `docs/module-registry.yaml` (있으면)
+- `.harness/docs/architecture.yaml` (있으면)
+- `.harness/docs/module-registry.yaml` (있으면)
 
 ## Sub-agent 프롬프트
 

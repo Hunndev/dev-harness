@@ -33,7 +33,7 @@ npm run build
 ```
 
 ### 5. Convention 체크
-변경된 파일에 대해 `docs/code-convention.yaml` 위반 여부를 확인:
+변경된 파일에 대해 `.harness/docs/code-convention.yaml` 위반 여부를 확인:
 - console.log 사용 (GEN-004)
 - any 타입 (GEN-005)
 - 50줄 초과 함수 (GEN-001)

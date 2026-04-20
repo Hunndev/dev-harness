@@ -34,13 +34,13 @@
    - `refactor` — 코드 구조 개선, 기술 부채 해소
    - `performance` — 느린 응답, EventLoop blocking, 메모리 누수
    - `dependency` — npm 패키지 업그레이드, 보안 패치
-4. `docs/module-registry.yaml`을 읽고, 관련 모듈(controllers/services/repositories/middlewares 등)을 식별한다.
+4. `.harness/docs/module-registry.yaml`을 읽고, 관련 모듈(controllers/services/repositories/middlewares 등)을 식별한다.
 5. 사용자에게 다음을 확인한다:
    - 이슈 유형
    - 관련 모듈/레이어
    - 긴급도 (hotfix 여부)
    - 재현 가능 여부
-6. `.harness-artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
+6. `.harness/artifacts/maintenance/{identifier}/` 디렉토리를 생성한다.
 
 ### [M2] 이슈 재현 [TDD Red] (Fork)
 
@@ -51,7 +51,7 @@
    - DB는 in-memory 또는 testcontainers
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
    - refactor인 경우, 기존 동작을 캡처하는 characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주).
-3. Baseline 로그를 `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
+3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
    - bug 유형: FAIL 출력 (tail 30줄). 실패 이유가 "올바른 이유"인지 검증 (최대 3회 재작성).
    - refactor 유형: characterization test PASS 출력을 baseline으로 저장. 이 테스트는 리팩토링 전후 모두 PASS여야 한다.
    - performance 유형: 기준선(응답시간, 처리량, 메모리, EventLoop lag)을 기록.
@@ -66,8 +66,8 @@
 2. sub-agent에게 전달:
    - `reproduction.md`
    - 관련 모듈 코드 (controllers/, services/, repositories/, middlewares/, websocket/)
-   - `docs/adr.yaml`
-   - `docs/architecture.yaml`
+   - `.harness/docs/adr.yaml`
+   - `.harness/docs/architecture.yaml`
 3. sub-agent는 tracer 스타일로 분석:
    - stack trace에서 발생 지점 특정
    - request flow를 따라 문제 지점 추적 (route → middleware → controller → service → repository → DB)
@@ -88,9 +88,9 @@
 
      | 팀원 이름 | 프롬프트 블록 | 산출 파일 |
      |----------|--------------|----------|
-     | `layer-tracer`    | 아래 "Agent A" | `.harness-artifacts/maintenance/{identifier}/impact-layer.md` |
-     | `caller-tracer`   | 아래 "Agent B" | `.harness-artifacts/maintenance/{identifier}/impact-caller.md` |
-     | `dataflow-tracer` | 아래 "Agent C" | `.harness-artifacts/maintenance/{identifier}/impact-dataflow.md` |
+     | `layer-tracer`    | 아래 "Agent A" | `.harness/artifacts/maintenance/{identifier}/impact-layer.md` |
+     | `caller-tracer`   | 아래 "Agent B" | `.harness/artifacts/maintenance/{identifier}/impact-caller.md` |
+     | `dataflow-tracer` | 아래 "Agent C" | `.harness/artifacts/maintenance/{identifier}/impact-dataflow.md` |
 
    팀원 프롬프트는 `team-protocol.md`의 "팀원 프롬프트 템플릿"에 아래 블록을 과제 본문으로 넣는다.
 
@@ -154,8 +154,8 @@
 2. sub-agent에게 전달:
    - `root-cause.md`
    - `impact-analysis.md`
-   - `docs/adr.yaml` 전문
-   - `docs/code-convention.yaml` 전문
+   - `.harness/docs/adr.yaml` 전문
+   - `.harness/docs/code-convention.yaml` 전문
 3. sub-agent는 다음을 확인:
    - 수정 방향이 기존 ADR 결정을 위반하는가?
    - 수정 방향이 convention 규칙(TS-001, EXP-001 등)을 위반하는가?
@@ -185,7 +185,7 @@
    - **convention 준수**: code-convention.yaml 규칙 따름
    - **타입 안정성**: any 사용 금지, strict mode 유지
    - **마이그레이션 분리**: 필요 시 별도 커밋
-3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness-artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
+3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness/artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
 4. 수정 내용과 side effect를 사용자에게 보고한다.
 
 ### [M7.5] [TDD Refactor] 코드 정리 (Fork, 선택적)
@@ -219,9 +219,9 @@ M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 gre
 
      | 팀원 이름 | 프롬프트 블록 | 산출 파일 |
      |----------|--------------|----------|
-     | `unit-runner`      | 아래 "Agent A" | `.harness-artifacts/maintenance/{identifier}/regression-unit.md` |
-     | `e2e-runner`       | 아래 "Agent B" | `.harness-artifacts/maintenance/{identifier}/regression-e2e.md` |
-     | `typecheck-runner` | 아래 "Agent C" | `.harness-artifacts/maintenance/{identifier}/regression-typecheck.md` |
+     | `unit-runner`      | 아래 "Agent A" | `.harness/artifacts/maintenance/{identifier}/regression-unit.md` |
+     | `e2e-runner`       | 아래 "Agent B" | `.harness/artifacts/maintenance/{identifier}/regression-e2e.md` |
+     | `typecheck-runner` | 아래 "Agent C" | `.harness/artifacts/maintenance/{identifier}/regression-typecheck.md` |
 
 #### Agent A: 단위 테스트
 ```
@@ -279,7 +279,7 @@ npm test
    - `fix-plan.md` (의도)
    - `convention-check.md` (기준)
    - `git diff` (변경 내용)
-   - **TDD 증거 파일**: `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M7/M8 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M7 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
+   - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M7/M8 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M7 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
    - 리뷰 원칙: convention 근거 기반, 취향 리뷰 금지
 2. `review-comments.md`를 저장한다.
 3. **worktree(fork)에서** 리뷰를 반영한다:
@@ -300,7 +300,7 @@ npm test
 ## 산출물
 
 ```
-.harness-artifacts/maintenance/{identifier}/
+.harness/artifacts/maintenance/{identifier}/
   reproduction.md
   tdd-baseline-log.txt            ← NEW
   tdd-red-debug.md                ← NEW (선택: Red 재시도가 발생했을 때만 생성)

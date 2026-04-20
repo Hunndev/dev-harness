@@ -17,7 +17,7 @@
    - 외부 의존성은 `src/__tests__/mocks/index.ts`로 mock
    - DB는 in-memory / testcontainers / mock repository 중 적합한 것 선택
    - 현재 상태에서 **FAIL** 확인
-3. FAIL 출력을 `.harness-artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 캡처한다. 실패 이유가 **'올바른 이유'(버그 때문)**인지 확인한다. TypeScript 컴파일/import/mock 오류이면 Red 재작성 (최대 3회, 자세한 규칙은 `commands/shared/tdd.md` 참조).
+3. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 캡처한다. 실패 이유가 **'올바른 이유'(버그 때문)**인지 확인한다. TypeScript 컴파일/import/mock 오류이면 Red 재작성 (최대 3회, 자세한 규칙은 `commands/shared/tdd.md` 참조).
 4. 재현 불가 시 가능한 원인과 추가 필요 정보를 보고한다.
 
 ### refactor 유형
