@@ -40,6 +40,7 @@ planning 트랙의 `decision-draft.md`를 adr.yaml에 편입할 때:
 2. 사용자가 이 대화에서 명시적으로 승인해야 한다.
 3. 기존 ADR과의 충돌을 반드시 체크한다.
 4. 충돌 시 기존 ADR의 status를 `superseded`로 변경할지 사용자에게 확인한다.
+5. **편입 후 YAML 본문 제시 (필수)**: 편입을 완료한 후 단순 "ADR-XXX 편입 완료" 메시지로 끝내지 않고, `.harness/docs/adr.yaml` 에 들어간 해당 ADR 의 yaml 본문 (또는 `context` / `decision` / `consequences` 핵심 발췌) 을 yaml 코드 블록으로 사용자에게 직접 보여준다. 사용자가 편입 결과를 자기 눈으로 확인 가능해야 한다.
 
 ## code-convention.yaml 스키마
 
