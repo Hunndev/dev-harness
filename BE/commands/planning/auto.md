@@ -37,6 +37,7 @@
 3. 식별자를 생성한다: `plan-YYYYMMDD-{slug}`
 4. `.harness/artifacts/planning/{identifier}/` 디렉토리를 생성한다.
 5. `scope.md`와 `stakeholders.md`를 저장한다.
+6. **본문 제시 (필수)**: 저장 후 두 파일의 핵심 내용을 사용자에게 마크다운으로 직접 보여준다. 단순 파일 경로 안내 금지. 최소 항목 — 한 줄 요약 / In Scope / Out of Scope / 이해관계자 / 모호한 논의점. 사용자가 본문을 읽고 피드백할 수 있어야 P2 로 진행한다.
 
 ### [P2] 타당성 판단 (Fork) _(deep의 P5에 해당)_
 
@@ -48,6 +49,7 @@
    - 남은 불확실성과 **해소를 위해 deep 모드가 필요한지 여부**
 2. 불확실성이 크고 3관점 분석이 필요하면 여기서 중단하고 `/hb-be:planning:deep`으로 전환을 제안한다.
 3. 사용자 피드백 반영 후 `feasibility.md`를 저장한다.
+4. **본문 제시 (필수)**: feasibility.md 의 핵심 (Go/No-Go, 추천 방향과 근거, 위험 평가, 외부 종속) 을 사용자에게 마크다운으로 직접 보여준다. 사용자 확인 후 P3 으로 진행.
 
 ### [P3] ADR 드래프트 (Fork) _(deep의 P6에 해당)_
 
@@ -57,7 +59,8 @@
    - 당시 문제, 대안, 선택 이유를 포함
 3. **이 단계에서 adr.yaml에 자동 편입하지 않는다.**
 4. `decision-draft.md`를 저장한다.
-5. 사용자에게 드래프트를 제시하고 편입 여부를 확인한다.
+5. **YAML 본문 제시 (필수)**: 사용자에게 드래프트를 제시할 때 단순 요약이 아니라 `decision-draft.md` 의 ADR YAML 본문 (`id` / `title` / `context` / `decision` / `consequences`) 을 yaml 코드 블록으로 직접 보여준다. 사용자가 yaml 자체를 읽고 편입 여부를 결정 가능해야 한다.
+6. 편입 여부를 확인한다.
 
 ### [P4] ADR 편입 (메인, 사용자 승인) _(deep의 P7에 해당)_
 
@@ -65,6 +68,7 @@
 2. `/hb-be:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `.harness/docs/adr.yaml`에 편입한다.
 3. 기존 ADR/convention과의 충돌을 체크한다.
 4. 편입 결과를 사용자에게 보고한다.
+5. **편입된 ADR 본문 재제시 (필수)**: 4의 "보고" 는 단순 "완료" 메시지가 아니라 `.harness/docs/adr.yaml` 에 들어간 ADR-XXX 의 yaml 본문 (또는 핵심 발췌 — context / decision / consequences) 을 yaml 코드 블록으로 다시 사용자에게 보여준다.
 
 ### 완료
 
