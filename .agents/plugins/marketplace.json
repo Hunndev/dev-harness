@@ -1,0 +1,20 @@
+{
+  "name": "buccl-dev-harness-codex",
+  "interface": {
+    "displayName": "BUCCL Dev Harness"
+  },
+  "plugins": [
+    {
+      "name": "hb-fe",
+      "source": {
+        "source": "local",
+        "path": "./FE"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

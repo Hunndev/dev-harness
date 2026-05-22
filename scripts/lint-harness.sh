@@ -6,8 +6,10 @@
 #   R2. 팀 스펙(team_name) 있는 파일엔 TeamDelete 언급 있음
 #   R3. BE/CM 대응 파일의 스텝 헤더(M1/P1/F1...) 개수 일치
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
-#   R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
-#   R6. 참조 문서 경로 일관성 (BE/CM/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
+#   R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
+#   R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
+#   R7. FE Codex/Claude 플러그인 등록 파일 존재 및 JSON 유효성
+#   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인 산출물, watchAll=false 테스트 명령)
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -25,7 +27,7 @@ pass() { echo "${GREEN}✅${RESET} $*"; }
 fail() { echo "${RED}❌${RESET} $*"; FAIL=1; }
 info() { echo "${YELLOW}▸${RESET} $*"; }
 
-TARGET_DIRS=(BE/commands CM/commands)
+TARGET_DIRS=(BE/commands CM/commands FE/commands)
 
 # ── R1: 옛 문구 잔재 ───────────────────────────────────────────────
 echo
@@ -105,11 +107,11 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 # R5는 문자열 '.harness-artifacts'가 고유하므로 literal grep.
 # R6은 'docs/'가 다른 맥락(예: "docs 디렉토리")과 충돌할 수 있어 regex로 경계를 제한.
 echo
-echo "R5. 아티팩트 경로 일관성 (BE/CM 모두 .harness/artifacts)"
+echo "R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts)"
 r5_violations=0
-wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md 2>/dev/null || true)
+wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md 2>/dev/null || true)
 if [ -n "$wrong" ]; then
-  fail "BE/CM 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
+  fail "BE/CM/FE 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
   echo "$wrong" | sed 's/^/    /'
   r5_violations=$((r5_violations + 1))
 fi
@@ -117,15 +119,15 @@ fi
 
 # ── R6: 참조 문서 경로 일관성 ─────────────────────────────────────
 echo
-echo "R6. 참조 문서 경로 일관성 (BE/CM/README 모두 .harness/docs/*.yaml)"
+echo "R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml)"
 r6_violations=0
-R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md README.md)
+R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
 docs_wrong=$(grep -rnE '(^|[^./])docs/(code-convention|adr|architecture|module-registry)\.yaml' \
   "${R6_TARGETS[@]}" 2>/dev/null || true)
 if [ -n "$docs_wrong" ]; then
-  fail "BE/CM/README 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
+  fail "BE/CM/FE/README 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
   echo "$docs_wrong" | sed 's/^/    /'
   r6_violations=$((r6_violations + 1))
 fi
@@ -139,11 +141,75 @@ if [ -n "$be_docs_wrong" ]; then
 fi
 [ $r6_violations -eq 0 ] && pass "참조 문서 경로 일관성 OK"
 
+# ── R7: FE 플러그인 구조/등록 검증 ───────────────────────────────
+echo
+echo "R7. FE Codex/Claude 플러그인 등록 구조"
+r7_violations=0
+for required in \
+  FE/.claude-plugin/plugin.json \
+  FE/.codex-plugin/plugin.json \
+  FE/skills/hb-fe/SKILL.md \
+  .agents/plugins/marketplace.json
+do
+  if [ ! -f "$required" ]; then
+    fail "필수 파일 없음: $required"
+    r7_violations=$((r7_violations + 1))
+  fi
+done
+
+for json_file in FE/.claude-plugin/plugin.json FE/.codex-plugin/plugin.json .agents/plugins/marketplace.json; do
+  if [ -f "$json_file" ] && ! python3 -m json.tool "$json_file" >/dev/null 2>&1; then
+    fail "JSON 파싱 실패: $json_file"
+    r7_violations=$((r7_violations + 1))
+  fi
+done
+
+if [ -f ".agents/plugins/marketplace.json" ]; then
+  if ! grep -q '"name"[[:space:]]*:[[:space:]]*"hb-fe"' .agents/plugins/marketplace.json; then
+    fail ".agents/plugins/marketplace.json에 hb-fe 엔트리 없음"
+    r7_violations=$((r7_violations + 1))
+  fi
+  if ! grep -q '"path"[[:space:]]*:[[:space:]]*"./FE"' .agents/plugins/marketplace.json; then
+    fail ".agents/plugins/marketplace.json의 hb-fe source.path가 ./FE가 아님"
+    r7_violations=$((r7_violations + 1))
+  fi
+fi
+[ $r7_violations -eq 0 ] && pass "FE 플러그인 등록 구조 OK"
+
+# ── R8: FE 커맨드 drift 방지 ─────────────────────────────────────
+echo
+echo "R8. FE 커맨드 drift 방지"
+r8_violations=0
+
+fe_stale=$(grep -rnE '/hb-cm:|hb-cm|BUCCL CM|커뮤니티\(Node\.js\)|\.test\.ts\b' FE/commands FE/CLAUDE.md FE/skills/hb-fe/SKILL.md 2>/dev/null || true)
+if [ -n "$fe_stale" ]; then
+  fail "FE 문서에 CM/TS 잔재 발견:"
+  echo "$fe_stale" | sed 's/^/    /'
+  r8_violations=$((r8_violations + 1))
+fi
+
+for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
+  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md; do
+    if ! grep -q "$artifact" "$feature_doc"; then
+      fail "$feature_doc : FE 디자인 검증 산출물 누락 ($artifact)"
+      r8_violations=$((r8_violations + 1))
+    fi
+  done
+done
+
+bad_test_cmds=$(grep -rnE '(^|`|[[:space:]])npm test( |`|$)' FE/commands FE/skills/hb-fe/SKILL.md 2>/dev/null | grep -v -- '--watchAll=false' || true)
+if [ -n "$bad_test_cmds" ]; then
+  fail "FE npm test 명령에 --watchAll=false 누락:"
+  echo "$bad_test_cmds" | sed 's/^/    /'
+  r8_violations=$((r8_violations + 1))
+fi
+[ $r8_violations -eq 0 ] && pass "FE 커맨드 drift 방지 OK"
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R6)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R8)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

@@ -1,0 +1,33 @@
+{
+  "name": "hb-fe",
+  "version": "0.4.0",
+  "description": "BUCCL 프론트엔드(React) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
+  "author": {
+    "name": "buccl"
+  },
+  "license": "MIT",
+  "keywords": [
+    "buccl",
+    "frontend",
+    "react",
+    "development-harness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BUCCL FE Harness",
+    "shortDescription": "React FE 작업을 planning, feature, maintenance 흐름으로 진행합니다.",
+    "longDescription": "BUCCL 프론트엔드 레포에서 요구사항 정리, 디자인 적용, TDD, 시각 검증, 회귀 검증을 일관된 산출물 기반 흐름으로 수행하는 개발 하네스입니다.",
+    "developerName": "buccl",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "hb-fe feature auto로 이 화면을 구현해줘",
+      "hb-fe maintenance auto로 이 UI 버그를 고쳐줘",
+      "hb-fe planning deep으로 FE 설계를 잡아줘"
+    ],
+    "brandColor": "#2563EB"
+  }
+}
