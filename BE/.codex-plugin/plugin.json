@@ -1,0 +1,33 @@
+{
+  "name": "hb-be",
+  "version": "0.4.0",
+  "description": "BUCCL 메인 백엔드(Django) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
+  "author": {
+    "name": "buccl"
+  },
+  "license": "MIT",
+  "keywords": [
+    "buccl",
+    "backend",
+    "django",
+    "development-harness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BUCCL BE Harness",
+    "shortDescription": "Django BE 작업을 planning, feature, maintenance 흐름으로 진행합니다.",
+    "longDescription": "BUCCL 메인 백엔드(Django) 레포에서 요구사항 정리, 설계 의도, TDD, 회귀 검증, ADR 충돌 체크를 일관된 산출물 기반 흐름으로 수행하는 개발 하네스입니다.",
+    "developerName": "buccl",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "hb-be feature auto로 이 API를 구현해줘",
+      "hb-be maintenance auto로 이 버그를 고쳐줘",
+      "hb-be planning deep으로 백엔드 설계를 잡아줘"
+    ],
+    "brandColor": "#0F766E"
+  }
+}
