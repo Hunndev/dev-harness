@@ -5,6 +5,30 @@
   },
   "plugins": [
     {
+      "name": "hb-be",
+      "source": {
+        "source": "local",
+        "path": "./BE"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "hb-cm",
+      "source": {
+        "source": "local",
+        "path": "./CM"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
       "name": "hb-fe",
       "source": {
         "source": "local",
