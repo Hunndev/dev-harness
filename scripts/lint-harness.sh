@@ -8,8 +8,9 @@
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
 #   R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
 #   R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
-#   R7. FE Codex/Claude 플러그인 등록 파일 존재 및 JSON 유효성
+#   R7. 세 플러그인(BE/CM/FE) Codex/Claude 등록 파일 존재·JSON 유효성·양쪽 marketplace 등록
 #   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인 산출물, watchAll=false 테스트 명령)
+#   R9. 플러그인 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -141,40 +142,70 @@ if [ -n "$be_docs_wrong" ]; then
 fi
 [ $r6_violations -eq 0 ] && pass "참조 문서 경로 일관성 OK"
 
-# ── R7: FE 플러그인 구조/등록 검증 ───────────────────────────────
+# 플러그인 디렉토리 → 플러그인 이름 매핑 (bash 3.2 호환: 연관배열 미사용)
+plugin_name() {
+  case "$1" in
+    BE) echo "hb-be" ;;
+    CM) echo "hb-cm" ;;
+    FE) echo "hb-fe" ;;
+    *)  echo "" ;;
+  esac
+}
+
+# ── R7: 세 플러그인 구조/등록 검증 (BE/CM/FE × Claude/Codex) ──────
 echo
-echo "R7. FE Codex/Claude 플러그인 등록 구조"
+echo "R7. 플러그인 Codex/Claude 등록 구조 (BE/CM/FE)"
 r7_violations=0
-for required in \
-  FE/.claude-plugin/plugin.json \
-  FE/.codex-plugin/plugin.json \
-  FE/skills/hb-fe/SKILL.md \
-  .agents/plugins/marketplace.json
-do
-  if [ ! -f "$required" ]; then
-    fail "필수 파일 없음: $required"
-    r7_violations=$((r7_violations + 1))
-  fi
+for p in BE CM FE; do
+  name="$(plugin_name "$p")"
+  for required in \
+    "$p/.claude-plugin/plugin.json" \
+    "$p/.codex-plugin/plugin.json" \
+    "$p/skills/$name/SKILL.md"
+  do
+    if [ ! -f "$required" ]; then
+      fail "필수 파일 없음: $required"
+      r7_violations=$((r7_violations + 1))
+    fi
+  done
+  for json_file in "$p/.claude-plugin/plugin.json" "$p/.codex-plugin/plugin.json"; do
+    if [ -f "$json_file" ] && ! python3 -m json.tool "$json_file" >/dev/null 2>&1; then
+      fail "JSON 파싱 실패: $json_file"
+      r7_violations=$((r7_violations + 1))
+    fi
+  done
 done
 
-for json_file in FE/.claude-plugin/plugin.json FE/.codex-plugin/plugin.json .agents/plugins/marketplace.json; do
-  if [ -f "$json_file" ] && ! python3 -m json.tool "$json_file" >/dev/null 2>&1; then
-    fail "JSON 파싱 실패: $json_file"
+# 마켓플레이스 2종: JSON 유효성 + 세 플러그인 모두 등록되어 있는지
+for mp in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
+  if [ ! -f "$mp" ]; then
+    fail "필수 파일 없음: $mp"
     r7_violations=$((r7_violations + 1))
+    continue
   fi
+  if ! python3 -m json.tool "$mp" >/dev/null 2>&1; then
+    fail "JSON 파싱 실패: $mp"
+    r7_violations=$((r7_violations + 1))
+    continue
+  fi
+  for name in hb-be hb-cm hb-fe; do
+    if ! grep -q "\"name\"[[:space:]]*:[[:space:]]*\"$name\"" "$mp"; then
+      fail "$mp 에 $name 엔트리 없음"
+      r7_violations=$((r7_violations + 1))
+    fi
+  done
 done
 
+# Codex marketplace: 각 플러그인 source.path(./BE, ./CM, ./FE) 확인
 if [ -f ".agents/plugins/marketplace.json" ]; then
-  if ! grep -q '"name"[[:space:]]*:[[:space:]]*"hb-fe"' .agents/plugins/marketplace.json; then
-    fail ".agents/plugins/marketplace.json에 hb-fe 엔트리 없음"
-    r7_violations=$((r7_violations + 1))
-  fi
-  if ! grep -q '"path"[[:space:]]*:[[:space:]]*"./FE"' .agents/plugins/marketplace.json; then
-    fail ".agents/plugins/marketplace.json의 hb-fe source.path가 ./FE가 아님"
-    r7_violations=$((r7_violations + 1))
-  fi
+  for p in BE CM FE; do
+    if ! grep -q "\"path\"[[:space:]]*:[[:space:]]*\"./$p\"" .agents/plugins/marketplace.json; then
+      fail ".agents/plugins/marketplace.json에 source.path \"./$p\" 없음"
+      r7_violations=$((r7_violations + 1))
+    fi
+  done
 fi
-[ $r7_violations -eq 0 ] && pass "FE 플러그인 등록 구조 OK"
+[ $r7_violations -eq 0 ] && pass "플러그인 등록 구조 OK (BE/CM/FE × Claude/Codex)"
 
 # ── R8: FE 커맨드 drift 방지 ─────────────────────────────────────
 echo
@@ -205,11 +236,38 @@ if [ -n "$bad_test_cmds" ]; then
 fi
 [ $r8_violations -eq 0 ] && pass "FE 커맨드 drift 방지 OK"
 
+# ── R9: 플러그인 이름·버전 패리티 ────────────────────────────────
+echo
+echo "R9. 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)"
+r9_violations=0
+for p in BE CM FE; do
+  name="$(plugin_name "$p")"
+  claude_json="$p/.claude-plugin/plugin.json"
+  codex_json="$p/.codex-plugin/plugin.json"
+  [ -f "$claude_json" ] && [ -f "$codex_json" ] || continue
+
+  c_name=$(python3 -c "import json; print(json.load(open('$claude_json')).get('name',''))" 2>/dev/null)
+  x_name=$(python3 -c "import json; print(json.load(open('$codex_json')).get('name',''))" 2>/dev/null)
+  c_ver=$(python3 -c "import json; print(json.load(open('$claude_json')).get('version',''))" 2>/dev/null)
+  x_ver=$(python3 -c "import json; print(json.load(open('$codex_json')).get('version',''))" 2>/dev/null)
+  mp_ver=$(python3 -c "import json; d=json.load(open('.claude-plugin/marketplace.json')); print(next((pl.get('version','') for pl in d.get('plugins',[]) if pl.get('name')=='$name'), ''))" 2>/dev/null)
+
+  if [ "$c_name" != "$name" ] || [ "$x_name" != "$name" ]; then
+    fail "$p: name 불일치 (claude=$c_name, codex=$x_name, 기대=$name)"
+    r9_violations=$((r9_violations + 1))
+  fi
+  if [ -z "$c_ver" ] || [ "$c_ver" != "$x_ver" ] || [ "$c_ver" != "$mp_ver" ]; then
+    fail "$p: version 불일치 (claude=$c_ver, codex=$x_ver, marketplace=$mp_ver)"
+    r9_violations=$((r9_violations + 1))
+  fi
+done
+[ $r9_violations -eq 0 ] && pass "이름·버전 패리티 OK"
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R8)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R9)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
