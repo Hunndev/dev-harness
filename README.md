@@ -1,18 +1,19 @@
 # BUCCL Dev Harness
 
-BUCCL의 세 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE) 각각을 위한 Claude Code 기반 3-track 개발 자동화 파이프라인.
-하나의 마켓플레이스에 세 개의 플러그인이 들어 있다.
+BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CHAT) 각각을 위한 Claude Code 기반 개발 자동화 파이프라인.
+하나의 마켓플레이스에 네 개의 플러그인이 들어 있다.
 
-## 세 플러그인
+## 네 플러그인
 
 | 플러그인 | 대상 레포 | 스택 | 슬래시 prefix |
 |---------|----------|------|--------------|
 | `hb-be` | `BE/` (메인 백엔드) | Django 5.2 + DRF + MySQL + Celery + Redis + Azure Blob | `/hb-be:...` |
 | `hb-cm` | `CM/` (커뮤니티) | Node 18 + TS 5.3 + Express + MySQL + Redis + Socket.io + Jest | `/hb-cm:...` |
 | `hb-fe` | `FE/` (프론트엔드) | React 18 + CRA + React Router + Zustand + MUI/Bootstrap + Capacitor | `/hb-fe:...` |
+| `hb-chat` | `CHAT/` (채팅 MSA) | Node 18 + TS + Express + Socket.io + MySQL + Redis + Azure Blob + Jest | `/hb-chat:...` |
 
-세 플러그인은 **같은 워크플로우 구조**(기획/신규개발/유지보수 3-track)를 공유하지만,
-스택별로 명령(테스트 명령, 레이어 용어, 컨벤션 ID)이 다르다.
+`hb-be`/`hb-cm`/`hb-fe`는 **3-track 구조**(기획/신규개발/유지보수)를 공유한다.
+`hb-chat`은 여기에 chat 특성상 **ADR 트랙·Contract 트랙·dual review gate**를 더한다 (계약이 깨지면 FE/BE/앱이 동시에 깨지므로). 스택별로 명령(테스트 명령, 레이어 용어, 컨벤션 ID)이 다르다.
 
 ## 트랙 비교 (공통)
 
@@ -138,7 +139,7 @@ repo-local Codex marketplace는 `.agents/plugins/marketplace.json`에 있으며 
 Codex는 Claude slash command를 직접 실행하지 않으므로, `hb-be feature auto로 이 API 구현해줘`처럼 자연어 alias로 사용한다.
 Codex skill은 각 플러그인의 `<plugin>/commands/` 문서를 source of truth로 읽고 동일한 `.harness/artifacts/` 산출물 규약을 따른다.
 
-사용자의 `~/.codex/config.toml`에서 marketplace를 등록한 뒤 세 플러그인을 활성화한다:
+사용자의 `~/.codex/config.toml`에서 marketplace를 등록한 뒤 네 플러그인을 활성화한다:
 
 ```toml
 [plugins."hb-be@buccl-dev-harness-codex"]
@@ -149,19 +150,22 @@ enabled = true
 
 [plugins."hb-fe@buccl-dev-harness-codex"]
 enabled = true
+
+[plugins."hb-chat@buccl-dev-harness-codex"]
+enabled = true
 ```
 
 > marketplace를 git source로 등록한 경우 머지 직후 캐시가 stale일 수 있다.
-> `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 세 플러그인이 새로 설치된다.
+> `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 네 플러그인이 새로 설치된다.
 
 ## 디렉토리 구조
 
 ```
 harness/
 ├── .claude-plugin/
-│   └── marketplace.json          ← 세 플러그인 등록
+│   └── marketplace.json          ← 네 플러그인 등록
 ├── .agents/plugins/
-│   └── marketplace.json          ← Codex용 세 플러그인 등록
+│   └── marketplace.json          ← Codex용 네 플러그인 등록
 ├── BE/                           ← Django 플러그인
 │   ├── .claude-plugin/plugin.json
 │   ├── .codex-plugin/plugin.json
@@ -180,6 +184,12 @@ harness/
 │   ├── CLAUDE.md
 │   ├── commands/                 (planning/, maintenance/, feature/, shared/)
 │   └── skills/hb-fe/SKILL.md     (Codex 진입점)
+├── CHAT/                         ← 채팅 MSA 플러그인 (+ADR/Contract 트랙, dual review gate)
+│   ├── .claude-plugin/plugin.json
+│   ├── .codex-plugin/plugin.json
+│   ├── CLAUDE.md
+│   ├── commands/                 (planning/, feature/, maintenance/, adr/, contract/, shared/)
+│   └── skills/hb-chat/SKILL.md   (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R9 린터
 └── README.md
 ```

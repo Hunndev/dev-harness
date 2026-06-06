@@ -19,6 +19,12 @@
       "source": "./FE",
       "description": "BUCCL 프론트엔드(React) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 + 디자인 검증 파이프라인.",
       "version": "0.5.0"
+    },
+    {
+      "name": "hb-chat",
+      "source": "./CHAT",
+      "description": "BUCCL chat MSA 개발 하네스. Planning, Feature, Maintenance, ADR, Contract, Review 파이프라인.",
+      "version": "0.1.0"
     }
   ]
 }
