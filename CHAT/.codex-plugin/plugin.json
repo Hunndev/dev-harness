@@ -1,0 +1,40 @@
+{
+  "name": "hb-chat",
+  "version": "0.1.0",
+  "description": "BUCCL chat MSA 작업을 Codex skill로 제공한다. TypeScript, Express, Socket.io, MySQL, Redis, ADR, contract, dual review workflow.",
+  "author": {
+    "name": "buccl"
+  },
+  "license": "MIT",
+  "keywords": [
+    "buccl",
+    "chat",
+    "msa",
+    "node",
+    "typescript",
+    "express",
+    "socket.io",
+    "redis",
+    "mysql",
+    "development-harness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BUCCL Chat Harness",
+    "shortDescription": "BUCCL chat MSA 작업을 planning, feature, maintenance, ADR, contract 흐름으로 진행합니다.",
+    "longDescription": "BUCCL chat MSA에서 실시간 메시징, 방/멤버/메시지/첨부/초대/presence, BE/FE 연동, Socket.io 이벤트 계약, ADR, 테스트, 리뷰 게이트를 일관된 산출물 기반 흐름으로 관리하는 개발 하네스입니다.",
+    "developerName": "buccl",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "hb-chat planning deep으로 채팅 서비스 아키텍처를 잡아줘",
+      "hb-chat feature auto로 메시지 전송 이벤트를 구현해줘",
+      "hb-chat contract websocket으로 Socket.io 이벤트 계약을 검토해줘",
+      "hb-chat maintenance deep으로 읽음 처리 버그를 RCA부터 수정해줘"
+    ],
+    "brandColor": "#0EA5E9"
+  }
+}
