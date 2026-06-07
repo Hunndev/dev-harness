@@ -106,7 +106,7 @@
    - 리팩토링할 내용이 없으면: "skipped: no refactoring needed — baseline clean"
 6. worktree를 정리한다.
 
-### [F7] 시각/반응형/a11y 검증 (Fork)
+### [F7] 시각/반응형/a11y + API 바인딩 검증 (Fork)
 
 1. worktree(fork)를 생성한다.
 2. 로컬 앱을 실행하거나 기존 dev 서버를 사용해 주요 route를 확인한다.
@@ -117,15 +117,16 @@
    - 디자인 소스와 다른 부분 및 의도적 차이
 4. `responsive-check.md`에 최소 375px, 768px, 1440px 기준 결과를 기록한다.
 5. `accessibility-notes.md`에 alt text, form label, keyboard focus, contrast, button label 결과를 기록한다.
-6. 깨짐이 있으면 F5로 복귀하여 수정한다.
-7. worktree를 정리한다.
+6. **API 바인딩 작업이면** `api-binding-check.md`에 기록한다: API 계약 일치(엔드포인트·요청/응답 형태), loading/empty/error/success 상태 처리, API 실패·타임아웃 처리, mock/더미 데이터가 production path에 남지 않음, 호출이 `src/api`·`src/utils/api.js` 계층 경유. (디자인 구현 전용 작업이면 "N/A: 디자인 구현 전용"으로 표기)
+7. 깨짐·상태 누락이 있으면 F5로 복귀하여 수정한다.
+8. worktree를 정리한다.
 
 ### [F8] 코드리뷰 (Sub-agent) _(deep의 F10에 해당)_
 
 1. sub-agent를 호출하여 코드리뷰를 수행한다.
 2. 입력:
    - `design-intent.md` (의도)
-   - `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` (FE 검증)
+   - `visual-check.md`, `responsive-check.md`, `accessibility-notes.md`, `api-binding-check.md` (FE 검증: 디자인 + 바인딩)
    - **F4 Red 테스트 파일** (`src/__tests__/{module}.feature.{branch-name}.test.jsx`)
    - **F5 Green 구현** (`git diff main...HEAD`)
    - **TDD 증거 파일**: `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt` (Red FAIL 증거) + `tdd-green-log.txt` (Green PASS 증거). 리뷰어는 이 두 파일이 실제로 F4 Red 테스트와 F5 Green diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향. 불일치 시 [p1] 이슈로 보고.
@@ -189,6 +190,7 @@
   visual-check.md
   responsive-check.md
   accessibility-notes.md
+  api-binding-check.md        (API 바인딩 작업일 때)
   review-comments.md
   pr-body.md
   INDEX.md

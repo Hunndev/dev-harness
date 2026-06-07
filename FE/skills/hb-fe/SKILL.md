@@ -34,7 +34,7 @@ Codex does not execute Claude slash commands directly. Treat these phrases as in
 1. Keep the same artifact paths as the Claude harness: `.harness/artifacts/{track}/{identifier}/`.
 2. Use `.harness/docs/code-convention.yaml`, `.harness/docs/adr.yaml`, `.harness/docs/architecture.yaml`, and `.harness/docs/module-registry.yaml` as the project truth when present.
 3. For feature and maintenance work, follow the Red-Green-Refactor protocol in `commands/shared/tdd.md`.
-4. For design application, create or update `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, and `accessibility-notes.md` when relevant.
+4. FE work splits into two modes — classify the task at the start. **Design implementation** (Claude design → screen) produces `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md`. **API binding** (screen → BE data) produces `api-binding-check.md` covering API contract match, loading/empty/error/success state handling, no mock data left in production paths, and calls routed through the `src/api`/`src/utils/api.js` layer. Most screen work is a mix — produce both.
 5. Verify React work with `npm run lint`, `npm test -- --watchAll=false`, and `npm run build` unless the target repo lacks the command or the user narrows the scope.
 6. After significant frontend changes, use browser verification when a local target is available.
 

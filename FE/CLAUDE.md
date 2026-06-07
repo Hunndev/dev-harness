@@ -58,15 +58,25 @@
 - `.harness/docs/architecture.yaml` — 시스템 구조 맵
 - `.harness/docs/module-registry.yaml` — route/page/component/hook/API/state/style 레지스트리
 
-## FE 전용 검증 축
+## FE 작업 두 모드 (디자인 구현 / API 바인딩)
 
-FE 작업은 "테스트 통과"만으로 완료하지 않는다. 사용자에게 보이는 화면이 실제로 맞는지까지 확인한다.
+FE 작업은 성격이 다른 두 모드로 나뉜다. **작업 시작(seed) 시 이 작업이 어느 모드인지 먼저 분류**하고, 그에 맞는 완료기준·증거·리뷰 렌즈를 적용한다. "테스트 통과"만으로 FE를 완료하지 않는다 — 디자인 모드는 화면이 실제로 맞는지, 바인딩 모드는 데이터가 실제로 흐르고 실패가 처리되는지까지 확인한다. 대부분의 화면 작업은 둘이 섞인 **혼합**이다.
 
-- Design source: Figma, 스크린샷, 기존 화면, 브랜드 가이드, 사용자 설명 중 무엇을 기준으로 삼았는지 기록
-- Visual check: desktop/mobile 주요 viewport에서 화면 캡처 또는 관찰 결과 기록
-- Responsive check: 최소 375px, 768px, 1440px 기준으로 레이아웃 깨짐/텍스트 겹침 확인
-- Accessibility notes: 버튼 라벨, alt text, keyboard focus, contrast, form label 확인
-- State/API check: loading/empty/error/success 상태와 API 실패 상태 확인
+### ① 디자인 구현 (Claude 디자인 → 화면)
+
+- 무엇: 시안·디자인을 React 컴포넌트/화면으로 구현
+- 완료기준·증거: `design-source.md`(무엇을 기준으로 삼았는지), `visual-check.md`(desktop/mobile 주요 viewport 캡처·관찰), `responsive-check.md`(375/768/1440 레이아웃·겹침), `accessibility-notes.md`(alt·label·keyboard focus·contrast)
+- 리뷰 렌즈: 시각 일관성, 시각 계층, 반응형, 접근성, 디자인 의도 대비 정합
+
+### ② API 바인딩 (화면 → BE 데이터)
+
+- 무엇: 컴포넌트를 BE API에 연결하고 상태·데이터 흐름을 처리
+- 완료기준·증거: `api-binding-check.md` — API 계약 일치(엔드포인트·요청/응답 형태), **loading/empty/error/success 상태 처리**, API 실패·타임아웃 처리, **mock/더미 데이터가 production path에 안 남음**, 호출이 `src/api`·`src/utils/api.js` 계층 경유
+- 리뷰 렌즈: 계약 적합성, 상태 처리 누락, 에러 핸들링, mock 잔재, baseURL·토큰 흩뿌림
+
+### 혼합
+
+- 대부분의 화면 작업. 두 모드의 산출물·기준·리뷰 렌즈를 **모두** 적용한다.
 
 ## 실행 모드 정의
 
@@ -107,5 +117,5 @@ FE 작업은 "테스트 통과"만으로 완료하지 않는다. 사용자에게
 5. API 계약 또는 환경 설정이 포함된 변경은 반드시 API 계약 변경 내역을 별도로 리뷰한다.
 6. `package.json` / ESLint / Jest / CRA override / Dockerfile / nginx / 환경변수 변경은 사용자 승인 없이 수행하지 않는다.
 7. API 호출은 src/api 또는 src/utils/api.js 계층을 우선 사용하고, base URL·토큰·에러 처리를 화면 컴포넌트에 흩뿌리지 않는다.
-8. 디자인 적용 작업은 `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` 중 해당 산출물을 남긴다.
+8. **디자인 구현** 작업은 `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` 중 해당 산출물을, **API 바인딩** 작업은 `api-binding-check.md`(계약 일치·상태 처리·mock 잔재·api 계층 경유)를 남긴다. 혼합이면 둘 다 남긴다.
 9. TDD: feature/maintenance 트랙은 Red→Green→Refactor 사이클을 따른다. 실패 테스트를 먼저 작성(Red), 최소 구현으로 PASS(Green), 테스트 녹색 유지하며 정리(Refactor). 증거 로그는 아티팩트 디렉토리의 `tdd-baseline-log.txt`(bug/feature는 FAIL, refactor는 PASS baseline) / `tdd-green-log.txt` / `tdd-refactor-notes.md`에 캡처한다. 테스트 러너는 **React Testing Library + Jest**. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
