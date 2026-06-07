@@ -31,8 +31,6 @@ BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CH
 - 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다. 울트라코드(워크플로우)가 켜지면 병렬+반박으로 더 정밀해지고, 꺼져도 가볍게 작동한다.
 - 공통 보조 명령: `requirements`·`criteria`·`design-intent`·`prior-art`(feature), `convention-check`(maintenance), `feasibility`(planning) 가 `hb-shared`로 모여 있다.
 
-> **제품 레포 적용:** 플러그인 `CLAUDE.md`는 스킬 활성화 시에만 읽히므로, 제품 레포의 always-read 문서(`CLAUDE.md`/`AGENTS.md`)에 이 방법론을 명시해야 트랙 호출 없이도 기본 적용된다. 캐논 스니펫·절차 → [docs/PRODUCT-REPO-ADOPTION.md](docs/PRODUCT-REPO-ADOPTION.md).
-
 ## 트랙 비교 (공통)
 
 | 트랙 | 언제 쓰나 | 코드 수정 | 최종 출력 |
