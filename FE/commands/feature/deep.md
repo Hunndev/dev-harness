@@ -130,16 +130,17 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - 리팩토링할 내용이 없으면: "skipped: no refactoring needed — baseline clean"
 6. worktree를 정리한다.
 
-### [F9] 시각/반응형/a11y 검증 (Fork)
+### [F9] 시각/반응형/a11y + API 바인딩 검증 (Fork)
 
 1. **worktree(fork)를 생성**한다.
 2. 로컬 앱을 실행하거나 기존 dev 서버를 사용해 주요 route를 확인한다.
 3. `visual-check.md`에 route, 사용자 상태, desktop/mobile 관찰 결과, loading/empty/error/success 상태를 기록한다.
 4. `responsive-check.md`에 375px, 768px, 1440px 기준 결과를 기록한다.
 5. `accessibility-notes.md`에 alt text, form label, keyboard focus, contrast, button label 결과를 기록한다.
-6. 디자인 소스와 다르게 구현한 부분은 의도와 근거를 남긴다.
-7. 깨짐이 있으면 F7로 복귀하여 수정한다.
-8. worktree를 정리한다.
+6. **API 바인딩 작업이면** `api-binding-check.md`에 기록한다: API 계약 일치(엔드포인트·요청/응답 형태), loading/empty/error/success 상태 처리, API 실패·타임아웃 처리, mock/더미 데이터가 production path에 남지 않음, 호출이 `src/api`·`src/utils/api.js` 계층 경유. (디자인 구현 전용 작업이면 "N/A: 디자인 구현 전용")
+7. 디자인 소스와 다르게 구현한 부분은 의도와 근거를 남긴다.
+8. 깨짐·상태 누락이 있으면 F7로 복귀하여 수정한다.
+9. worktree를 정리한다.
 
 ### [F10] PR 본문 생성 (Fork)
 
@@ -162,7 +163,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 2. 입력:
    - `code-quality-guide.md`
    - `design-intent.md`
-   - `visual-check.md`, `responsive-check.md`, `accessibility-notes.md`
+   - `visual-check.md`, `responsive-check.md`, `accessibility-notes.md`, `api-binding-check.md`
    - `pr-body.md`
    - **F6 Red 테스트 파일** (`src/__tests__/{module}.feature.{branch-name}.test.jsx`)
    - **F7 Green 구현** (`git diff main...HEAD`)
@@ -171,7 +172,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - 의도를 파악하고, 비판적으로 검토
    - 모든 코멘트는 code-quality-guide.md에 근거
    - 의도적 결정을 존중. 의도-구현 불일치는 지적.
-   - 디자인 적용 시 텍스트 겹침, 모바일 overflow, 터치 타깃, focus, loading/empty/error 상태 누락 확인
+   - 디자인 구현 시: 텍스트 겹침, 모바일 overflow, 터치 타깃, focus 확인
+   - API 바인딩 시: API 계약 일치, loading/empty/error/success 상태 처리 누락, mock/더미 데이터 잔재, src/api 계층 우회 확인
    - **테스트-구현 정합성 확인**: 테스트가 의도한 동작을 실제로 검증하는지 확인
    - 우선순위 분류: [p1] 필수 / [p2] 강력 권장 / [p3] 권장 / [p4] 사소
    - side effect가 있으면 반드시 설명
@@ -223,6 +225,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
   visual-check.md
   responsive-check.md
   accessibility-notes.md
+  api-binding-check.md        (API 바인딩 작업일 때)
   pr-body.md
   review-comments.md
   INDEX.md
