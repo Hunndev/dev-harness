@@ -28,7 +28,7 @@ pass() { echo "${GREEN}✅${RESET} $*"; }
 fail() { echo "${RED}❌${RESET} $*"; FAIL=1; }
 info() { echo "${YELLOW}▸${RESET} $*"; }
 
-TARGET_DIRS=(BE/commands CM/commands FE/commands CHAT/commands)
+TARGET_DIRS=(BE/commands CM/commands FE/commands CHAT/commands SHARED/commands)
 
 # ── R1: 옛 문구 잔재 ───────────────────────────────────────────────
 echo
@@ -110,7 +110,7 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 echo
 echo "R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts)"
 r5_violations=0
-wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md 2>/dev/null || true)
+wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md 2>/dev/null || true)
 if [ -n "$wrong" ]; then
   fail "BE/CM/FE 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
   echo "$wrong" | sed 's/^/    /'
@@ -122,7 +122,7 @@ fi
 echo
 echo "R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml)"
 r6_violations=0
-R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md README.md)
+R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
 docs_wrong=$(grep -rnE '(^|[^./])docs/(code-convention|adr|architecture|module-registry)\.yaml' \
@@ -149,15 +149,16 @@ plugin_name() {
     CM) echo "hb-cm" ;;
     FE) echo "hb-fe" ;;
     CHAT) echo "hb-chat" ;;
+    SHARED) echo "hb-shared" ;;
     *)  echo "" ;;
   esac
 }
 
 # ── R7: 세 플러그인 구조/등록 검증 (BE/CM/FE × Claude/Codex) ──────
 echo
-echo "R7. 플러그인 Codex/Claude 등록 구조 (BE/CM/FE/CHAT)"
+echo "R7. 플러그인 Codex/Claude 등록 구조 (BE/CM/FE/CHAT/SHARED)"
 r7_violations=0
-for p in BE CM FE CHAT; do
+for p in BE CM FE CHAT SHARED; do
   name="$(plugin_name "$p")"
   for required in \
     "$p/.claude-plugin/plugin.json" \
@@ -189,7 +190,7 @@ for mp in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
     r7_violations=$((r7_violations + 1))
     continue
   fi
-  for name in hb-be hb-cm hb-fe hb-chat; do
+  for name in hb-be hb-cm hb-fe hb-chat hb-shared; do
     if ! grep -q "\"name\"[[:space:]]*:[[:space:]]*\"$name\"" "$mp"; then
       fail "$mp 에 $name 엔트리 없음"
       r7_violations=$((r7_violations + 1))
@@ -199,7 +200,7 @@ done
 
 # Codex marketplace: 각 플러그인 source.path(./BE, ./CM, ./FE) 확인
 if [ -f ".agents/plugins/marketplace.json" ]; then
-  for p in BE CM FE CHAT; do
+  for p in BE CM FE CHAT SHARED; do
     if ! grep -q "\"path\"[[:space:]]*:[[:space:]]*\"./$p\"" .agents/plugins/marketplace.json; then
       fail ".agents/plugins/marketplace.json에 source.path \"./$p\" 없음"
       r7_violations=$((r7_violations + 1))
@@ -241,7 +242,7 @@ fi
 echo
 echo "R9. 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)"
 r9_violations=0
-for p in BE CM FE CHAT; do
+for p in BE CM FE CHAT SHARED; do
   name="$(plugin_name "$p")"
   claude_json="$p/.claude-plugin/plugin.json"
   codex_json="$p/.codex-plugin/plugin.json"

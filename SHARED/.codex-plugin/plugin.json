@@ -1,0 +1,33 @@
+{
+  "name": "hb-shared",
+  "version": "0.1.0",
+  "description": "BUCCL dev-harness 공통 개발 방법론 코어. 스택 무관 공통 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 Codex skill로 제공한다.",
+  "author": {
+    "name": "buccl"
+  },
+  "license": "MIT",
+  "keywords": [
+    "buccl",
+    "methodology",
+    "development-harness",
+    "shared"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BUCCL Shared Harness",
+    "shortDescription": "4팀 공통 개발 방법론(공통 명령)을 제공합니다.",
+    "longDescription": "BUCCL dev-harness의 공통 개발 방법론 코어입니다. 요구사항 정리, 완료기준, 설계 의도, 선행 조사, 컨벤션 점검, 타당성 검토 등 스택과 무관한 공통 명령을 BE/CM/FE/CHAT 플러그인이 함께 사용합니다.",
+    "developerName": "buccl",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "hb-shared feature requirements로 요구사항을 정리해줘",
+      "hb-shared feature criteria로 완료기준을 잡아줘",
+      "hb-shared planning feasibility로 타당성을 검토해줘"
+    ],
+    "brandColor": "#6366F1"
+  }
+}
