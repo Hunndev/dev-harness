@@ -2,7 +2,18 @@
 
 dev-harness 공통 개발 방법론 코어. BE/CM/FE/CHAT 플러그인이 함께 쓰는 **스택 무관 공통 명령**을 제공한다.
 
-## 제공 명령 (스택 무관)
+## 방법론 순서표 (한 바퀴)
+
+| 명령 | 단계 | 용도 |
+|------|------|------|
+| `/hb-shared:seed` | ② | 주문서 — 목표·범위·완료기준 한 장 (ambiguity 점검 내장) |
+| `/hb-shared:evaluate` | ④ | 검사 — seed 기준 증거 확인 |
+| `/hb-shared:review` | ⑤ | 리뷰 관문 — 자동검사·관점별·Codex 교차·반박·게이트 |
+| `/hb-shared:evolve` | ⑥ | 개선 제안 — 반복 문제 → 메모리(제안만) |
+
+빌드(③)는 각 도메인 플러그인(BE/CM/FE/CHAT)이, interview(①)는 필요 시 진행한다.
+
+## 공통 단계 명령 (스택 무관)
 
 | 명령 | 용도 |
 |------|------|
@@ -20,4 +31,4 @@ dev-harness 공통 개발 방법론 코어. BE/CM/FE/CHAT 플러그인이 함께
 - 진실의 원천 문서는 작업 레포의 `.harness/docs/*.yaml`이다.
 - 무거운 읽기·조사는 서브에이전트로 내려 메인 컨텍스트를 아끼고, **결론과 산출물 경로만** 회수한다.
 
-> 향후 계획: `seed`(요구사항·완료기준 통합), `evaluate`(증거 기반 검사), `evolve`(개선 제안), `review`(머지 전 리뷰 관문) 명령이 이 플러그인에 추가된다. 설계: `docs/SHARED-CORE-DESIGN.md`.
+> 설계 전문: `docs/SHARED-CORE-DESIGN.md`. 이 플러그인은 순서표(seed→evaluate→review→evolve)와 공통 단계 명령을 제공하고, 스택별 빌드·테스트·규칙은 BE/CM/FE/CHAT 각 플러그인에 둔다.
