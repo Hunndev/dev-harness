@@ -90,3 +90,15 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 4. 새 ADR 생성은 planning/adr 트랙에서만. maintenance/feature는 기존 ADR 준수만 체크(`convention-check.md`).
 5. TDD: feature/maintenance는 Red→Green→Refactor. 테스트 러너는 **Jest**. 증거는 `tdd-baseline-log.txt`/`tdd-green-log.txt`에 캡처. 프로토콜은 `commands/shared/tdd.md`.
 6. dual review gate: 완료는 항상 테스트+lint+build 통과 + Codex/Claude 리뷰 blocking 0. `commands/shared/review-gates.md`.
+
+## 방법론 연결 (hb-shared 순서표)
+
+feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature:auto`/`deep`(및 maintenance)를 호출하면 아래가 자동으로 적용된다:
+
+1. **시작 — 주문서**: `/hb-shared:seed` 방법으로 목표·범위·완료기준을 먼저 고정한다. (작은 일은 약식 3줄, 큰 일은 한 장)
+2. **구현**: 아래 트랙 명령(feature/maintenance)으로 만든다.
+3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다.
+4. **리뷰**: 머지 전 `/hb-shared:review`의 **5단계 관문**(자동검사 → 관점별 → Codex∥Claude 교차 → 반박 → 게이트)을 적용한다. **기존 코드리뷰 스텝의 단일 패스는 이 5단계로 대체**하며, 기존 스텝 절차는 그중 "관점별 리뷰([R2])"의 세부로 쓴다.
+5. **개선(선택)**: `/hb-shared:evolve`로 반복 문제를 제안으로 남긴다(제안만, 자동 수정 X).
+
+완료기준·증거·리뷰 렌즈는 이 플러그인 스택을 따른다. 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다.
