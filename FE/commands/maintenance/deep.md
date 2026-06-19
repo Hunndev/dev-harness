@@ -275,6 +275,8 @@ npm test -- --watchAll=false
 
 ### [M9] 리뷰 + 반영 (Sub-agent + Fork)
 
+> **이 리뷰 = `/hb-shared:review` 5단계 관문**: [R1] 자동검사(테스트·빌드, 실패면 멈춤) → [R2] 아래 관점별 리뷰 → [R3] Codex∥Claude 교차검증(codex 자동 호출) → [R4] 반박(가짜 경보 제거) → [R5] 관문(blocking이면 고치고 [R1]부터). 아래 절차는 [R2] 관점별 리뷰의 세부다.
+
 1. **sub-agent를 호출**하여 코드리뷰를 수행한다:
    - `fix-plan.md` (의도)
    - `convention-check.md` (기준)

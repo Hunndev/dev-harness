@@ -4,11 +4,11 @@
 # 검증 규칙 (모두 통과해야 exit 0):
 #   R1. 옛 "Agent Team을 호출" / "이 skill은 Agent Team으로 실행" 문구 잔재 없음
 #   R2. 팀 스펙(team_name) 있는 파일엔 TeamDelete 언급 있음
-#   R3. BE/CM 대응 파일의 스텝 헤더(M1/P1/F1...) 개수 일치
+#   R3. 도메인 간 스텝 헤더 개수 대칭 (planning·maintenance는 BE/CM/FE/CHAT 동일 / feature는 FE·CHAT≥BE)
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
-#   R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
-#   R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
-#   R7. 플러그인(BE/CM/FE/CHAT) Codex/Claude 등록 파일 존재·JSON 유효성·양쪽 marketplace 등록
+#   R5. 아티팩트 경로 일관성 (BE/CM/FE/CHAT/SHARED 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
+#   R6. 참조 문서 경로 일관성 (BE/CM/FE/CHAT/SHARED/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
+#   R7. 플러그인(BE/CM/FE/CHAT/SHARED) Codex/Claude 등록 파일 존재·JSON 유효성·양쪽 marketplace 등록
 #   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인 산출물, watchAll=false 테스트 명령)
 #   R9. 플러그인 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)
 #
@@ -54,25 +54,63 @@ while IFS= read -r f; do
 done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 [ $r2_violations -eq 0 ] && pass "모든 팀 스펙 파일이 TeamDelete 포함"
 
-# ── R3: BE/CM 대응 파일 스텝 수 일치 ─────────────────────────────
+# ── R3: 도메인 간 스텝 헤더 대칭 ─────────────────────────────
+# planning·maintenance: 4도메인(BE/CM/FE/CHAT) 완전 대칭(스택 무관 동일 골격).
+# shared·feature: BE↔CM 엄격. feature의 FE(+F7 검증)·CHAT(+F3b 계약)은 의도적 추가 스텝이라 BE 이상이면 통과(누락만 차단).
 echo
-echo "R3. BE/CM 대응 파일 스텝 헤더 개수 일치"
+echo "R3. 도메인 간 스텝 헤더 개수 대칭 (planning·maintenance 4도메인 / feature FE·CHAT≥BE)"
 r3_violations=0
-for be_file in BE/commands/planning/*.md BE/commands/maintenance/*.md BE/commands/feature/*.md BE/commands/shared/*.md; do
+count_steps() { grep -cE '^### \[[A-Z][0-9]' "$1" 2>/dev/null; }
+
+# planning·maintenance: BE 기준 CM/FE/CHAT 완전 일치
+for be_file in BE/commands/planning/*.md BE/commands/maintenance/*.md; do
+  [ -f "$be_file" ] || continue
+  be_count=$(count_steps "$be_file")
+  for dom in CM FE CHAT; do
+    dom_file="$dom/${be_file#BE/}"
+    if [ ! -f "$dom_file" ]; then
+      info "$dom에 대응 파일 없음 (skip): $be_file"
+      continue
+    fi
+    dom_count=$(count_steps "$dom_file")
+    if [ "$be_count" != "$dom_count" ]; then
+      fail "스텝 수 불일치: $be_file ($be_count) vs $dom_file ($dom_count)"
+      r3_violations=$((r3_violations + 1))
+    fi
+  done
+done
+
+# shared·feature: BE↔CM 엄격 비교
+for be_file in BE/commands/shared/*.md BE/commands/feature/*.md; do
   [ -f "$be_file" ] || continue
   cm_file="CM/${be_file#BE/}"
   if [ ! -f "$cm_file" ]; then
     info "CM에 대응 파일 없음 (skip): $be_file"
     continue
   fi
-  be_count=$(grep -cE '^### \[[A-Z][0-9]' "$be_file" 2>/dev/null)
-  cm_count=$(grep -cE '^### \[[A-Z][0-9]' "$cm_file" 2>/dev/null)
+  be_count=$(count_steps "$be_file")
+  cm_count=$(count_steps "$cm_file")
   if [ "$be_count" != "$cm_count" ]; then
     fail "스텝 수 불일치: $be_file ($be_count) vs $cm_file ($cm_count)"
     r3_violations=$((r3_violations + 1))
   fi
 done
-[ $r3_violations -eq 0 ] && pass "BE/CM 스텝 수 대칭"
+
+# feature: FE·CHAT는 BE 이상(의도적 추가 스텝 허용, 누락 차단)
+for be_file in BE/commands/feature/*.md; do
+  [ -f "$be_file" ] || continue
+  be_count=$(count_steps "$be_file")
+  for dom in FE CHAT; do
+    dom_file="$dom/${be_file#BE/}"
+    [ -f "$dom_file" ] || continue
+    dom_count=$(count_steps "$dom_file")
+    if [ "$dom_count" -lt "$be_count" ]; then
+      fail "feature 스텝 누락 의심: $dom_file ($dom_count) < BE ($be_count)"
+      r3_violations=$((r3_violations + 1))
+    fi
+  done
+done
+[ $r3_violations -eq 0 ] && pass "도메인 간 스텝 대칭 OK (planning·maintenance 4도메인 / feature FE·CHAT≥BE)"
 
 # ── R4: 팀 산출 파일이 병합 섹션에 언급 ──────────────────────────
 echo
@@ -108,7 +146,7 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 # R5는 문자열 '.harness-artifacts'가 고유하므로 literal grep.
 # R6은 'docs/'가 다른 맥락(예: "docs 디렉토리")과 충돌할 수 있어 regex로 경계를 제한.
 echo
-echo "R5. 아티팩트 경로 일관성 (BE/CM/FE 모두 .harness/artifacts)"
+echo "R5. 아티팩트 경로 일관성 (BE/CM/FE/CHAT/SHARED 모두 .harness/artifacts)"
 r5_violations=0
 wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md 2>/dev/null || true)
 if [ -n "$wrong" ]; then
@@ -120,7 +158,7 @@ fi
 
 # ── R6: 참조 문서 경로 일관성 ─────────────────────────────────────
 echo
-echo "R6. 참조 문서 경로 일관성 (BE/CM/FE/README 모두 .harness/docs/*.yaml)"
+echo "R6. 참조 문서 경로 일관성 (BE/CM/FE/CHAT/SHARED/README 모두 .harness/docs/*.yaml)"
 r6_violations=0
 R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
