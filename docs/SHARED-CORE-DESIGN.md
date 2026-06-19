@@ -1,6 +1,6 @@
 # 하네스 v2 설계 — 공통 코어(hb-shared) + 일하는 순서표 + 컨텍스트 절약
 
-> 상태: 설계 확정(2026-06-08). 구현 전. 기준선 = `origin/main`(4 플러그인 BE/CM/FE/CHAT, R1~R9, Codex 자산 보유, v0.5.0).
+> 상태: **구현 완료(Phase 1~3, origin/main 머지됨).** hb-shared 코어 + seed/evaluate/review/evolve + feature 흐름 연결 반영. 기준선 = **5 플러그인**(BE/CM/FE/CHAT + hb-shared). 구현 메모: §7의 `team-protocol`·`interview`는 SHARED로 이동하지 않고 도메인 잔류(설계와 차이, 추후 정합화 대상). feature는 5단계 리뷰 인라인 연결 완료, maintenance auto/deep도 연결(hotfix 제외).
 
 ## 0. 목표
 - 4팀(BE/CM/FE/CHAT)에 흩어진 공통 방법론을 **`hb-shared` 한 곳**으로 모은다.
