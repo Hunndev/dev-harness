@@ -29,13 +29,13 @@
 
 ## 파이프라인
 
-### [H1] 재현 테스트 [TDD Red] (Fork)
+### [H1] 재현 테스트 [TDD Red] (메인)
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npx jest --listTests --silent` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `npx jest --version`으로 Jest 버전 확인 → 플래그 선택 (`--testPathPattern` vs `--testPathPatterns`)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md` 삭제 (hotfix는 Green→Red 재작성이 없으므로 `tdd-red-revisions.md`는 해당 없음)
-2. worktree(fork)를 생성한다.
+2. 메인의 현재 branch에서 직접 수행한다 — T0는 fork를 생략한다 (한 파일·한 라인 수정에 격리 이득이 없다).
 3. 사용자가 제시한 증상을 **FAIL로 입증하는 최소 테스트**를 작성한다.
    - 파일: `src/__tests__/{module}.hotfix.{identifier}.test.ts`
    - 가장 좁은 범위(단일 함수/핸들러/repository)로 한정
@@ -47,7 +47,7 @@
    - 테스트 파일 경로
    - FAIL 출력 요약
 
-### [H2] 수정 [TDD Green] (Fork)
+### [H2] 수정 [TDD Green] (메인)
 
 1. **Red 테스트(H1)가 PASS가 되는 '최소 수정'만** 수행한다. 사용자가 지정한 파일·라인 이외는 수정하지 않는다.
    - **판정 기준**: 이 수정이 아래 "Refactor 금지" 정의의 **허용** 범주인가? "이 변경을 되돌렸을 때 H1 테스트가 다시 FAIL하는가?"의 답이 YES이면 허용, NO이면 Refactor이므로 금지.

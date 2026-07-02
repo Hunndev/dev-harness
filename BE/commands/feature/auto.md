@@ -32,27 +32,28 @@
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. `git branch --show-current`로 현재 branch를 확인한다.
 3. `git diff main...HEAD --stat`으로 변경 파일 목록을 확인한다 (있으면).
-4. 사용자에게 다음을 확인한다:
+4. resolve된 값을 한 줄로 **보고**하고, 이의가 없으면 그대로 진행한다 — 질문으로 멈추지 않는다:
    - branch명
    - base branch (기본: `main`)
    - 변경 파일 수 (있으면)
 5. `.harness/artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
 6. 기존 `code-quality-guide.md`가 같은 영역에 이미 있는지 확인하고, 있으면 재사용 후보로 표시한다.
 
-### [F2] 요구사항 정리 (Fork)
+### [F2] 요구사항 정리 (메인)
 
-1. worktree(fork)를 생성한다.
+> **이 스텝 = `/hb-shared:seed` 주문서 겸직**: `.harness/artifacts/feature/{branch-name}/seed.md`가 이미 있으면 그것을 요구사항 소스로 읽고 같은 질문을 반복하지 않는다. 없으면 이 스텝 산출물(`requirements.md`)이 약식 seed를 겸한다 — 목표·범위·**제외(안 하는 것)**·완료기준(MUST)을 서두에 포함하면 별도 seed 실행이 불필요하다.
+
+1. 메인에서 직접 수행한다 — 이 스텝은 문서 산출물만 만들고 코드를 수정하지 않는다. (대규모 조사만 Sub-agent 위임)
 2. planning 트랙의 산출물이 있으면 가져온다:
    - `requirements-interview.md` 또는 `feasibility.md` → 요약
    - `decision-draft.md` 또는 관련 `.harness/docs/adr.yaml` 항목 → 참조
 3. 없으면 사용자에게 질문하여 수집한다.
 4. 요구사항을 MUST / SHOULD / NICE로 분류한다.
 5. `requirements.md`를 저장한다.
-6. worktree를 정리한다.
 
-### [F3] 설계의도 작성 (Fork) _(deep의 F4에 해당)_
+### [F3] 설계의도 작성 (메인) _(deep의 F4에 해당)_
 
-1. worktree(fork)를 생성한다.
+1. 메인에서 직접 수행한다 — 이 스텝은 문서 산출물만 만들고 코드를 수정하지 않는다. (대규모 조사만 Sub-agent 위임)
 2. 아래 내용을 포함하는 문서를 작성:
    - 작업 개요
    - 핵심 설계 결정과 트레이드오프
@@ -60,7 +61,6 @@
    - 주의사항
 3. 초안과 **모호한 논의점**을 사용자에게 제시한다.
 4. 사용자 피드백을 반영하여 `design-intent.md`를 확정한다.
-5. worktree를 정리한다.
 
 ### [F4] [TDD Red] 실패 테스트 작성 (Fork) _(deep의 F6에 해당)_
 
@@ -120,6 +120,8 @@
 5. **사용자 확인 없이 자동 진행.**
 
 ### [F8] 리뷰 반영 + QA (Fork) _(deep의 F11에 해당)_
+
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. worktree(fork)를 생성한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:

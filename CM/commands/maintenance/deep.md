@@ -24,6 +24,8 @@
 
 ### [M1] 상태 점검 (메인)
 
+> **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npx jest --listTests --silent` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `npx jest --version`으로 Jest 버전 확인 → 플래그 선택 (`--testPathPattern` vs `--testPathPatterns`)
@@ -207,6 +209,8 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 > fix-plan + impact-analysis 범위를 벗어나는 리팩토링 유혹이 생기면 별도 maintenance 작업으로 분리한다.
 
 ### [M8] 회귀 테스트 리포트 — 병렬 실행 (Agent Team) ★
+
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
