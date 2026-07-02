@@ -19,10 +19,11 @@
 1. **Sub-agent를 호출**해 스택이 정의한 자동검사(린터·테스트·빌드, FE는 + 시각·반응형·접근성)를 실행한다 — 해당 플러그인 `shared/verify`.
 2. raw 로그는 `.harness/artifacts/{track}/{identifier}/review-auto-log.txt`에 저장하고, 메인엔 통과/실패 + 경로만 회수한다.
 3. **실패하면 즉시 멈춘다** → 사람·AI가 코드를 보기 전에 먼저 고친다 (싸게 거른다). 통과해야 [R2]로 넘어간다.
+4. **재사용 규칙**: 같은 HEAD에서 직전 evaluate(또는 트랙의 QA/회귀 스텝)가 이미 통과했으면 — `evaluate-report.md`의 HEAD 기록과 현재 `git rev-parse --short HEAD`가 일치하고 이후 변경이 없으면 — 자동검사를 재실행하지 않고 그 로그를 재사용한다. 리포트에 "재사용(evaluate, HEAD {sha})"로 명시한다.
 
 ### [R2] 관점별 리뷰 (Sub-agent / 울트라코드 시 Teams)
 
-1. 입력 경로만 확정한다(읽기는 Sub-agent에 위임): `code-quality-guide.md`(기준), `design-intent.md`(의도), `pr-body.md`, `git diff main...HEAD`, 스택 증거.
+1. 입력 경로만 확정한다(읽기는 Sub-agent에 위임): `seed.md`(주문서 완료기준 — **있으면 1순위**), `code-quality-guide.md`(기준 — 없으면 `.harness/docs/code-convention.yaml` + `adr.yaml`로 대체), `design-intent.md`(의도), `pr-body.md`, `git diff main...HEAD`, 스택 증거. **없는 문서는 건너뛴다(중단 금지)**.
 2. 관점을 나눠 리뷰한다 — **렌즈는 스택을 따른다**:
    - BE/CM = 버그 / 보안 / 성능 / 구조·간결성
    - FE = 디자인 일관성 / 시각 계층 / 접근성 / 구조 (+ Claude 디자인 리뷰)
@@ -34,7 +35,8 @@
 
 1. **Claude Code가 `codex` CLI를 Bash로 자동 호출**해 같은 diff를 다른 엔진으로 재검토한다 (사람이 Codex를 따로 켜지 않는다). `gstack-codex` 스킬을 활용할 수 있다.
 2. Codex 결과를 [R2] 발견과 **대조**한다: 양쪽이 함께 지적한 것은 신뢰도↑, 한쪽만 지적한 것은 [R4] 반박으로 넘긴다.
-3. Codex 미설치/실패 시 이 단계를 건너뛰되 `review-report.md`에 "교차검증 생략(사유)"을 명시한다.
+3. Codex 미설치/실패 시 이 단계를 건너뛰되 `review-comments.md`에 "교차검증 생략(사유)"을 명시한다.
+4. **크기 예외**: 소규모 변경(diff 약 50줄 미만이고 계약·보안·마이그레이션 경계를 건드리지 않음)은 [R3]을 생략할 수 있다 — 리포트에 "교차검증 생략(소규모: {n}줄)"을 명시한다.
 
 ### [R4] 반박 (Sub-agent)
 
@@ -44,11 +46,12 @@
 
 ### [R5] 관문 판정 (메인)
 
-1. `review-report.md`를 병합·확정한다. 울트라코드 Teams였으면 관점 충돌을 명시하고 팀을 해체한다 (`SendMessage({type:"shutdown_request"})` → `TeamDelete`).
+1. `review-comments.md`를 병합·확정한다 (트랙 파이프라인의 리뷰 반영 스텝이 읽는 파일과 동일 — 이름을 갈라놓지 않는다). 울트라코드 Teams였으면 관점 충돌을 명시하고 팀을 해체한다 (`SendMessage({type:"shutdown_request"})` → `TeamDelete`).
 2. **blocking([p1]) 있으면** → 멈추고 build로 복귀, 고친 뒤 [R1]부터 재실행한다.
 3. **없으면** → 통과 ✅. 메인엔 [p1] 개수와 핵심 결론만 보고하고, 상세는 산출물 경로로 안내한다.
+4. **다음 단계**: 통과 → 머지. 이번 바퀴에서 반복 마찰(같은 지적 2회 이상, 도구 실패 등)이 있었으면 `/hb-shared:evolve`(선택)로 개선 제안을 남긴다.
 
-## 산출물: review-report.md
+## 산출물: review-comments.md
 
 ```markdown
 # 리뷰 리포트

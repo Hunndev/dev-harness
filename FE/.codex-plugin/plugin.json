@@ -1,6 +1,6 @@
 {
   "name": "hb-fe",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "BUCCL 프론트엔드(React) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
   "author": {
     "name": "buccl"

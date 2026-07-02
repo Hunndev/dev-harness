@@ -1,6 +1,6 @@
 {
   "name": "hb-shared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "BUCCL dev-harness 공통 개발 방법론 코어. 스택 무관 공통 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 Codex skill로 제공한다.",
   "author": {
     "name": "buccl"

@@ -31,13 +31,15 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. `git branch --show-current`로 현재 branch를 확인한다.
 3. `git diff main...HEAD --stat`으로 변경 파일 목록을 확인한다 (기존 코드가 있으면).
-4. 사용자에게 다음을 확인한다:
+4. resolve된 값을 한 줄로 **보고**하고, 이의가 없으면 그대로 진행한다 — 질문으로 멈추지 않는다:
    - branch명
    - base branch (기본: `main`)
    - 변경 파일 수 (있으면)
 5. `.harness/artifacts/feature/{branch-name}/` 디렉토리를 생성한다.
 
 ### [F2] 요구사항 정리 (Fork)
+
+> **이 스텝 = `/hb-shared:seed` 주문서 겸직**: `.harness/artifacts/feature/{branch-name}/seed.md`가 이미 있으면 그것을 요구사항 소스로 읽고 같은 질문을 반복하지 않는다. 없으면 이 스텝 산출물(`requirements.md`)이 약식 seed를 겸한다 — 목표·범위·**제외(안 하는 것)**·완료기준(MUST)을 서두에 포함하면 별도 seed 실행이 불필요하다.
 
 1. **worktree(fork)를 생성**하여 요구사항을 정리한다.
 2. planning 트랙의 산출물이 있으면 가져온다:
@@ -183,6 +185,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 5. **사용자 확인 없이 자동 진행.**
 
 ### [F12] 리뷰 반영 + QA (Fork)
+
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. **worktree(fork)를 생성**하여 리뷰를 반영한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:
