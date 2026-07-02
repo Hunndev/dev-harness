@@ -42,16 +42,16 @@
 ## 사용자 유형
 | 유형 | 주요 관심사 | 영향 수준 |
 |------|-----------|---------|
-| 프리다이버 (수강생) | ... | high/medium/low |
+| 수강생 (앱/웹 사용자) | ... | high/medium/low |
 | 강사 | ... | ... |
 | 관리자 | ... | ... |
 
 ## 시스템 유형
 | 컴포넌트 | 영향 내용 |
 |---------|---------|
-| 프론트엔드 (WebView) | ... |
-| 백엔드 (Django/DRF) | ... |
-| Backend API | ... |
+| 프론트엔드 (React SPA + Capacitor WebView) | ... |
+| 백엔드 API (Django BE) | ... |
+| 커뮤니티·채팅 API (CM/CHAT) | ... |
 | 인프라 (Docker Swarm/Azure) | ... |
-| 외부 서비스 (Innopay, Azure Blob) | ... |
+| 외부 서비스 (Innopay 결제창, Azure Blob) | ... |
 ```

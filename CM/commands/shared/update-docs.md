@@ -74,7 +74,7 @@ planning 트랙의 `decision-draft.md`를 adr.yaml에 편입할 때:
 ## context 작성 가이드라인
 
 - 나쁜 예: "DB 연결이 불안정해서 설정을 변경"
-- 좋은 예: "Docker Swarm 환경에서 MariaDB 연결이 wait_timeout 이후 끊어지면서 'MySQL server has gone away' 에러가 간헐적으로 발생했다. Django 기본값(CONN_MAX_AGE=0)은 매 요청마다 연결을 새로 맺어 성능 저하가 있었다."
+- 좋은 예: "Docker Swarm 환경에서 MySQL 연결이 wait_timeout 이후 끊어지면서 'PROTOCOL_CONNECTION_LOST' 에러가 간헐적으로 발생했다. 요청마다 커넥션을 새로 맺는 방식은 성능 저하가 있어, mysql2 커넥션 풀(재연결 처리 포함) 도입을 검토했다."
 - context가 불충분하면 사용자에게 구체화를 요청한다.
 
 ## architecture.yaml 갱신

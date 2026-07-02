@@ -1,4 +1,4 @@
-# 유지보수 파이프라인 (CM)
+# 유지보수 파이프라인 (CHAT)
 
 이미 돌아가는 코드의 문제를 고치거나 개선한다. 회귀를 만들지 않는 것이 최우선.
 
@@ -10,7 +10,7 @@
 ## 식별자
 
 이슈 ID가 있으면 그대로 사용. 없으면 `maint-YYYYMMDD-slug` 형식.
-예: `BUCCL-CM-42` 또는 `maint-20260406-socket-disconnect`
+예: `BUCCL-CHAT-42` 또는 `maint-20260406-socket-disconnect`
 
 ## 핵심 원칙
 

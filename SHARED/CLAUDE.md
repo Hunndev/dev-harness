@@ -24,6 +24,8 @@ dev-harness 공통 개발 방법론 코어. BE/CM/FE/CHAT 플러그인이 함께
 | `/hb-shared:maintenance:convention-check` | 컨벤션/ADR 충돌 점검 |
 | `/hb-shared:planning:feasibility` | 타당성 검토 |
 
+> **지위**: `requirements`·`criteria`는 seed 주문서에 **흡수**되어 기본 흐름에서는 seed가 대신한다. 나머지는 각 도메인 파이프라인이 인라인으로 수행하는 스텝의 **스택 중립 canonical 정의**이며, 파이프라인 밖에서 그 단계만 따로 돌릴 때 opt-in으로 호출한다.
+
 ## 원칙
 
 - 이 플러그인의 명령은 **"어떻게 일하나"(방법)** 만 다룬다. 실제 빌드·테스트 명령과 스택 규칙은 BE/CM/FE/CHAT 각 플러그인에 있다.

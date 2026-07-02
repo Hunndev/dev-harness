@@ -1,4 +1,4 @@
-# 영향도 조사 — 병렬 탐색 (CM)
+# 영향도 조사 — 병렬 탐색 (CHAT)
 
 3개 방향에서 동시에 영향 범위를 탐색한다.
 모듈/호출자/데이터 흐름을 동시에 훑어야 누락이 없다.
@@ -9,7 +9,7 @@
 
 ### 팀 스펙
 
-- `team_name`: `maint-impact-{identifier}` (예: `maint-impact-BUCCL-CM-42`)
+- `team_name`: `maint-impact-{identifier}` (예: `maint-impact-BUCCL-CHAT-42`)
 - `description`: "영향도 3방향 병렬 탐색 (모듈/호출자/데이터흐름)"
 - 팀원 3명 (모두 `subagent_type: general-purpose`, 병렬 스폰):
 

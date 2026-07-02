@@ -42,16 +42,18 @@
 ## 사용자 유형
 | 유형 | 주요 관심사 | 영향 수준 |
 |------|-----------|---------|
-| 프리다이버 (수강생) | ... | high/medium/low |
+| 수강생 (채팅 사용자) | ... | high/medium/low |
 | 강사 | ... | ... |
 | 관리자 | ... | ... |
 
 ## 시스템 유형
 | 컴포넌트 | 영향 내용 |
 |---------|---------|
-| 프론트엔드 (WebView) | ... |
-| 백엔드 (Django/DRF) | ... |
-| DB (MariaDB) | ... |
+| 프론트엔드 (React/WebView) | ... |
+| 채팅 서비스 (Node/TS Express + Socket.io) | ... |
+| 메인 백엔드 연동 (Django BE API) | ... |
+| DB (MySQL chat 전용) | ... |
+| 캐시/Pub-Sub (Redis) | ... |
 | 인프라 (Docker Swarm/Azure) | ... |
-| 외부 서비스 (Innopay, Azure Blob) | ... |
+| 외부 서비스 (Azure Blob 첨부) | ... |
 ```
