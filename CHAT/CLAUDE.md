@@ -102,5 +102,7 @@ feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature
 5. **개선(선택)**: `/hb-shared:evolve`로 반복 문제를 제안으로 남긴다(제안만, 자동 수정 X).
 
 > **T0 예외**: `maintenance:hotfix`는 위 순서표의 예외다 — seed는 약식 3줄(`hotfix-reproduction.md` 서두)로 갈음하고, evaluate·review 5단계 관문은 **생략**한다 (H3 단위 테스트 게이트가 완료 조건). 5단계 관문이 필요해 보이면 그 자체가 `:auto`로의 에스컬레이션 신호다.
+>
+> **신선도 훅**: 트랙 완료(INDEX.md 생성) 시 이번 변경이 `.harness/docs/*.yaml`에 반영될 내용(새 모듈·API·ADR·컨벤션 변화)을 만들었는지 확인하고, 있으면 `/hb-chat:shared:update-docs` 실행을 제안한다. 상태 점검 스텝(F1/M1)은 module-registry의 모듈 목록과 실제 소스를 가볍게 대조해 미등재 모듈 수를 한 줄 보고한다 — **차단하지 않는다** (보고만).
 
 완료기준·증거·리뷰 렌즈는 이 플러그인 스택을 따른다. 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다.
