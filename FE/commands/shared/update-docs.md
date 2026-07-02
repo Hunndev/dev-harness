@@ -33,6 +33,14 @@
 | maintenance | code-convention.yaml | 새 패턴 발견 시. ADR 생성은 planning으로 에스컬레이션 |
 | feature | module-registry.yaml, adr.yaml | 새 모듈/모델/API 반영. 새 ADR은 planning 거쳐야 함 |
 
+## 신선도 교차검사 (호출 시 항상)
+
+이 명령이 호출되면 갱신 대상 여부와 무관하게 아래를 가볍게 수행하고 결과를 한 줄 보고한다:
+
+1. `.harness/docs/module-registry.yaml`의 모듈 목록 vs 실제 소스(`src/pages/`·`src/components/` 디렉토리 목록)를 대조한다.
+2. 미등재 모듈·사라진 모듈이 있으면 개수와 이름만 보고하고, 등재는 사용자 확인 후 진행한다 (자동 편입 금지).
+3. `.harness/docs/` 마지막 갱신 커밋(`git log -1 --format=%ad --date=short -- .harness/docs`) 이후 코드 커밋 수를 보고한다 — 문서가 코드를 얼마나 뒤쳐졌는지의 신호.
+
 ## ADR 편입 시 특별 규칙
 
 planning 트랙의 `decision-draft.md`를 adr.yaml에 편입할 때:
