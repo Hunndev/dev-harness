@@ -9,8 +9,9 @@
 #   R5. 아티팩트 경로 일관성 (BE/CM/FE/CHAT/SHARED 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
 #   R6. 참조 문서 경로 일관성 (BE/CM/FE/CHAT/SHARED/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
 #   R7. 플러그인(BE/CM/FE/CHAT/SHARED) Codex/Claude 등록 파일 존재·JSON 유효성·양쪽 marketplace 등록
-#   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인 산출물, watchAll=false 테스트 명령)
+#   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인+API바인딩 산출물, watchAll=false 테스트 명령)
 #   R9. 플러그인 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)
+#   R10. 문서 참조 경로 실재성 — 백틱 `commands/**.md`는 같은 플러그인 안에, `SHARED/commands/**.md`는 레포 루트에 실재해야 함
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -260,9 +261,9 @@ if [ -n "$fe_stale" ]; then
 fi
 
 for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
-  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md; do
+  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md; do
     if ! grep -q "$artifact" "$feature_doc"; then
-      fail "$feature_doc : FE 디자인 검증 산출물 누락 ($artifact)"
+      fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드)"
       r8_violations=$((r8_violations + 1))
     fi
   done
@@ -303,11 +304,40 @@ for p in BE CM FE CHAT SHARED; do
 done
 [ $r9_violations -eq 0 ] && pass "이름·버전 패리티 OK"
 
+# ── R10: 문서 참조 경로 실재성 ────────────────────────────────────
+# 문서(CLAUDE.md, SKILL.md, commands/**)가 백틱으로 가리키는 commands/**.md가 실재하는지 검사.
+# `commands/...md`는 같은 플러그인 상대 경로, `SHARED/commands/...md`는 레포 루트 상대 경로로 판정.
+# {placeholder}·<plugin> 포함 예시는 문자클래스([A-Za-z0-9_/-])에 걸리지 않아 자동 제외된다.
+echo
+echo "R10. 문서 참조 경로 실재성 (백틱 commands/**.md)"
+r10_violations=0
+for p in BE CM FE CHAT SHARED; do
+  name="$(plugin_name "$p")"
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    while IFS= read -r ref; do
+      [ -z "$ref" ] && continue
+      if [ ! -f "$p/$ref" ]; then
+        fail "$f : 참조 '$ref' 이 $p/ 안에 실재하지 않음"
+        r10_violations=$((r10_violations + 1))
+      fi
+    done < <(grep -ohE '`commands/[A-Za-z0-9_/-]+\.md`' "$f" 2>/dev/null | tr -d '`' | sort -u)
+    while IFS= read -r sref; do
+      [ -z "$sref" ] && continue
+      if [ ! -f "$sref" ]; then
+        fail "$f : 참조 '$sref' 이 레포 루트에 실재하지 않음"
+        r10_violations=$((r10_violations + 1))
+      fi
+    done < <(grep -ohE '`SHARED/commands/[A-Za-z0-9_/-]+\.md`' "$f" 2>/dev/null | tr -d '`' | sort -u)
+  done < <({ find "$p/commands" -name '*.md' 2>/dev/null; echo "$p/CLAUDE.md"; echo "$p/skills/$name/SKILL.md"; })
+done
+[ $r10_violations -eq 0 ] && pass "문서 참조 경로 실재성 OK"
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R9)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R10)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

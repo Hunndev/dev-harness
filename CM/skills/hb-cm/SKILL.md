@@ -34,7 +34,7 @@ Codex does not execute Claude slash commands directly. Treat these phrases as in
 1. Keep the same artifact paths as the Claude harness: `.harness/artifacts/{track}/{identifier}/`.
 2. Use `.harness/docs/code-convention.yaml`, `.harness/docs/adr.yaml`, `.harness/docs/architecture.yaml`, and `.harness/docs/module-registry.yaml` as the project truth when present.
 3. For feature and maintenance work, follow the Red-Green-Refactor protocol in `commands/shared/tdd.md`. Test runner is **Jest** (matches the declared Node/TS stack).
-4. Never create a new ADR from the maintenance track — new ADRs originate from the planning track only. Maintenance verifies conformance via `commands/maintenance/convention-check.md`.
+4. Never create a new ADR from the maintenance track — new ADRs originate from the planning track only. Maintenance verifies conformance via the shared methodology core: `hb-shared maintenance convention-check` (file: `SHARED/commands/maintenance/convention-check.md` in the dev-harness repo).
 5. Verify Node/TS work with `npm test`, `npm run lint` (ESLint), and `npm run build` (tsc) unless the target repo narrows the scope.
 6. Capture TDD evidence under `.harness/artifacts/{track}/{identifier}/` as `tdd-baseline-log.txt`, `tdd-green-log.txt`, and `tdd-refactor-notes.md`.
 

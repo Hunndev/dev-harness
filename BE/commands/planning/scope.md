@@ -51,7 +51,7 @@
 |---------|---------|
 | 프론트엔드 (WebView) | ... |
 | 백엔드 (Django/DRF) | ... |
-| DB (MariaDB) | ... |
+| DB (MySQL) | ... |
 | 인프라 (Docker Swarm/Azure) | ... |
 | 외부 서비스 (Innopay, Azure Blob) | ... |
 ```

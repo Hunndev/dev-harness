@@ -17,6 +17,10 @@ BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CH
 `hb-chat`은 여기에 chat 특성상 **ADR 트랙·Contract 트랙·dual review gate**를 더한다 (계약이 깨지면 FE/BE/앱이 동시에 깨지므로). 스택별로 명령(테스트 명령, 레이어 용어, 컨벤션 ID)이 다르다.
 `hb-shared`는 4팀 공통 **방법론 순서표**(seed → evaluate → review → evolve)와 공통 보조 명령을 제공한다 (아래 "일하는 순서").
 
+## 운영 모드 — 명시 호출 (opt-in)
+
+이 하네스는 **명시 호출 방식**으로 운용한다. 제품 레포(BE/FE/Community)의 CLAUDE.md·AGENTS.md에는 하네스를 자동 연결하지 않는다 — 2026-06-26에 하네스 기계장치를 의도적으로 제거하고 지식(컨벤션·경계 규칙)만 남겼다. 필요할 때 해당 레포에서 `/hb-*` 트랙 명령을 직접 호출한다. 예외로 **chat 레포만** always-read 연결(CLAUDE.md 규약)을 유지한다.
+
 ## 일하는 순서 (hb-shared 공통 방법론)
 
 | 단계 | 명령 | 하는 일 |
@@ -29,7 +33,7 @@ BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CH
 - ①interview는 필요 시, ③build는 각 도메인 플러그인(feature/maintenance)이 담당한다.
 - **완료기준·증거·리뷰 렌즈는 각 스택을 따른다.** FE는 **디자인 구현 / API 바인딩** 두 모드로 나뉘어 기준이 다르다.
 - 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다. 울트라코드(워크플로우)가 켜지면 병렬+반박으로 더 정밀해지고, 꺼져도 가볍게 작동한다.
-- 공통 보조 명령: `requirements`·`criteria`·`design-intent`·`prior-art`(feature), `convention-check`(maintenance), `feasibility`(planning) 가 `hb-shared`로 모여 있다.
+- 공통 보조 명령: `requirements`·`criteria`·`design-intent`·`prior-art`(feature), `convention-check`(maintenance), `feasibility`(planning) 가 `hb-shared`로 모여 있다. `requirements`·`criteria`는 seed에 **흡수**되어 기본 흐름에서는 seed가 대신하고, 나머지는 파이프라인 밖에서 그 단계만 따로 돌릴 때 쓰는 opt-in 명령이다.
 
 ## 트랙 비교 (공통)
 
@@ -177,6 +181,12 @@ enabled = true
 > marketplace를 git source로 등록한 경우 머지 직후 캐시가 stale일 수 있다.
 > `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 다섯 플러그인이 새로 설치된다.
 
+## 업데이트 반영 확인 (버전 범프 후)
+
+1. **Claude Code**: `/plugin`에서 marketplace를 업데이트하고, 설치된 플러그인 버전이 `marketplace.json`의 버전과 일치하는지 확인한다.
+2. **Codex**: 위 캐시 두 곳을 비우고 재시작한다 (git source 캐시는 자동 갱신되지 않는다).
+3. **동작 확인**: 새 세션에서 `/hb-shared:seed` 등 코어 명령이 자동완성 목록에 보이면 반영 완료다.
+
 ## 디렉토리 구조
 
 ```
@@ -215,7 +225,7 @@ harness/
 │   ├── CLAUDE.md
 │   ├── commands/                 (seed, evaluate, review, evolve + 공통 보조)
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
-├── scripts/lint-harness.sh       ← R1~R9 린터
+├── scripts/lint-harness.sh       ← R1~R10 린터
 └── README.md
 ```
 

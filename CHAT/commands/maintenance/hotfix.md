@@ -25,7 +25,7 @@
 ## 식별자
 
 이슈 ID가 있으면 그대로. 없으면 `hotfix-YYYYMMDD-slug`.
-예: `BUCCL-CM-99` 또는 `hotfix-20260408-socket-nullref`
+예: `BUCCL-CHAT-99` 또는 `hotfix-20260408-socket-nullref`
 
 ## 파이프라인
 

@@ -23,7 +23,7 @@
 2. Django/DRF 생태계에서 관련 라이브러리, 패키지, 패턴
 3. 알려진 함정이나 안티패턴
 4. 관련 API/외부 서비스 연동 사례
-5. BucclApp 스택(Django/DRF + MariaDB + Docker Swarm + Azure)에서의 구현 가능성 특이사항
+5. BucclApp 스택(Django/DRF + MySQL + Docker Swarm + Azure)에서의 구현 가능성 특이사항
 
 각 항목에 대해:
 - 출처(URL, 문서명)를 명시하라.

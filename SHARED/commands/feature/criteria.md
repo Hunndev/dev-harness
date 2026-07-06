@@ -2,6 +2,8 @@
 
 code-convention + ADR 관련 항목을 병합하여 이 작업의 평가기준을 생성한다.
 
+> **지위**: 완료기준 확정은 `/hb-shared:seed` 주문서(완료기준 표 — 기준은 스택 위임)에 **흡수**되었다 — 기본 흐름에서는 seed가 이 단계를 대신한다. 평가기준 문서(code-quality-guide.md)를 따로 재생성할 때(예: feature:deep) opt-in으로 호출한다.
+
 ## 실행 방식
 
 이 skill은 Fork에서 실행된다. ADR 분석은 Sub-agent에게 위임한다.

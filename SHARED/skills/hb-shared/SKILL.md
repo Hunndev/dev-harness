@@ -1,15 +1,24 @@
 ---
 name: hb-shared
-description: Use for shared dev-harness methodology commands used across all BUCCL plugins (BE/CM/FE/CHAT) — requirements capture, acceptance criteria, design intent, prior-art research, convention checks, and feasibility review.
+description: Use for the shared dev-harness methodology core used across all BUCCL plugins (BE/CM/FE/CHAT) — the core cycle (seed order sheet, evaluate, review gate, evolve) plus auxiliary steps (requirements, criteria, design intent, prior-art, convention check, feasibility).
 ---
 
 # BUCCL Shared Harness
 
-Use this skill when the user asks for `hb-shared`, shared harness methodology, or any cross-plugin step (requirements, criteria, design intent, prior-art, convention check, feasibility) used by BE/CM/FE/CHAT.
+Use this skill when the user asks for `hb-shared`, shared harness methodology, the core cycle (seed / evaluate / review / evolve), or any cross-plugin step (requirements, criteria, design intent, prior-art, convention check, feasibility) used by BE/CM/FE/CHAT.
 
 ## Source Of Truth
 
 Read the matching command document under `commands/`. If you are operating from the dev-harness repository root instead of the SHARED plugin root, prefix these paths with `SHARED/`.
+
+Core cycle (seed → build[stack plugin] → evaluate → review → evolve):
+
+- Seed (order sheet — goal/scope/exclusions/acceptance): `commands/seed.md`
+- Evaluate (evidence-based check against the seed): `commands/evaluate.md`
+- Review (pre-merge 5-stage gate): `commands/review.md`
+- Evolve (improvement proposals from recurring friction): `commands/evolve.md`
+
+Auxiliary steps (opt-in; requirements/criteria are absorbed into seed):
 
 - Requirements: `commands/feature/requirements.md`
 - Acceptance criteria: `commands/feature/criteria.md`
@@ -22,6 +31,10 @@ Read the matching command document under `commands/`. If you are operating from 
 
 Codex does not execute Claude slash commands directly. Treat these phrases as intent aliases:
 
+- `hb-shared seed` or `/hb-shared:seed`
+- `hb-shared evaluate` or `/hb-shared:evaluate`
+- `hb-shared review` or `/hb-shared:review`
+- `hb-shared evolve` or `/hb-shared:evolve`
 - `hb-shared feature requirements` or `/hb-shared:feature:requirements`
 - `hb-shared feature criteria` or `/hb-shared:feature:criteria`
 - `hb-shared feature design-intent` or `/hb-shared:feature:design-intent`

@@ -12,6 +12,7 @@
 - Framework: React 18 (Create React App)
 - API: Axios clients under src/api and src/utils/api.js
 - Client state: Zustand, React state, local/session storage
+- UI: MUI + Bootstrap 혼용 (새 화면은 주변 화면이 쓰는 라이브러리를 따른다)
 - Runtime targets: Web browser + Capacitor mobile shell
 - Auth: JWT (메인 BE와 공유)
 - Testing: React Testing Library + Jest

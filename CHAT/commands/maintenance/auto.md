@@ -15,7 +15,7 @@
 ## 식별자
 
 이슈 ID가 있으면 그대로. 없으면 `maint-YYYYMMDD-slug`.
-예: `BUCCL-CM-42` 또는 `maint-20260408-socket-disconnect`
+예: `BUCCL-CHAT-42` 또는 `maint-20260408-socket-disconnect`
 
 ## 핵심 원칙
 
