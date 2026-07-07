@@ -166,7 +166,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - **테스트-구현 정합성 확인**: 테스트가 의도한 동작을 실제로 검증하는지 확인
    - 우선순위 분류: [p1] 필수 / [p2] 강력 권장 / [p3] 권장 / [p4] 사소
    - side effect가 있으면 반드시 설명
-4. `review-comments.md`를 저장한다.
+4. `review-comments.md`를 저장하고, [R3] Codex 교차검증 결과를 `codex-review.md`로 저장한다 (dual gate 입력).
 5. **사용자 확인 없이 자동 진행.**
 
 ### [F11] 리뷰 반영 + QA (Fork)
@@ -222,7 +222,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
   release-checklist.md     (F9 — 배포 위험 변경 시)
   pr-body.md
   review-comments.md       (Claude 리뷰)
-  codex-review.md          (Codex 리뷰 — dual gate)
+  codex-review.md          (F10 [R3] — dual gate)
   INDEX.md
 ```
 

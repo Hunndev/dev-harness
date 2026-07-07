@@ -209,5 +209,5 @@
 
 - 기존 코드베이스의 유사 구현과 충돌 위험이 크다 → F3 prior-art 필요
 - 이번 feature 특유의 품질 기준이 많다 → F5 code-quality-guide 재생성 필요
-- PR 본문이 외부 stakeholder에게 전달되어야 한다 → F9 PR본문 Fork 필요
+- PR 본문이 외부 stakeholder에게 전달되어야 한다 → (deep의) F10 PR본문 Fork 필요
 - 여러 이벤트 흐름을 동시에 건드리는 대형 변경이다
