@@ -60,10 +60,11 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 모든 산출물은 chat 작업 레포의 `.harness/artifacts/{track}/{identifier}/` 하위에 저장한다.
 
 - planning: `.harness/artifacts/planning/{plan-YYYYMMDD-slug}/`
-- feature: `.harness/artifacts/feature/{feature-slug}/`
-- maintenance: `.harness/artifacts/maintenance/{issue-slug}/`
+- feature: `.harness/artifacts/feature/{branch-name}/`
+- maintenance: `.harness/artifacts/maintenance/{issue-id}/`
 - adr: `.harness/artifacts/adr/{adr-id}/`
 - review: `.harness/artifacts/review/{identifier}/` (review-gates **단독 호출 시** — 트랙 안에서는 해당 트랙 경로에 남긴다)
+- contract: `.harness/artifacts/review/{api|ws}-{slug}/` (contract:api/websocket 단독 검토 산출물)
 
 ## 진실의 원천 (chat 작업 레포의 `.harness/docs/`)
 
@@ -103,6 +104,6 @@ feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature
 
 > **T0 예외**: `maintenance:hotfix`는 위 순서표의 예외다 — seed는 약식 3줄(`hotfix-reproduction.md` 서두)로 갈음하고, evaluate·review 5단계 관문은 **생략**한다 (H3 단위 테스트 게이트가 완료 조건). 5단계 관문이 필요해 보이면 그 자체가 `:auto`로의 에스컬레이션 신호다.
 >
-> **신선도 훅**: 트랙 완료(INDEX.md 생성) 시 이번 변경이 `.harness/docs/*.yaml`에 반영될 내용(새 모듈·API·ADR·컨벤션 변화)을 만들었는지 확인하고, 있으면 `/hb-chat:shared:update-docs` 실행을 제안한다. 상태 점검 스텝(F1/M1)은 module-registry의 모듈 목록과 실제 소스를 가볍게 대조해 미등재 모듈 수를 한 줄 보고한다 — **차단하지 않는다** (보고만).
+> **신선도 훅**: 트랙 완료(INDEX.md 생성) 시 이번 변경이 `.harness/docs/*.yaml`에 반영될 내용(새 모듈·API·ADR·컨벤션 변화)을 만들었는지 확인하고, 있으면 `/hb-chat:shared:update-docs <target>`(해당 문서 지정 — 예: modules·websocket·api) 실행을 제안한다. 상태 점검 스텝(F1/M1)은 module-registry의 모듈 목록과 실제 소스를 가볍게 대조해 미등재 모듈 수를 한 줄 보고한다 — **차단하지 않는다** (보고만).
 
 완료기준·증거·리뷰 렌즈는 이 플러그인 스택을 따른다. 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다.

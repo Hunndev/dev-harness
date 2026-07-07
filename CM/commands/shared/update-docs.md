@@ -80,7 +80,7 @@ planning 트랙의 `decision-draft.md`를 adr.yaml에 편입할 때:
 
 ## architecture.yaml 갱신
 
-변경 대상: services, external_services, request_flow, deploy 섹션.
+변경 대상: middleware_chain, socket_events, django_proxy, config, data_model, deployment — 작업 레포 `.harness/docs/architecture.yaml`의 실제 섹션을 따른다.
 인프라 관련 maintenance 후에는 반드시 갱신한다.
 
 ## module-registry.yaml 갱신
@@ -90,11 +90,10 @@ feature 트랙 후에는 반드시 갱신한다.
 
 ```yaml
 - name: ...
-  path: apps/{name}/
+  path: src/{controllers|services|repositories}/{name}*
   purpose: ...
-  models: [...]
+  tables: [...]
   depends_on: [...]
-  api_prefix: /api/{name}/
   notes: |
     ...
 ```

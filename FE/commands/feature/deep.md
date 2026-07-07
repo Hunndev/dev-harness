@@ -25,6 +25,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 
 ### [F1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npm test -- --watchAll=false --passWithNoTests --listTests` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `node -p "require('react-scripts/package.json').version"`으로 react-scripts 버전 확인(정보용). target test는 positional 패턴 사용
@@ -201,7 +203,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - `npm test -- --watchAll=false src/__tests__/{module}` (관련 모듈 테스트)
    - `npm test -- --watchAll=false` (전체 회귀, 필요 시)
    - `tdd-green-log.txt`가 여전히 PASS 상태인지 재확인한다.
-   - 시각/반응형/a11y 산출물이 최신인지 재확인한다.
+   - 시각/반응형/a11y 산출물이 최신인지 재확인하고, API 바인딩 작업이면 `api-binding-check.md`도 최신인지 재확인한다.
 5. 버그 발견 시 수정 루프.
 6. 핵심 변경사항을 사용자에게 보고한다.
 

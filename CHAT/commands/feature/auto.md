@@ -28,6 +28,8 @@
 
 ### [F1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npx jest --listTests --silent` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `npx jest --version`으로 Jest 버전 확인 → 플래그 선택 (`--testPathPattern` vs `--testPathPatterns`)
@@ -129,7 +131,7 @@
    - **테스트-구현 정합성 확인**: 테스트가 의도한 동작을 실제로 검증하는지 확인
    - 우선순위: [p1] 필수 / [p2] 강력 권장 / [p3] 권장 / [p4] 사소
    - side effect가 있으면 반드시 설명
-4. `review-comments.md`를 저장한다.
+4. `review-comments.md`를 저장하고, [R3] Codex 교차검증 결과를 `codex-review.md`로 저장한다 (dual gate 입력).
 5. **사용자 확인 없이 자동 진행.**
 
 ### [F8] 리뷰 반영 + QA (Fork) _(deep의 F11에 해당)_
@@ -177,7 +179,7 @@
   tdd-red-debug.md         (선택: Red 재시도가 발생했을 때만 생성)
   contract-check.md        (계약 점검 pre/post)
   review-comments.md       (Claude 리뷰)
-  codex-review.md          (Codex 리뷰 — dual gate)
+  codex-review.md          (F7 [R3] — dual gate)
   pr-body.md
   INDEX.md
 ```

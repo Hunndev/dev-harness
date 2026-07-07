@@ -71,7 +71,8 @@ for be_file in BE/commands/planning/*.md BE/commands/maintenance/*.md; do
   for dom in CM FE CHAT; do
     dom_file="$dom/${be_file#BE/}"
     if [ ! -f "$dom_file" ]; then
-      info "$dom에 대응 파일 없음 (skip): $be_file"
+      fail "$dom에 대응 파일 없음 (planning·maintenance는 4도메인 완전 대칭): $be_file"
+      r3_violations=$((r3_violations + 1))
       continue
     fi
     dom_count=$(count_steps "$dom_file")
@@ -87,7 +88,8 @@ for be_file in BE/commands/shared/*.md BE/commands/feature/*.md; do
   [ -f "$be_file" ] || continue
   cm_file="CM/${be_file#BE/}"
   if [ ! -f "$cm_file" ]; then
-    info "CM에 대응 파일 없음 (skip): $be_file"
+    fail "CM에 대응 파일 없음 (BE↔CM 엄격 쌍): $be_file"
+    r3_violations=$((r3_violations + 1))
     continue
   fi
   be_count=$(count_steps "$be_file")
@@ -104,7 +106,11 @@ for be_file in BE/commands/feature/*.md; do
   be_count=$(count_steps "$be_file")
   for dom in FE CHAT; do
     dom_file="$dom/${be_file#BE/}"
-    [ -f "$dom_file" ] || continue
+    if [ ! -f "$dom_file" ]; then
+      fail "$dom에 대응 파일 없음 (feature는 FE·CHAT ⊇ BE): $be_file"
+      r3_violations=$((r3_violations + 1))
+      continue
+    fi
     dom_count=$(count_steps "$dom_file")
     if [ "$dom_count" -lt "$be_count" ]; then
       fail "feature 스텝 누락 의심: $dom_file ($dom_count) < BE ($be_count)"

@@ -29,6 +29,7 @@ npm test -- --watchAll=false           # 전체 (회귀 확인)
 
 ### 4. 화면 검증
 디자인/레이아웃/라우팅 변경이 있으면 `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` 또는 `visual-regression.md`가 최신인지 확인한다.
+API 바인딩 변경이 있으면 `api-binding-check.md`(계약 일치·상태 처리·mock 잔재)도 최신인지 확인한다.
 
 ### 5. Convention 체크
 변경된 파일에 대해 `.harness/docs/code-convention.yaml` 위반 여부를 확인:

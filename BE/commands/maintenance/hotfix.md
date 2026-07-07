@@ -42,6 +42,7 @@
 5. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
 6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
 7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
+   - **서두 약식 seed 3줄**: 목표 / 범위(수정할 한 곳) / 완료기준(단위 테스트 PASS) — T0 예외의 seed 갈음
    - 재현 단계
    - 테스트 파일 경로
    - FAIL 출력 요약

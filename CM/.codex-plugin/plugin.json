@@ -1,6 +1,6 @@
 {
   "name": "hb-cm",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "BUCCL 커뮤니티(Node.js) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
   "author": {
     "name": "buccl"

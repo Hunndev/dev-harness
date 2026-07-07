@@ -30,6 +30,8 @@
 
 ### [M1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 > **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
@@ -188,7 +190,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 ## 언제 deep으로 전환해야 하는가
 
 - 근본 원인이 여러 모듈에 걸쳐 있다 → deep의 M4(3방향 영향 Team) 필요
-- 수정 방향이 기존 ADR을 위반할 가능성이 있다 → M5 convention 충돌 sub-agent 필요
+- 수정 방향이 기존 ADR을 위반할 가능성이 있다 → deep의 M5(convention 충돌 sub-agent) 필요
 - 데이터 무결성 문제 (이미 잘못된 데이터가 쌓여 있을 가능성)
 - 실시간 이벤트 흐름 문제가 여러 소켓 클라이언트에 전파된 가능성
 - **M2 Red 재작성이 3회 이상 반복되거나 Red 이유가 근본 원인을 특정하지 못한다** → deep으로 (RCA 심화 필요)

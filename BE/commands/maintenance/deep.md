@@ -23,6 +23,8 @@
 
 ### [M1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 > **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:

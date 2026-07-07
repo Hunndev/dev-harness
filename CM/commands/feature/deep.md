@@ -24,6 +24,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 
 ### [F1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npx jest --listTests --silent` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `npx jest --version`으로 Jest 버전 확인 → 플래그 선택 (`--testPathPattern` vs `--testPathPatterns`)

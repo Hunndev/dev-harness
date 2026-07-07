@@ -28,6 +28,8 @@
 
 ### [F1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `npm test -- --watchAll=false --passWithNoTests --listTests` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - `node -p "require('react-scripts/package.json').version"`으로 react-scripts 버전 확인(정보용). target test는 positional 패턴 사용
@@ -106,7 +108,7 @@
    - 리팩토링할 내용이 없으면: "skipped: no refactoring needed — baseline clean"
 6. worktree를 정리한다.
 
-### [F7] 시각/반응형/a11y + API 바인딩 검증 (Fork)
+### [F7] 시각/반응형/a11y + API 바인딩 검증 (Fork) _(deep의 F9에 해당)_
 
 1. worktree(fork)를 생성한다.
 2. 로컬 앱을 실행하거나 기존 dev 서버를 사용해 주요 route를 확인한다.
@@ -163,7 +165,7 @@
    - `npm test -- --watchAll=false`
    - `npm run build`
    - `tdd-green-log.txt`가 여전히 PASS 상태인지 재확인한다.
-   - 시각/반응형/a11y 산출물이 최신인지 재확인한다.
+   - 시각/반응형/a11y 산출물이 최신인지 재확인하고, API 바인딩 작업이면 `api-binding-check.md`도 최신인지 재확인한다.
 5. 버그 발견 시 수정 루프.
 6. 간이 PR 본문을 생성하여 사용자에게 제시:
    - Summary (1~3문장)
