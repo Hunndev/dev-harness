@@ -73,7 +73,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 2. 기존 모듈(module-registry.yaml)과의 호환성
 3. 기술적 위험 요소와 복잡도 (main thread blocking, 메모리, 동시성)
 4. 새로운 npm 의존성 추가 필요 여부
-5. 브라우저 이벤트 스키마 변경 필요 여부
+5. 라우팅/전역 상태(store) 구조 변경 필요 여부
 6. API 계약 또는 환경 설정 필요 여부
 
 [scope.md]
@@ -105,7 +105,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 
 분석 항목:
 1. 각 대안의 예상 구현 공수 (1인 개발 기준)
-2. Azure 인프라 비용 변동 (cache 메모리, Swarm replica)
+2. Azure 인프라 비용 변동 (번들/이미지 트래픽, CDN, Swarm replica 추가)
 3. 메인 BE(hb-be)와의 연동 변경 비용
 4. 각 대안의 실패 리스크와 되돌리기 비용
 5. 점진적 출시 가능 여부

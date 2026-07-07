@@ -1,7 +1,7 @@
 {
   "name": "hb-shared",
   "description": "BUCCL dev-harness 공통 개발 방법론 코어. 방법론 순서표(seed 주문서 → evaluate 검사 → review 5단계 관문 → evolve 개선)와 스택 무관 보조 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 BE/CM/FE/CHAT가 공유한다.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": { "name": "buccl" },
   "license": "MIT"
 }

@@ -149,7 +149,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
    - `.harness/docs/code-convention.yaml` (기준)
    - `git diff`
    - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M5/M6 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M5 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
-2. `review-comments.md`를 저장한다.
+2. `review-comments.md`를 저장하고, [R3] Codex 교차검증 결과를 `codex-review.md`로 저장한다 (dual gate 입력).
 3. worktree에서 리뷰 반영:
    - 각 코멘트의 수용/거부를 사용자에게 제시
    - 수정 후 M6 경량 재실행
@@ -178,7 +178,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
   regression-report.md
   contract-check.md             (변경이 계약/경계를 건드리면)
   review-comments.md            (Claude 리뷰)
-  codex-review.md               (Codex 리뷰 — dual gate)
+  codex-review.md               (M7 [R3] — dual gate)
   INDEX.md
 ```
 

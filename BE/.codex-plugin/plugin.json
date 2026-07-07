@@ -1,6 +1,6 @@
 {
   "name": "hb-be",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "BUCCL 메인 백엔드(Django) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
   "author": {
     "name": "buccl"
