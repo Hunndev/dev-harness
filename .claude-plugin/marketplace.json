@@ -8,31 +8,31 @@
       "name": "hb-be",
       "source": "./BE",
       "description": "BUCCL 메인 백엔드(Django) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
-      "version": "0.7.0"
+      "version": "0.8.0"
     },
     {
       "name": "hb-cm",
       "source": "./CM",
       "description": "BUCCL 커뮤니티(Node.js) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
-      "version": "0.7.0"
+      "version": "0.8.0"
     },
     {
       "name": "hb-fe",
       "source": "./FE",
       "description": "BUCCL 프론트엔드(React) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 + 디자인 검증 파이프라인.",
-      "version": "0.7.0"
+      "version": "0.8.0"
     },
     {
       "name": "hb-chat",
       "source": "./CHAT",
       "description": "BUCCL chat MSA 개발 하네스. Planning, Feature, Maintenance, ADR, Contract, Review 파이프라인.",
-      "version": "0.3.0"
+      "version": "0.4.0"
     },
     {
       "name": "hb-shared",
       "source": "./SHARED",
-      "description": "BUCCL dev-harness 공통 개발 방법론 코어. 스택 무관 공통 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 BE/CM/FE/CHAT가 공유.",
-      "version": "0.3.0"
+      "description": "BUCCL dev-harness 공통 개발 방법론 코어. 방법론 순서표(seed 주문서 → evaluate 검사 → review 5단계 관문 → evolve 개선)와 스택 무관 보조 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 BE/CM/FE/CHAT가 공유한다.",
+      "version": "0.4.0"
     }
   ]
 }

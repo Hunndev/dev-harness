@@ -49,7 +49,7 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 | `/hb-chat:adr:new`            | —  | ADR      | 설계 결정을 ADR 후보로 등록 → 승인 후 adr.yaml 편입 | 문서만 |
 | `/hb-chat:contract:websocket` | —  | 계약     | Socket.io 이벤트 계약 검토·갱신 (websocket-events.yaml) | 문서 중심 |
 | `/hb-chat:contract:api`       | —  | 계약     | REST API 계약 검토·갱신 (api-contract.yaml) | 문서 중심 |
-| `/hb-chat:shared:update-docs` | —  | 공통     | adr/architecture/modules/websocket/api/database/ops 문서 갱신 | 문서만 |
+| `/hb-chat:shared:update-docs` | —  | 공통     | `.harness/docs/` 10종(adr/architecture/modules/convention/websocket/api/database/integration/ops/review-policy) 갱신 | 문서만 |
 | `/hb-chat:shared:verify`      | —  | 공통     | 테스트/빌드/리뷰 전 검증 (npm test/lint/build/tsc) | 없음 |
 | `/hb-chat:shared:review-gates`| —  | 공통     | 완료 게이트 (Jest + lint + build + Codex review + Claude review) | 없음 |
 
@@ -63,7 +63,7 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 - feature: `.harness/artifacts/feature/{feature-slug}/`
 - maintenance: `.harness/artifacts/maintenance/{issue-slug}/`
 - adr: `.harness/artifacts/adr/{adr-id}/`
-- review: `.harness/artifacts/review/{identifier}/`
+- review: `.harness/artifacts/review/{identifier}/` (review-gates **단독 호출 시** — 트랙 안에서는 해당 트랙 경로에 남긴다)
 
 ## 진실의 원천 (chat 작업 레포의 `.harness/docs/`)
 
@@ -89,7 +89,7 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 3. ADR-first: DB 구조·읽음 정책·이벤트 네이밍/버전·scale-out·첨부 저장·연동 경계·권한 모델 변경은 무조건 ADR 후보로 올린다.
 4. 새 ADR 생성은 planning/adr 트랙에서만. maintenance/feature는 기존 ADR 준수만 체크(`convention-check.md`).
 5. TDD: feature/maintenance는 Red→Green→Refactor. 테스트 러너는 **Jest**. 증거는 `tdd-baseline-log.txt`/`tdd-green-log.txt`에 캡처. 프로토콜은 `commands/shared/tdd.md`.
-6. dual review gate: 완료는 항상 테스트+lint+build 통과 + Codex/Claude 리뷰 blocking 0. `commands/shared/review-gates.md`.
+6. dual review gate: 완료는 항상 테스트+lint+build 통과 + Codex/Claude 리뷰 blocking 0. `commands/shared/review-gates.md`. (T0 `maintenance:hotfix`만 예외 — 방법론 연결의 T0 예외 참조)
 
 ## 방법론 연결 (hb-shared 순서표)
 
@@ -97,7 +97,7 @@ feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature
 
 1. **시작 — 주문서**: `/hb-shared:seed` 방법으로 목표·범위·완료기준을 먼저 고정한다. (작은 일은 약식 3줄, 큰 일은 한 장)
 2. **구현**: 아래 트랙 명령(feature/maintenance)으로 만든다.
-3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다.
+3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다. (feature 트랙은 QA 스텝이 검사를 겸해 리뷰 스텝 뒤에 올 수 있다 — 관문 기준은 동일)
 4. **리뷰**: 머지 전 `/hb-shared:review`의 **5단계 관문**(자동검사 → 관점별 → Codex∥Claude 교차 → 반박 → 게이트)을 적용한다. **기존 코드리뷰 스텝의 단일 패스는 이 5단계로 대체**하며, 기존 스텝 절차는 그중 "관점별 리뷰([R2])"의 세부로 쓴다.
 5. **개선(선택)**: `/hb-shared:evolve`로 반복 문제를 제안으로 남긴다(제안만, 자동 수정 X).
 

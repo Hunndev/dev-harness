@@ -11,9 +11,8 @@
 ### 1. 테스트 (Jest)
 ```bash
 npm test                       # 전체 (회귀 포함)
-npm test -- --watchAll=false   # CI 모드 (watch 비활성)
 ```
-대상 모듈만 빠르게 보려면 `npm test -- <path/pattern> --watchAll=false`.
+대상 모듈만 빠르게 보려면 `npm test -- <path/pattern>`.
 
 ### 2. 린트 (ESLint)
 ```bash

@@ -21,12 +21,13 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
    - 이 기획의 범위 (무엇을 결정할 것인가)
    - 범위 밖 (무엇은 이번에 결정하지 않는가)
    - 이해관계자 맵 (누가 이 결정에 영향을 받는가)
-     - 사용자 유형별 (프론트엔드 사용자, 작성자, 관리자/모더레이터)
+     - 사용자 유형별 (수강생/강사 사용자, 관리자)
      - 시스템 유형별 (FE 자체, 메인 BE, API/cache, browser/Capacitor 클라이언트)
    - **모호한 논의점** 제시
 3. 식별자를 생성한다: `plan-YYYYMMDD-{slug}`
 4. `.harness/artifacts/planning/{identifier}/` 디렉토리를 생성한다.
 5. `scope.md`와 `stakeholders.md`를 저장한다.
+6. **본문 제시 (필수)**: 저장 후 두 파일의 핵심 내용을 사용자에게 마크다운으로 직접 보여준다. 단순 파일 경로 안내 금지. 최소 항목 — 한 줄 요약 / In Scope / Out of Scope / 이해관계자 / 모호한 논의점.
 
 ### [P2] 요구사항 인터뷰 정리 (Fork)
 
@@ -42,6 +43,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 4. `.harness/docs/module-registry.yaml`이 있으면 읽고, 기존 모듈과의 관계를 파악한다.
 5. **모호한 요구사항**과 **충돌하는 요구사항**을 명시적으로 정리한다.
 6. `requirements-interview.md`를 저장한다.
+7. **본문 제시 (필수)**: 저장 후 MUST/SHOULD/NICE 분류와 모호·충돌 항목을 사용자에게 마크다운으로 직접 보여준다. 사용자 확인 후 P3 으로 진행.
 
 ### [P3] 외부 사례/문서 조사 (Sub-agent)
 
@@ -129,6 +131,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
    - 남은 불확실성과 해소 방법
 3. 초안을 사용자에게 제시하고 피드백을 반영한다.
 4. `feasibility.md`를 저장한다.
+5. **본문 제시 (필수)**: feasibility.md 의 핵심 (추천 대안과 근거, 장단점 비교표, Go/No-Go, 남은 불확실성) 을 사용자에게 마크다운으로 직접 보여준다.
 
 ### [P6] ADR 드래프트 (Fork)
 
@@ -138,7 +141,8 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
    - 당시 어떤 문제가 있었는지, 어떤 대안을 검토했는지, 왜 이 선택이 최적인지를 구체적으로 서술한다.
 3. **이 단계에서 adr.yaml에 자동 편입하지 않는다.**
 4. `decision-draft.md`를 저장한다.
-5. 사용자에게 드래프트를 제시하고, adr.yaml 편입 여부를 확인한다.
+5. **YAML 본문 제시 (필수)**: 사용자에게 드래프트를 제시할 때 단순 요약이 아니라 `decision-draft.md` 의 ADR YAML 본문 (`id` / `title` / `context` / `decision` / `consequences`) 을 yaml 코드 블록으로 직접 보여준다. 사용자가 yaml 자체를 읽고 편입 여부를 결정 가능해야 한다.
+6. adr.yaml 편입 여부를 확인한다.
 
 ### [P7] ADR 편입 (메인, 사용자 승인)
 

@@ -29,7 +29,7 @@
 |--------|------|------|----------|----------|
 | `/hb-fe:planning:auto`      | T1 | 기획     | 간이 기획 (스코프 → 타당성 → ADR 드래프트 → 편입) | 없음 |
 | `/hb-fe:planning:deep`      | T2 | 기획     | 인터뷰 + 외부조사 + 3관점 Team 포함 full ceremony | 없음 |
-| `/hb-fe:feature:auto`       | T1 | 신규개발 | 일반 화면/컴포넌트 (요구사항 → 설계의도 → 리뷰 → QA) | 있음 |
+| `/hb-fe:feature:auto`       | T1 | 신규개발 | 일반 화면/컴포넌트 (요구사항 → 설계의도 → 시각·바인딩 검증 → 리뷰 → QA) | 있음 |
 | `/hb-fe:feature:deep`       | T2 | 신규개발 | prior-art + quality-guide 재생성 + PR본문 Fork 포함 | 있음 |
 | `/hb-fe:maintenance:hotfix` | T0 | 유지보수 | 오타·한 줄 fix·긴급 (재현 테스트 → 수정 → 단위 테스트) | 있음 (최소) |
 | `/hb-fe:maintenance:auto`   | T1 | 유지보수 | 일상 유지보수 (RCA → 수정 → 회귀) | 있음 (범위 제한) |
@@ -127,7 +127,7 @@ feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature
 
 1. **시작 — 주문서**: `/hb-shared:seed` 방법으로 목표·범위·완료기준을 먼저 고정한다. (작은 일은 약식 3줄, 큰 일은 한 장)
 2. **구현**: 아래 트랙 명령(feature/maintenance)으로 만든다.
-3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다.
+3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다. (feature 트랙은 QA 스텝이 검사를 겸해 리뷰 스텝 뒤에 올 수 있다 — 관문 기준은 동일)
 4. **리뷰**: 머지 전 `/hb-shared:review`의 **5단계 관문**(자동검사 → 관점별 → Codex∥Claude 교차 → 반박 → 게이트)을 적용한다. **기존 코드리뷰 스텝의 단일 패스는 이 5단계로 대체**하며, 기존 스텝 절차는 그중 "관점별 리뷰([R2])"의 세부로 쓴다.
 5. **개선(선택)**: `/hb-shared:evolve`로 반복 문제를 제안으로 남긴다(제안만, 자동 수정 X).
 

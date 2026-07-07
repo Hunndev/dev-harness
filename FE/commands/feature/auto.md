@@ -20,8 +20,8 @@
 
 - **디자인 소스 기록**: Figma, 스크린샷, 기존 화면, 브랜드 가이드, 텍스트 설명 중 무엇을 기준으로 구현했는지 남긴다.
 - **(deep의) F3 유사 구현 조사 없음**: 명백한 재사용 대상이 없거나 소규모 화면/컴포넌트 추가 시 사용. 기존 UI 분석이 중요하면 `:deep`.
-- **(deep의) F5 평가기준 재생성 없음**: 기존 `code-convention.yaml` + 관련 ADR을 (deep의) F10 리뷰 시점에 직접 참조한다. 과거에 같은 영역의 `code-quality-guide.md`가 있으면 그대로 재사용.
-- **(deep의) F9 PR본문 Fork 없음**: PR 본문은 (deep의) F11 완료 보고 시점에 간단 템플릿으로 바로 생성한다.
+- **(deep의) F5 평가기준 재생성 없음**: 기존 `code-convention.yaml` + 관련 ADR을 (deep의) F11 리뷰 시점에 직접 참조한다. 과거에 같은 영역의 `code-quality-guide.md`가 있으면 그대로 재사용.
+- **(deep의) F10 PR본문 Fork 없음**: PR 본문은 (deep의) F12 완료 보고 시점에 간단 템플릿으로 바로 생성한다.
 - **Agent Team 없음**: (deep도 동일)
 
 ## 파이프라인
@@ -121,7 +121,7 @@
 7. 깨짐·상태 누락이 있으면 F5로 복귀하여 수정한다.
 8. worktree를 정리한다.
 
-### [F8] 코드리뷰 (Sub-agent) _(deep의 F10에 해당)_
+### [F8] 코드리뷰 (Sub-agent) _(deep의 F11에 해당)_
 
 > **이 리뷰 = `/hb-shared:review` 5단계 관문**: [R1] 자동검사(테스트·빌드, 실패면 멈춤) → [R2] 아래 관점별 리뷰 → [R3] Codex∥Claude 교차검증(codex 자동 호출) → [R4] 반박(가짜 경보 제거) → [R5] 관문(blocking이면 고치고 [R1]부터). 아래 절차는 [R2] 관점별 리뷰의 세부다.
 
@@ -137,17 +137,19 @@
      - 없으면 `.harness/docs/code-convention.yaml` + `.harness/docs/adr.yaml`에서 관련 stacks로 1차 필터
 3. 리뷰 원칙:
    - 모든 코멘트는 convention/ADR에 근거
+   - 의도적 결정은 존중, 의도-구현 불일치는 지적
    - 화면 컴포넌트가 API base URL, token, error mapping을 직접 흩뿌리지 않는지 확인
    - 상태·라우팅·브라우저 이벤트 흐름 누락/중복 확인
    - 디자인 적용 시 텍스트 겹침, 터치 타깃, focus, 모바일 overflow 확인
    - **테스트-구현 정합성 확인**: 테스트가 의도한 동작을 실제로 검증하는지 확인
    - 우선순위: [p1] 필수 / [p2] 강력 권장 / [p3] 권장 / [p4] 사소
+   - side effect가 있으면 반드시 설명
 4. `review-comments.md`를 저장한다.
 5. **사용자 확인 없이 자동 진행.**
 
-### [F9] 리뷰 반영 + QA (Fork) _(deep의 F11에 해당)_
+### [F9] 리뷰 반영 + QA (Fork) _(deep의 F12에 해당)_
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약과 검사 시점 HEAD(`git rev-parse --short HEAD`)를 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. worktree(fork)를 생성한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:
@@ -201,7 +203,7 @@
 ```
 
 > `auto` tier는 `prior-art.md`, `code-quality-guide.md`를 생성하지 않는다.
-> 이 두 파일이 필요하면 `:deep`으로 재시작하거나, 수동으로 생성 후 F7이 재사용하도록 한다.
+> 이 두 파일이 필요하면 `:deep`으로 재시작하거나, 수동으로 생성 후 F8 코드리뷰가 재사용하도록 한다.
 
 ## 언제 deep으로 전환해야 하는가
 

@@ -77,7 +77,8 @@
    - 근본 원인(root cause) 추정 (가능성 순 나열)
    - 관련 ADR 결정과의 관계 확인
 4. `root-cause.md`를 저장한다.
-5. 분석 결과를 사용자에게 제시하고 원인 추정에 대한 동의를 구한다.
+5. **본문 제시 (필수)**: 분석 결과를 사용자에게 제시할 때 단순 요약이 아니라 `root-cause.md` 의 핵심 (스택트레이스 발생 지점 / 원인 추정 순위 / 근거 / 관련 ADR 충돌 여부) 을 마크다운으로 직접 보여준다.
+6. 원인 추정에 대한 사용자 동의를 구한다.
 
 ### [M4] 영향도 조사 — 병렬 탐색 (Agent Team) ★
 
@@ -177,7 +178,8 @@
    - 메인 BE 연동 변경 필요 여부
 3. 초안과 논의점을 사용자에게 제시한다.
 4. `fix-plan.md`를 저장한다.
-5. worktree를 정리한다.
+5. **본문 제시 (필수)**: 저장 후 `fix-plan.md` 의 핵심 (수정 대상 파일 목록 / 각 수정 내용·이유 / 회귀 리스크 / 범위 제한 / 마이그레이션 필요 여부) 을 사용자에게 마크다운으로 직접 보여준다. 사용자가 본문을 읽고 M7 수정 실행 단계 진입 전 피드백 가능해야 한다.
+6. worktree를 정리한다.
 
 ### [M7] 수정 실행 [TDD Green] (Fork)
 
@@ -210,7 +212,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M8] 회귀 테스트 리포트 — 병렬 실행 (Agent Team) ★
 
-> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조하고, 결과 요약과 검사 시점 HEAD를 `INDEX.md`에 남긴다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
@@ -287,7 +289,7 @@ npm test
    - `git diff` (변경 내용)
    - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M7/M8 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M7 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
    - 리뷰 원칙: convention 근거 기반, 취향 리뷰 금지
-2. `review-comments.md`를 저장한다.
+2. `review-comments.md`와 `codex-review.md`([R3] Codex 결과)를 저장한다. **완료 게이트는 dual review gate**(`commands/shared/review-gates.md`) — Codex·Claude 양쪽 blocking 0이어야 완료다. 수정이 계약(Socket 이벤트·REST·DB 스키마)을 건드렸으면 `.harness/docs/` 계약 문서 반영 여부도 게이트에서 확인한다.
 3. **worktree(fork)에서** 리뷰를 반영한다:
    - 각 코멘트의 수용/거부 판단을 사용자에게 제시
    - 사용자 확인 후 수정
@@ -300,6 +302,7 @@ npm test
 - 산출물 목록
 - 수정된 파일 목록
 - 회귀 테스트 결과 요약
+- dual review gate 통과 여부 (Codex/Claude blocking 0)
 - 커밋 메시지 제안
 - planning 에스컬레이션 여부
 

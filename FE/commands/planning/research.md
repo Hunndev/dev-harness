@@ -24,7 +24,7 @@
 3. 브라우저 이벤트 관련 패턴(visibility, resize, scroll, push notification, deep link)
 4. 알려진 함정이나 안티패턴 (main thread blocking, memory leak, race condition,
    중복 API 호출, nested effect hell, unhandled promise rejection)
-5. 외부 API 연동 사례 및 메인 BE(Django) 와의 MSA 패턴
+5. 외부 API 연동 사례 및 메인 BE(Django) API 소비 패턴(클라이언트 관점)
 6. BUCCL FE 스택(React 18 / CRA / React Router / Zustand / MUI/Bootstrap / Capacitor / Docker Swarm)
    에서의 구현 가능성 특이사항
 
