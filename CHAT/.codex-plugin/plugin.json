@@ -1,6 +1,6 @@
 {
   "name": "hb-chat",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "BUCCL chat MSA 작업을 Codex skill로 제공한다. TypeScript, Express, Socket.io, MySQL, Redis, ADR, contract, dual review workflow.",
   "author": {
     "name": "buccl"
