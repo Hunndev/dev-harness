@@ -106,7 +106,7 @@ visual-regression.md를 추가로 남긴다.
 각 레포에서 실제 코드 상태에 맞게 아래 4개 YAML을 직접 작성하거나 기존 문서를 갱신한다.
 
 ```
-.harness/docs/             ← 작업 디렉토리의 진실의 원천 (사용자가 템플릿을 복사·편집)
+.harness/docs/             ← 작업 디렉토리의 진실의 원천 (사용자가 직접 작성·갱신)
   code-convention.yaml
   adr.yaml
   architecture.yaml

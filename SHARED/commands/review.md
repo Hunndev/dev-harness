@@ -18,7 +18,7 @@
 
 ### [R1] 자동검사 게이트 (Sub-agent · blocking)
 
-1. **Sub-agent를 호출**해 스택이 정의한 자동검사(린터·테스트·빌드, FE는 + 시각·반응형·접근성)를 실행한다 — 해당 플러그인 `shared/verify`.
+1. **Sub-agent를 호출**해 스택이 정의한 자동검사(린터·테스트·빌드, FE는 + 시각·반응형·접근성 — API 바인딩 작업은 계약·상태·mock 검사)를 실행한다 — 해당 플러그인 `shared/verify`.
 2. raw 로그는 `.harness/artifacts/{track}/{identifier}/review-auto-log.txt`에 저장하고, 메인엔 통과/실패 + 경로만 회수한다.
 3. **실패하면 즉시 멈춘다** → 사람·AI가 코드를 보기 전에 먼저 고친다 (싸게 거른다). 통과해야 [R2]로 넘어간다.
 4. **재사용 규칙**: 같은 HEAD에서 직전 evaluate(또는 트랙의 QA/회귀 스텝)가 이미 통과했으면 — `evaluate-report.md`(또는 트랙 QA/회귀 스텝이 `INDEX.md`에 남긴 검사 HEAD 기록)와 현재 `git rev-parse --short HEAD`가 일치하고 이후 변경이 없으면 — 자동검사를 재실행하지 않고 그 로그를 재사용한다. 리포트에 "재사용(evaluate, HEAD {sha})"로 명시한다.

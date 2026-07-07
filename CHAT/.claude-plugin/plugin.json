@@ -1,7 +1,7 @@
 {
   "name": "hb-chat",
   "description": "BUCCL chat MSA 개발 하네스. Planning, Feature, Maintenance, ADR, Contract, Review 파이프라인.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": { "name": "buccl" },
   "license": "MIT"
 }

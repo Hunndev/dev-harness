@@ -76,12 +76,12 @@
 - **deep**(큰 일): 주문서 한 장 · 서브에이전트 풀가동 · 리뷰 꼼꼼
 
 ## 7. 명령 재배치 (요약)
-- **SHARED로 이동(무손실, 3-way 0-diff)**: feature/criteria·design-intent·prior-art·requirements, maintenance/convention-check, planning/feasibility, shared/team-protocol (7개).
+- **SHARED로 이동(무손실, 3-way 0-diff)**: feature/criteria·design-intent·prior-art·requirements, maintenance/convention-check, planning/feasibility (6개 — team-protocol은 도메인 잔류).
 - **SHARED로 흡수(실착지)**: seed ← scope+requirements+criteria / evaluate ← verify(방법)·reflect(취지 — 두 파일은 opt-in으로 도메인 잔류) / evolve = 개선 제안 전용(update-docs는 도메인 잔류) / interview·team-protocol 도메인 잔류 / review-gates는 CHAT 잔류(스택 우선 게이트), 대신 SHARED review(5단계 관문) 신설.
 - **도메인 잔류(스택 엮임)**: feature·maintenance·planning의 auto/deep, shared/verify(테스트 명령), shared/tdd 등.
 
 ## 8. 구현 단계 (다음)
-- **Phase 1** 스캐폴드 + 무손실 이동(7개) + 린터 R3 동시 수정 (저위험).
+- **Phase 1** 스캐폴드 + 무손실 이동(6개) + 린터 R3 동시 수정 (저위험).
 - **Phase 2** 신규 방법론 작성: seed·ambiguity(seed 내장)·evaluate·evolve·review.
 - **Phase 3** 컨텍스트 절약·도구 선택 규칙을 각 명령에 한 토막씩 주입(울트라코드 분기 포함).
 - **Phase 4** 마켓플레이스 2곳 등록 + 린터(R5/R6/R7/R9) 확장 + 음성테스트 + 작업레포 `.harness/docs` 정비.
