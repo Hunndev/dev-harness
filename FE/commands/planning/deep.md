@@ -88,7 +88,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 다음 요구사항을 바탕으로, 사용자 경험 관점에서 대안을 분석하라.
 
 분석 항목:
-1. 각 대안이 프론트엔드 사용자/작성자/모더레이터에게 미치는 영향
+1. 각 대안이 수강생/강사/관리자 사용자에게 미치는 영향
 2. 즉시성 / 응답성 차이 (API refetch vs store update vs browser event)
 3. 기존 사용 흐름과의 일관성
 4. 학습 비용과 전환 비용
@@ -150,6 +150,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 2. `/hb-fe:shared:update-docs adr`을 호출하여 `decision-draft.md` 내용을 `.harness/docs/adr.yaml`에 편입한다.
 3. 기존 ADR/convention과의 충돌을 체크한다.
 4. 편입 결과를 사용자에게 보고한다.
+5. **편입된 ADR 본문 재제시 (필수)**: 4의 "보고" 는 단순 "완료" 메시지가 아니라 `.harness/docs/adr.yaml` 에 들어간 ADR-XXX 의 yaml 본문 (또는 핵심 발췌 — context / decision / consequences) 을 yaml 코드 블록으로 다시 사용자에게 보여준다.
 
 ### 완료
 

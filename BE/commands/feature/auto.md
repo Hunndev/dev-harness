@@ -27,6 +27,8 @@
 
 ### [F1] 상태 점검 (메인)
 
+> **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
+
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `pytest --collect-only -q` → exit 0 확인 (아니면 중단 + 사용자 보고)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제

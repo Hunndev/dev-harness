@@ -7,7 +7,8 @@
 - 무거운 diff 분석·리뷰·교차검증은 **Sub-agent로 내려** 수행하고, 메인은 **통과/blocking 결론과 산출물 경로만** 회수한다 (컨텍스트 절약). 무거운 단계는 백그라운드로 돌려도 된다.
 - **완료기준·증거·리뷰 렌즈는 하드코딩하지 않는다 — 기준은 각 플러그인(스택)을 따른다.** 단일 정답 명령(`pytest`·`npm test` 등)을 박지 말 것.
   - BE/CM = 테스트·lint·build 통과 (구체 명령은 해당 플러그인 `shared/verify`).
-  - FE = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
+  - FE(디자인 구현) = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
+  - FE(API 바인딩) = 계약 일치·상태 처리(loading/empty/error/success)·mock 잔재 없음·api 계층(src/api·src/utils/api.js) 경유.
   - CHAT = 테스트·lint·build·tsc + 계약 검증(websocket-events·api-contract·database-schema 등록) + dual review gate.
 - **도구 선택 / 울트라코드 — 항상 작동**:
   - **ON**: 관점별 리뷰어를 병렬 Sub-agent(필요 시 Claude Code 네이티브 Teams, 표준 팀 절차는 각 플러그인의 `shared/team-protocol`)로 분리하고, 반박 라운드로 가짜 경보를 제거한다.
@@ -27,7 +28,7 @@
 1. 입력 경로만 확정한다(읽기는 Sub-agent에 위임): `seed.md`(주문서 완료기준 — **있으면 1순위**), `code-quality-guide.md`(기준 — 없으면 `.harness/docs/code-convention.yaml` + `adr.yaml`로 대체), `design-intent.md`(의도), `pr-body.md`, `git diff main...HEAD`, 스택 증거. **없는 문서는 건너뛴다(중단 금지)**.
 2. 관점을 나눠 리뷰한다 — **렌즈는 스택을 따른다**:
    - BE/CM = 버그 / 보안 / 성능 / 구조·간결성
-   - FE = 디자인 일관성 / 시각 계층 / 접근성 / 구조 (+ Claude 디자인 리뷰)
+   - FE = 디자인 일관성 / 시각 계층 / 접근성 / 구조 (+ Claude 디자인 리뷰) — API 바인딩 작업은 + 계약 적합성 / 상태 처리 / mock 잔재 / api 계층 경유
    - CHAT = BE/CM 렌즈 + 계약·경계 (Socket 이벤트·REST 계약 등록 여부, DB 스키마·migration, BE DB 직접 접근 금지, 첨부 정책)
 3. 모든 코멘트는 `code-quality-guide.md` 기준에 **근거**한다. 의도적 결정(`design-intent.md`)은 존중하되, 의도–구현 불일치는 지적한다.
 4. **증거 교차검증(필수)**: 제출된 스택 증거가 실제 diff에 대응하는가 — 증거 대상(테스트명·화면·경로)이 변경 파일에 실재하는가, 전환 방향이 올바른가, 비어 있지 않은가. 불일치는 [p1] Evidence Mismatch.
@@ -64,7 +65,7 @@
 
 ## 적용 기준 (스택 위임)
 - 스택: BE | CM | FE | CHAT
-- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = 시각·UX·반응형·접근성 + Claude 디자인 검증 / CHAT = 테스트·빌드 + 계약 검증 + dual gate)
+- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = [디자인] 시각·UX·반응형·접근성+Claude 검증, [바인딩] 계약·상태·mock / CHAT = 테스트·빌드 + 계약 검증 + dual gate)
 - 근거 문서: .harness/artifacts/{track}/{identifier}/code-quality-guide.md
 
 ## [R1] 자동검사

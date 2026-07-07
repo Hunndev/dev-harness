@@ -91,12 +91,16 @@ full ceremony가 필요한 경우에만 명시적으로 `:deep`을 호출한다.
   feature/{branch-name}/
     requirements.md, prior-art.md, design-intent.md,
     code-quality-guide.md, pr-body.md, review-comments.md, INDEX.md
+
+  각 트랙 공통(해당 시): seed.md,
+    tdd-baseline-log.txt, tdd-green-log.txt, tdd-refactor-notes.md
 ```
 
 FE feature/maintenance는 필요 시 design-source.md, visual-check.md,
-responsive-check.md, accessibility-notes.md, visual-regression.md를 추가로 남긴다.
+responsive-check.md, accessibility-notes.md, api-binding-check.md,
+visual-regression.md를 추가로 남긴다.
 
-## 참조 문서 (각 플러그인 안에 stack-적합 템플릿 포함)
+## 참조 문서 (작업 레포의 `.harness/docs/` — 진실의 원천)
 
 작업 레포의 `.harness/docs/`가 진실의 원천이다. 현재 플러그인 디렉토리는 템플릿을 강제 제공하지 않으므로,
 각 레포에서 실제 코드 상태에 맞게 아래 4개 YAML을 직접 작성하거나 기존 문서를 갱신한다.

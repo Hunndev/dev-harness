@@ -80,7 +80,7 @@ planning 트랙의 `decision-draft.md`를 adr.yaml에 편입할 때:
 
 ## architecture.yaml 갱신
 
-변경 대상: hooks, external_hooks, request_flow, deploy 섹션.
+변경 대상: runtime, entrypoints, high_level_flow, external_services 등 — 작업 레포 `.harness/docs/architecture.yaml`의 실제 섹션을 따른다.
 인프라 관련 maintenance 후에는 반드시 갱신한다.
 
 ## module-registry.yaml 갱신
@@ -90,11 +90,9 @@ feature 트랙 후에는 반드시 갱신한다.
 
 ```yaml
 - name: ...
-  path: apps/{name}/
-  purpose: ...
-  models: [...]
-  depends_on: [...]
-  api_prefix: /api/{name}/
+  paths: [src/pages/{...}, src/components/{...}, src/hooks/{...}]
+  owns: [...]
+  checks: [...]
   notes: |
     ...
 ```

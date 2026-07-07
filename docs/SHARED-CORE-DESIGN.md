@@ -68,7 +68,7 @@
 ## 6. 구조 & 크기
 ```
  dev-harness/
- ├── SHARED/ ◀ 공통 순서표(새로): seed·interview·evaluate·evolve·review
+ ├── SHARED/ ◀ 공통 순서표(새로): seed·evaluate·review·evolve (+보조 6종)
  └── BE/ CM/ FE/ CHAT/ ◀ 팀별: 빌드·테스트 명령·스택 규칙 (그대로)
 ```
 - **hotfix**(한 줄): 주문서 3줄 · 혼자
@@ -77,7 +77,7 @@
 
 ## 7. 명령 재배치 (요약)
 - **SHARED로 이동(무손실, 3-way 0-diff)**: feature/criteria·design-intent·prior-art·requirements, maintenance/convention-check, planning/feasibility, shared/team-protocol (7개).
-- **SHARED로 흡수(신규 통합)**: seed ← scope+requirements+criteria / evaluate ← verify(방법)+reflect / evolve ← update-docs+회고 / interview / review-gates(CHAT에서 승격).
+- **SHARED로 흡수(실착지)**: seed ← scope+requirements+criteria / evaluate ← verify(방법)·reflect(취지 — 두 파일은 opt-in으로 도메인 잔류) / evolve = 개선 제안 전용(update-docs는 도메인 잔류) / interview·team-protocol 도메인 잔류 / review-gates는 CHAT 잔류(스택 우선 게이트), 대신 SHARED review(5단계 관문) 신설.
 - **도메인 잔류(스택 엮임)**: feature·maintenance·planning의 auto/deep, shared/verify(테스트 명령), shared/tdd 등.
 
 ## 8. 구현 단계 (다음)
