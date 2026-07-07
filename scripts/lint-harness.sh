@@ -4,7 +4,7 @@
 # 검증 규칙 (모두 통과해야 exit 0):
 #   R1. 옛 "Agent Team을 호출" / "이 skill은 Agent Team으로 실행" 문구 잔재 없음
 #   R2. 팀 스펙(team_name) 있는 파일엔 TeamDelete 언급 있음
-#   R3. 도메인 간 스텝 헤더 개수 대칭 (planning·maintenance는 BE/CM/FE/CHAT 동일 / feature는 FE·CHAT≥BE)
+#   R3. 도메인 간 스텝 대칭 — 개수 + 스텝 ID 집합 (planning·maintenance는 BE/CM/FE/CHAT 동일 / feature는 FE·CHAT ⊇ BE)
 #   R4. 팀 스펙의 산출 파일이 "메인: 병합" 섹션에 모두 언급됨
 #   R5. 아티팩트 경로 일관성 (BE/CM/FE/CHAT/SHARED 모두 .harness/artifacts 사용. .harness-artifacts 발견 시 실패)
 #   R6. 참조 문서 경로 일관성 (BE/CM/FE/CHAT/SHARED/README 모두 .harness/docs/*.yaml 사용. 백틱 또는 단독으로 쓰인 docs/*.yaml 및 BE/docs/ 잔재 발견 시 실패)
@@ -12,6 +12,7 @@
 #   R8. FE 전용 커맨드 drift 방지 (hb-cm 잔재, 디자인+API바인딩 산출물, watchAll=false 테스트 명령)
 #   R9. 플러그인 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)
 #   R10. 문서 참조 경로 실재성 — 백틱 `commands/**.md`는 같은 플러그인 안에, `SHARED/commands/**.md`는 레포 루트에 실재해야 함
+#   R11. 슬래시 명령 참조 실재성 — /hb-<plugin>:<track>:<cmd> 가 실제 <PLUGIN>/commands/<track>/<cmd>.md 에 대응해야 함
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -111,7 +112,43 @@ for be_file in BE/commands/feature/*.md; do
     fi
   done
 done
-[ $r3_violations -eq 0 ] && pass "도메인 간 스텝 대칭 OK (planning·maintenance 4도메인 / feature FE·CHAT≥BE)"
+# R3b: 스텝 ID 집합 비교 — 개수 대칭이 못 잡는 치환·중복·번호 갈림 검출.
+# (shared/*는 스텝 헤더가 없어 ID 집합이 공집합 — 비교는 참이지만 커버리지는 없음을 명시)
+step_ids() { grep -oE '^### \[[A-Z][0-9][^]]*\]' "$1" 2>/dev/null | sort; }
+for be_file in BE/commands/planning/*.md BE/commands/maintenance/*.md; do
+  [ -f "$be_file" ] || continue
+  be_ids=$(step_ids "$be_file")
+  for dom in CM FE CHAT; do
+    dom_file="$dom/${be_file#BE/}"
+    [ -f "$dom_file" ] || continue
+    dom_ids=$(step_ids "$dom_file")
+    if [ "$be_ids" != "$dom_ids" ]; then
+      fail "스텝 ID 불일치: $be_file vs $dom_file"
+      diff <(echo "$be_ids") <(echo "$dom_ids") | sed 's/^/    /'
+      r3_violations=$((r3_violations + 1))
+    fi
+  done
+done
+for be_file in BE/commands/feature/*.md; do
+  [ -f "$be_file" ] || continue
+  be_ids=$(step_ids "$be_file")
+  [ -z "$be_ids" ] && continue
+  cm_file="CM/${be_file#BE/}"
+  if [ -f "$cm_file" ] && [ "$be_ids" != "$(step_ids "$cm_file")" ]; then
+    fail "스텝 ID 불일치: $be_file vs $cm_file"
+    r3_violations=$((r3_violations + 1))
+  fi
+  for dom in FE CHAT; do
+    dom_file="$dom/${be_file#BE/}"
+    [ -f "$dom_file" ] || continue
+    missing=$(comm -23 <(echo "$be_ids") <(step_ids "$dom_file"))
+    if [ -n "$missing" ]; then
+      fail "feature 스텝 ID 누락: $dom_file — BE 대비 없음: $(echo $missing | tr '\n' ' ')"
+      r3_violations=$((r3_violations + 1))
+    fi
+  done
+done
+[ $r3_violations -eq 0 ] && pass "도메인 간 스텝 대칭 OK (개수 + ID 집합 / planning·maintenance 4도메인 / feature FE·CHAT ⊇ BE)"
 
 # ── R4: 팀 산출 파일이 병합 섹션에 언급 ──────────────────────────
 echo
@@ -149,9 +186,9 @@ done < <(grep -rl "team_name" "${TARGET_DIRS[@]}" 2>/dev/null)
 echo
 echo "R5. 아티팩트 경로 일관성 (BE/CM/FE/CHAT/SHARED 모두 .harness/artifacts)"
 r5_violations=0
-wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md 2>/dev/null || true)
+wrong=$(grep -rn "\.harness-artifacts" BE/commands BE/CLAUDE.md BE/skills CM/commands CM/CLAUDE.md CM/skills FE/commands FE/CLAUDE.md FE/skills CHAT/commands CHAT/CLAUDE.md CHAT/skills SHARED/commands SHARED/CLAUDE.md SHARED/skills 2>/dev/null || true)
 if [ -n "$wrong" ]; then
-  fail "BE/CM/FE 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
+  fail "다섯 플러그인 모두 .harness/artifacts 사용해야 함. .harness-artifacts 발견:"
   echo "$wrong" | sed 's/^/    /'
   r5_violations=$((r5_violations + 1))
 fi
@@ -161,22 +198,24 @@ fi
 echo
 echo "R6. 참조 문서 경로 일관성 (BE/CM/FE/CHAT/SHARED/README 모두 .harness/docs/*.yaml)"
 r6_violations=0
-R6_TARGETS=(BE/commands BE/CLAUDE.md CM/commands CM/CLAUDE.md FE/commands FE/CLAUDE.md CHAT/commands CHAT/CLAUDE.md SHARED/commands SHARED/CLAUDE.md README.md)
+R6_TARGETS=(BE/commands BE/CLAUDE.md BE/skills CM/commands CM/CLAUDE.md CM/skills FE/commands FE/CLAUDE.md FE/skills CHAT/commands CHAT/CLAUDE.md CHAT/skills SHARED/commands SHARED/CLAUDE.md SHARED/skills README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
-docs_wrong=$(grep -rnE '(^|[^./])docs/(code-convention|adr|architecture|module-registry)\.yaml' \
+# 화이트리스트는 CHAT 1급 문서 6종까지 포함한 전체 10종.
+R6_YAMLS='code-convention|adr|architecture|module-registry|websocket-events|api-contract|database-schema|integration-boundary|operations|review-policy'
+docs_wrong=$(grep -rnE "(^|[^./])docs/(${R6_YAMLS})\.yaml" \
   "${R6_TARGETS[@]}" 2>/dev/null || true)
 if [ -n "$docs_wrong" ]; then
-  fail "BE/CM/FE/README 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
+  fail "다섯 플러그인+README 모두 .harness/docs/*.yaml 사용해야 함. 단독 docs/*.yaml 발견:"
   echo "$docs_wrong" | sed 's/^/    /'
   r6_violations=$((r6_violations + 1))
 fi
-# BE/docs/ 잔재 검출: BE는 플러그인이 docs 템플릿을 싣지 않으므로 BE/docs/ 참조는 드리프트.
-be_docs_wrong=$(grep -rnE 'BE/docs/(code-convention|adr|architecture|module-registry)\.yaml' \
+# <플러그인>/docs/ 잔재 검출: 플러그인은 docs 템플릿을 싣지 않으므로 이 참조는 드리프트.
+plug_docs_wrong=$(grep -rnE "(BE|CM|FE|CHAT|SHARED)/docs/(${R6_YAMLS})\.yaml" \
   "${R6_TARGETS[@]}" 2>/dev/null || true)
-if [ -n "$be_docs_wrong" ]; then
-  fail "BE는 플러그인이 docs 템플릿을 싣지 않음. BE/docs/ 참조 발견:"
-  echo "$be_docs_wrong" | sed 's/^/    /'
+if [ -n "$plug_docs_wrong" ]; then
+  fail "플러그인은 docs 템플릿을 싣지 않음. <플러그인>/docs/ 참조 발견:"
+  echo "$plug_docs_wrong" | sed 's/^/    /'
   r6_violations=$((r6_violations + 1))
 fi
 [ $r6_violations -eq 0 ] && pass "참조 문서 경로 일관성 OK"
@@ -193,7 +232,7 @@ plugin_name() {
   esac
 }
 
-# ── R7: 세 플러그인 구조/등록 검증 (BE/CM/FE × Claude/Codex) ──────
+# ── R7: 다섯 플러그인 구조/등록 검증 (BE/CM/FE/CHAT/SHARED × Claude/Codex) ──
 echo
 echo "R7. 플러그인 Codex/Claude 등록 구조 (BE/CM/FE/CHAT/SHARED)"
 r7_violations=0
@@ -217,7 +256,7 @@ for p in BE CM FE CHAT SHARED; do
   done
 done
 
-# 마켓플레이스 2종: JSON 유효성 + 세 플러그인 모두 등록되어 있는지
+# 마켓플레이스 2종: JSON 유효성 + 다섯 플러그인 모두 등록되어 있는지
 for mp in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
   if [ ! -f "$mp" ]; then
     fail "필수 파일 없음: $mp"
@@ -246,7 +285,39 @@ if [ -f ".agents/plugins/marketplace.json" ]; then
     fi
   done
 fi
-[ $r7_violations -eq 0 ] && pass "플러그인 등록 구조 OK (BE/CM/FE/CHAT × Claude/Codex)"
+
+# name↔source 페어링: 이름과 경로가 뒤바뀌어도 잡히도록 항목 단위로 대조
+pairing_errs=$(python3 - <<'PY'
+import json
+m = {'hb-be': './BE', 'hb-cm': './CM', 'hb-fe': './FE', 'hb-chat': './CHAT', 'hb-shared': './SHARED'}
+errs = []
+try:
+    d = json.load(open('.claude-plugin/marketplace.json'))
+    for pl in d.get('plugins', []):
+        exp = m.get(pl.get('name'))
+        if exp and pl.get('source') != exp:
+            errs.append(f".claude-plugin/marketplace.json: {pl.get('name')} source={pl.get('source')} (기대 {exp})")
+except Exception as e:
+    errs.append(f".claude-plugin/marketplace.json 파싱 실패: {e}")
+try:
+    d = json.load(open('.agents/plugins/marketplace.json'))
+    for pl in d.get('plugins', []):
+        src = pl.get('source')
+        path = src.get('path') if isinstance(src, dict) else src
+        exp = m.get(pl.get('name'))
+        if exp and path != exp:
+            errs.append(f".agents/plugins/marketplace.json: {pl.get('name')} path={path} (기대 {exp})")
+except Exception as e:
+    errs.append(f".agents/plugins/marketplace.json 파싱 실패: {e}")
+print('\n'.join(errs))
+PY
+)
+if [ -n "$pairing_errs" ]; then
+  fail "마켓플레이스 name↔source 페어링 불일치:"
+  echo "$pairing_errs" | sed 's/^/    /'
+  r7_violations=$((r7_violations + 1))
+fi
+[ $r7_violations -eq 0 ] && pass "플러그인 등록 구조 OK (BE/CM/FE/CHAT/SHARED × Claude/Codex + 페어링)"
 
 # ── R8: FE 커맨드 drift 방지 ─────────────────────────────────────
 echo
@@ -333,11 +404,48 @@ for p in BE CM FE CHAT SHARED; do
 done
 [ $r10_violations -eq 0 ] && pass "문서 참조 경로 실재성 OK"
 
+# ── R11: 슬래시 명령 참조 실재성 ──────────────────────────────────
+# /hb-<plugin>:<track>:<cmd> → <PLUGIN>/commands/<track>/<cmd>.md 실재 검사.
+# 2-segment(/hb-shared:seed)는 commands/<cmd>.md, 트랙 디렉토리 참조(/hb-chat:contract)는 디렉토리 존재로 통과.
+echo
+echo "R11. 슬래시 명령(/hb-*) 참조 실재성"
+r11_violations=0
+plugin_dir() {
+  case "$1" in
+    hb-be) echo BE ;; hb-cm) echo CM ;; hb-fe) echo FE ;;
+    hb-chat) echo CHAT ;; hb-shared) echo SHARED ;; *) echo "" ;;
+  esac
+}
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
+    plug="${ref#/}"; plug="${plug%%:*}"
+    rest="${ref#/"$plug":}"
+    dir="$(plugin_dir "$plug")"
+    [ -z "$dir" ] && continue
+    if [ "${rest#*:}" = "$rest" ]; then
+      target="$dir/commands/$rest.md"
+      [ -f "$target" ] || [ -d "$dir/commands/$rest" ] || {
+        fail "$f : 슬래시 참조 '$ref' → $target 실재하지 않음"
+        r11_violations=$((r11_violations + 1)); }
+    else
+      track="${rest%%:*}"; cmd="${rest#*:}"
+      target="$dir/commands/$track/$cmd.md"
+      if [ ! -f "$target" ]; then
+        fail "$f : 슬래시 참조 '$ref' → $target 실재하지 않음"
+        r11_violations=$((r11_violations + 1))
+      fi
+    fi
+  done < <(grep -ohE '/hb-(be|cm|fe|chat|shared)(:[a-z][a-z0-9-]*){1,2}' "$f" 2>/dev/null | sort -u)
+done < <(find BE CM FE CHAT SHARED -name '*.md' 2>/dev/null; echo README.md)
+[ $r11_violations -eq 0 ] && pass "슬래시 명령 참조 실재성 OK"
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R10)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R11)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

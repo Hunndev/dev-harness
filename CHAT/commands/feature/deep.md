@@ -64,6 +64,14 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 4. `prior-art.md`를 저장한다.
 5. **사용자 확인 없이 자동 진행.**
 
+### [F3b] 계약 점검 — pre (Fork)
+
+1. worktree(fork)를 생성한다.
+2. `commands/feature/contract-check.md`의 **pre 절차**를 수행한다: 이번 기능이 건드리는 7개 경계(REST/WebSocket/DB/Redis/첨부/BE연동/FE영향) 중 해당 항목의 현행 계약을 확인한다.
+3. 계약이 없으면 먼저 정의(`/hb-chat:contract:*`), breaking이면 ADR 후보(`/hb-chat:adr:new`)·버전 전략을 표시한다.
+4. `contract-check.md`(pre 섹션)를 저장한다. 해당 시 `integration-plan.md`(BE/FE 연동 계획)·`migration-review.md`(DB migration 리뷰) 초안도 여기서 만든다.
+5. worktree를 정리한다.
+
 ### [F4] 설계의도 작성 (Fork)
 
 1. **worktree(fork)를 생성**하여 설계의도 문서를 작성한다.
@@ -136,7 +144,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - Migration (DB 또는 BE 연동 변경)
    - Related (이슈, ADR, 설계 문서)
 4. 초안과 논의점을 사용자에게 제시한다.
-5. `pr-body.md`를 확정하고 저장한다.
+5. `pr-body.md`를 확정하고 저장한다. 배포 위험이 있는 변경(migration·Socket event·BE 연동)이면 `rollback-plan.md`·`release-checklist.md`도 함께 작성한다.
 6. worktree를 정리한다.
 
 ### [F10] 코드리뷰 (Sub-agent)
@@ -163,7 +171,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 
 ### [F11] 리뷰 반영 + QA (Fork)
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약과 검사 시점 HEAD(`git rev-parse --short HEAD`)를 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. **worktree(fork)를 생성**하여 리뷰를 반영한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:
@@ -178,6 +186,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
    - `npm test -- src/__tests__/{module}` (관련 모듈 테스트)
    - `npm test` (전체 회귀, 필요 시)
    - `tdd-green-log.txt`가 여전히 PASS 상태인지 재확인한다.
+   - **계약 post 점검**: 계약을 건드렸으면 `contract-check.md`(post 섹션)를 갱신하고 변경분을 `websocket-contract-diff.md`·`api-contract-diff.md`로 남긴다.
+   - **완료 게이트 = dual review gate**(`commands/shared/review-gates.md`): F10의 `codex-review.md`와 Claude 리뷰 양쪽 blocking 0 확인.
 5. 버그 발견 시 수정 루프.
 6. 핵심 변경사항을 사용자에게 보고한다.
 
@@ -203,17 +213,17 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
   tdd-refactor-notes.md
   tdd-red-revisions.md     (선택: Green→Red 복귀가 발생했을 때만 생성)
   tdd-red-debug.md         (선택: Red 재시도가 발생했을 때만 생성)
-  contract-check.md        (계약 점검 pre/post)
-  integration-plan.md      (BE/FE 연동 계획)
-  migration-review.md      (DB migration 리뷰)
-  websocket-contract-diff.md
-  api-contract-diff.md
-  rollback-plan.md
-  release-checklist.md
+  contract-check.md        (F3b pre / F11 post)
+  integration-plan.md      (F3b — BE/FE 연동 시)
+  migration-review.md      (F3b — DB migration 동반 시)
+  websocket-contract-diff.md (F11 — Socket 계약 변경 시)
+  api-contract-diff.md     (F11 — REST 계약 변경 시)
+  rollback-plan.md         (F9 — 배포 위험 변경 시)
+  release-checklist.md     (F9 — 배포 위험 변경 시)
   pr-body.md
   review-comments.md       (Claude 리뷰)
   codex-review.md          (Codex 리뷰 — dual gate)
   INDEX.md
 ```
 
-> deep는 구현 전 `commands/feature/contract-check.md`(pre)로 계약을 확정하고, 완료는 `commands/shared/review-gates.md`(Codex + Claude dual gate)를 통과해야 한다. BE/FE 연동·migration·Socket event 변경이 동반되면 해당 diff 문서를 남긴다.
+> deep는 구현 전 [F3b]에서 `commands/feature/contract-check.md`(pre)로 계약을 확정하고, [F11]에서 post 점검·계약 diff를 남기며, 완료는 `commands/shared/review-gates.md`(Codex + Claude dual gate)를 통과해야 한다. BE/FE 연동·migration·Socket event 변경이 동반되면 해당 diff 문서를 남긴다.

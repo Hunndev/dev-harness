@@ -20,7 +20,7 @@
 
 ### [S1] 입력 정리 (메인)
 
-1. 식별자를 resolve한다: feature/maintenance 트랙이면 `git branch --show-current`, planning 트랙이면 사용자가 지정한 슬러그.
+1. 식별자를 resolve한다: feature 트랙이면 `git branch --show-current`, maintenance 트랙이면 **트랙 파이프라인의 issue-id**(예: `BUCCL-BE-42`, `maint-20260408-slug`), planning 트랙이면 사용자가 지정한 슬러그. 산출물 디렉토리(`.harness/artifacts/{track}/{identifier}/`)와 **반드시 같은 식별자**를 쓴다 — 다르면 트랙 스텝이 seed를 찾지 못한다.
 2. 트랙과 작업 크기(hotfix / auto / deep)를 사용자와 확인한다. 크기가 주문서 분량을 결정한다.
 3. 선행 산출물이 있으면 경로만 끌어온다: `.harness/artifacts/planning/{identifier}/` 의 interview·feasibility 산출물, 관련 ADR(`.harness/docs/adr.yaml` 편입 항목).
 4. 빈틈(범위 모호·요구사항 미정)이 크면 여기서 멈추고 interview로 되돌린다.
@@ -42,6 +42,7 @@
 3. **완료기준은 스택에 위임한다.** 구체적 통과 명령을 주문서에 하드코딩하지 말고, "검증은 이 작업의 플러그인(스택) 기준을 따른다"고 적은 뒤 어떤 렌즈를 적용할지만 가리킨다:
    - BE/CM = 해당 스택의 테스트·lint·build 통과 (구체 명령은 각 플러그인 `shared/verify`·`shared/tdd` 참조).
    - FE = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
+   - CHAT = 테스트·lint·build + 계약 검증(websocket-events·api-contract 등록) + dual review gate.
    - 어느 스택이든 "무엇을 증거로 볼지"는 그 플러그인이 정의한다. 이 주문서는 그 증거를 가리키기만 한다.
 4. 검증 가능성을 점검한다: 각 완료기준이 build·evaluate 단계에서 객관적으로 확인 가능한가. 불가능하면 기준을 다시 쓴다.
 5. 울트라코드 ON이면 완성 초안을 반박검증한다 — "범위가 제외와 모순되지 않는가 / 완료기준이 비검증 가능하지 않은가". blocking 지적이 있으면 [S1]로 되돌린다.
@@ -93,7 +94,7 @@
 
 | 완료기준 | 적용 렌즈 (스택) | 어디서 검증 |
 |----------|------------------|-------------|
-| AC-01: ... | BE/CM=테스트·lint·build / FE=시각·UX·반응형·접근성+Claude 디자인 검증 | build / evaluate |
+| AC-01: ... | BE/CM=테스트·lint·build / FE=시각·UX·반응형·접근성+Claude 디자인 검증 / CHAT=+계약·dual gate | build / evaluate |
 
 ## 미결 사항
 - ...

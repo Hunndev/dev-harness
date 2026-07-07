@@ -29,7 +29,7 @@
 대상 YAML을 읽고 갱신 범위를 확인한다.
 
 ### [U2] 승인 확인 (게이트)
-- `adr`: 반드시 사용자 승인된 ADR만 편입. `status: proposed`는 편입 금지.
+- `adr`: 반드시 사용자 승인된 ADR만 편입. `status: proposed`는 편입 금지. 편입 후에는 **YAML 본문 제시 (필수)** — 편입된 ADR의 yaml 본문(또는 context/decision/consequences 핵심 발췌)을 yaml 코드 블록으로 사용자에게 직접 보여준다. 단순 "편입 완료" 메시지로 끝내지 않는다.
 - `websocket`/`api`/`database`: 계약 변경이 승인됐는지(contract 트랙 산출물 또는 사용자 승인) 확인.
 - 승인 근거가 없으면 중단하고 사용자에게 확인.
 

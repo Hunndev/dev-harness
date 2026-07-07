@@ -37,6 +37,7 @@ Codex does not execute Claude slash commands directly. Treat these phrases as in
 4. FE work splits into two modes — classify the task at the start. **Design implementation** (Claude design → screen) produces `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md`. **API binding** (screen → BE data) produces `api-binding-check.md` covering API contract match, loading/empty/error/success state handling, no mock data left in production paths, and calls routed through the `src/api`/`src/utils/api.js` layer. Most screen work is a mix — produce both.
 5. Verify React work with `npm run lint`, `npm test -- --watchAll=false`, and `npm run build` unless the target repo lacks the command or the user narrows the scope.
 6. After significant frontend changes, use browser verification when a local target is available.
+7. Never create a new ADR from the maintenance track — new ADRs originate from the planning track only. Maintenance verifies conformance via the shared methodology core: `hb-shared maintenance convention-check` (file: `SHARED/commands/maintenance/convention-check.md` in the dev-harness repo).
 
 ## Track Selection
 

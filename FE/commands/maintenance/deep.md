@@ -36,6 +36,7 @@
    - `refactor` — 코드 구조 개선, 기술 부채 해소
    - `performance` — 느린 렌더링, 중복 API 호출, main thread blocking, 메모리 누수
    - `dependency` — npm 패키지 업그레이드, 보안 패치
+   - `visual` — 디자인 적용 오류, responsive overflow, focus/contrast 문제 (회귀 검증 시 `visual-regression.md`에 전후 스크린샷·재발 방지 노트를 남긴다)
 4. `.harness/docs/module-registry.yaml`을 읽고, 관련 모듈(pages/hooks/API clients/guards 등)을 식별한다.
 5. 사용자에게 다음을 확인한다:
    - 이슈 유형
@@ -77,7 +78,8 @@
    - 근본 원인(root cause) 추정 (가능성 순 나열)
    - 관련 ADR 결정과의 관계 확인
 4. `root-cause.md`를 저장한다.
-5. 분석 결과를 사용자에게 제시하고 원인 추정에 대한 동의를 구한다.
+5. **본문 제시 (필수)**: 분석 결과를 사용자에게 제시할 때 단순 요약이 아니라 `root-cause.md` 의 핵심 (스택트레이스 발생 지점 / 원인 추정 순위 / 근거 / 관련 ADR 충돌 여부) 을 마크다운으로 직접 보여준다.
+6. 원인 추정에 대한 사용자 동의를 구한다.
 
 ### [M4] 영향도 조사 — 병렬 탐색 (Agent Team) ★
 
@@ -177,7 +179,8 @@
    - 메인 BE 연동 변경 필요 여부
 3. 초안과 논의점을 사용자에게 제시한다.
 4. `fix-plan.md`를 저장한다.
-5. worktree를 정리한다.
+5. **본문 제시 (필수)**: 저장 후 `fix-plan.md` 의 핵심 (수정 대상 파일 목록 / 각 수정 내용·이유 / 회귀 리스크 / 범위 제한 / 마이그레이션 필요 여부) 을 사용자에게 마크다운으로 직접 보여준다. 사용자가 본문을 읽고 M7 수정 실행 단계 진입 전 피드백 가능해야 한다.
+6. worktree를 정리한다.
 
 ### [M7] 수정 실행 [TDD Green] (Fork)
 
@@ -210,7 +213,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M8] 회귀 테스트 리포트 — 병렬 실행 (Agent Team) ★
 
-> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조하고, 결과 요약과 검사 시점 HEAD를 `INDEX.md`에 남긴다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
@@ -318,5 +321,6 @@ npm test -- --watchAll=false
   tdd-refactor-notes.md      ← NEW
   regression-report.md       ← Team 병합본
   review-comments.md
+  visual-regression.md       ← visual/responsive 이슈일 때
   INDEX.md
 ```

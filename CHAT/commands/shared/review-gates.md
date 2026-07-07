@@ -3,6 +3,8 @@
 chat 작업의 **완료 조건**을 정의·집행한다. 통과하지 못하면 "완료"가 아니다.
 
 > chat은 계약이 깨지면 FE/BE/앱이 동시에 깨진다. 그래서 단일 리뷰가 아니라 **dual review gate**(Codex + Claude)를 강제한다.
+>
+> `/hb-shared:review`의 [R3] 생략 조항(소규모·미설치)은 **CHAT에는 적용되지 않는다** — 이 dual gate가 우선한다 (SHARED review [R3] 스택 우선 규칙).
 
 ## 완료 게이트 (5단계, 모두 통과)
 
@@ -54,7 +56,8 @@ BLOCKED = 그 외
 ## 산출물
 
 ```
-.harness/artifacts/review/{identifier}/
+.harness/artifacts/{track}/{identifier}/     # 트랙 안에서 호출된 경우 (그 트랙의 리뷰 스텝이 이 파일들을 읽는다)
+                                             # 트랙 밖 단독 호출 시에만 .harness/artifacts/review/{identifier}/
   review-comments.md   # Claude 리뷰 ([p1]~[p4])
   codex-review.md      # Codex 리뷰 blocking 목록
   consensus.md         # 양측 합의/불일치 정리 (선택)

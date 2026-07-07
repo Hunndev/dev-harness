@@ -113,16 +113,18 @@
      - 없으면 `.harness/docs/code-convention.yaml` + `.harness/docs/adr.yaml`에서 관련 stacks로 1차 필터
 3. 리뷰 원칙:
    - 모든 코멘트는 convention/ADR에 근거
+   - 의도적 결정은 존중, 의도-구현 불일치는 지적
    - SQL은 parameterized(`?`)만 사용, 문자열 concatenation 금지
    - Socket.io 이벤트 흐름 누락/중복 확인
    - **테스트-구현 정합성 확인**: 테스트가 의도한 동작을 실제로 검증하는지 확인
    - 우선순위: [p1] 필수 / [p2] 강력 권장 / [p3] 권장 / [p4] 사소
+   - side effect가 있으면 반드시 설명
 4. `review-comments.md`를 저장한다.
 5. **사용자 확인 없이 자동 진행.**
 
 ### [F8] 리뷰 반영 + QA (Fork) _(deep의 F11에 해당)_
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약과 검사 시점 HEAD(`git rev-parse --short HEAD`)를 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. worktree(fork)를 생성한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:

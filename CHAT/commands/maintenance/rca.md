@@ -20,7 +20,7 @@ tracer 스타일로 코드를 추적하여 근본 원인을 추정한다.
 4. 근본 원인(root cause)을 추정하라. 복수이면 가능성 순 나열.
 5. adr.yaml에서 관련 결정을 찾아라.
 
-CM(Node/TS/Express) 특화 확인 항목:
+CHAT(Node/TS/Express/Socket.io) 특화 확인 항목:
 - TypeScript 타입 안정성 위반 (any, type assertion)
 - async/await 누락 → unhandled promise rejection
 - try/catch 누락 → 미들웨어 에러 핸들링 누락

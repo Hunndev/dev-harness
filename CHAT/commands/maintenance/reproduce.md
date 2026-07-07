@@ -36,7 +36,7 @@
 2. 기준선을 `reproduction.md`에 기록한다.
 3. **TDD 관점**: 기준선과 목표치를 명확히 기록하여 Green 단계의 수용기준으로 사용한다.
 
-## CM 특화 재현 체크리스트
+## CHAT 특화 재현 체크리스트
 
 - [ ] JWT 토큰 검증 (만료, 시그니처) 관련인가?
 - [ ] Socket.io 연결 상태 (sticky session, Redis adapter) 관련인가?

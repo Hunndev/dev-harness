@@ -8,6 +8,7 @@
 - **완료기준·증거·리뷰 렌즈는 하드코딩하지 않는다 — 기준은 각 플러그인(스택)을 따른다.** 단일 정답 명령(`pytest`·`npm test` 등)을 박지 말 것.
   - BE/CM = 테스트·lint·build 통과 (구체 명령은 해당 플러그인 `shared/verify`).
   - FE = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
+  - CHAT = 테스트·lint·build·tsc + 계약 검증(websocket-events·api-contract·database-schema 등록) + dual review gate.
 - **도구 선택 / 울트라코드 — 항상 작동**:
   - **ON**: 관점별 리뷰어를 병렬 Sub-agent(필요 시 Claude Code 네이티브 Teams, 표준 팀 절차는 각 플러그인의 `shared/team-protocol`)로 분리하고, 반박 라운드로 가짜 경보를 제거한다.
   - **OFF**: 단일 Sub-agent가 핵심 관점만 순차로 가볍게 본다. 가시화·반박은 줄지만 근거 기반·산출물 회수 원칙은 동일하다.
@@ -19,7 +20,7 @@
 1. **Sub-agent를 호출**해 스택이 정의한 자동검사(린터·테스트·빌드, FE는 + 시각·반응형·접근성)를 실행한다 — 해당 플러그인 `shared/verify`.
 2. raw 로그는 `.harness/artifacts/{track}/{identifier}/review-auto-log.txt`에 저장하고, 메인엔 통과/실패 + 경로만 회수한다.
 3. **실패하면 즉시 멈춘다** → 사람·AI가 코드를 보기 전에 먼저 고친다 (싸게 거른다). 통과해야 [R2]로 넘어간다.
-4. **재사용 규칙**: 같은 HEAD에서 직전 evaluate(또는 트랙의 QA/회귀 스텝)가 이미 통과했으면 — `evaluate-report.md`의 HEAD 기록과 현재 `git rev-parse --short HEAD`가 일치하고 이후 변경이 없으면 — 자동검사를 재실행하지 않고 그 로그를 재사용한다. 리포트에 "재사용(evaluate, HEAD {sha})"로 명시한다.
+4. **재사용 규칙**: 같은 HEAD에서 직전 evaluate(또는 트랙의 QA/회귀 스텝)가 이미 통과했으면 — `evaluate-report.md`(또는 트랙 QA/회귀 스텝이 `INDEX.md`에 남긴 검사 HEAD 기록)와 현재 `git rev-parse --short HEAD`가 일치하고 이후 변경이 없으면 — 자동검사를 재실행하지 않고 그 로그를 재사용한다. 리포트에 "재사용(evaluate, HEAD {sha})"로 명시한다.
 
 ### [R2] 관점별 리뷰 (Sub-agent / 울트라코드 시 Teams)
 
@@ -27,6 +28,7 @@
 2. 관점을 나눠 리뷰한다 — **렌즈는 스택을 따른다**:
    - BE/CM = 버그 / 보안 / 성능 / 구조·간결성
    - FE = 디자인 일관성 / 시각 계층 / 접근성 / 구조 (+ Claude 디자인 리뷰)
+   - CHAT = BE/CM 렌즈 + 계약·경계 (Socket 이벤트·REST 계약 등록 여부, DB 스키마·migration, BE DB 직접 접근 금지, 첨부 정책)
 3. 모든 코멘트는 `code-quality-guide.md` 기준에 **근거**한다. 의도적 결정(`design-intent.md`)은 존중하되, 의도–구현 불일치는 지적한다.
 4. **증거 교차검증(필수)**: 제출된 스택 증거가 실제 diff에 대응하는가 — 증거 대상(테스트명·화면·경로)이 변경 파일에 실재하는가, 전환 방향이 올바른가, 비어 있지 않은가. 불일치는 [p1] Evidence Mismatch.
 5. 울트라코드 ON이면 렌즈별 팀원을 병렬 스폰하고 부분 산출물 파일에 쓴다.
@@ -37,6 +39,7 @@
 2. Codex 결과를 [R2] 발견과 **대조**한다: 양쪽이 함께 지적한 것은 신뢰도↑, 한쪽만 지적한 것은 [R4] 반박으로 넘긴다.
 3. Codex 미설치/실패 시 이 단계를 건너뛰되 `review-comments.md`에 "교차검증 생략(사유)"을 명시한다.
 4. **크기 예외**: 소규모 변경(diff 약 50줄 미만이고 계약·보안·마이그레이션 경계를 건드리지 않음)은 [R3]을 생략할 수 있다 — 리포트에 "교차검증 생략(소규모: {n}줄)"을 명시한다.
+5. **스택 우선**: 스택 플러그인이 더 엄격한 완료 게이트를 정의하면(예: CHAT의 dual review gate — Codex 생략 금지) **그 규칙이 3·4의 생략 조항보다 우선**한다.
 
 ### [R4] 반박 (Sub-agent)
 
@@ -61,7 +64,7 @@
 
 ## 적용 기준 (스택 위임)
 - 스택: BE | CM | FE | CHAT
-- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = 시각·UX·반응형·접근성 + Claude 디자인 검증)
+- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = 시각·UX·반응형·접근성 + Claude 디자인 검증 / CHAT = 테스트·빌드 + 계약 검증 + dual gate)
 - 근거 문서: .harness/artifacts/{track}/{identifier}/code-quality-guide.md
 
 ## [R1] 자동검사

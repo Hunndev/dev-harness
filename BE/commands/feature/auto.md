@@ -121,7 +121,7 @@
 
 ### [F8] 리뷰 반영 + QA (Fork) _(deep의 F11에 해당)_
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약을 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조하고 결과 요약과 검사 시점 HEAD(`git rev-parse --short HEAD`)를 `INDEX.md`에 남긴다. 직전 코드리뷰 관문 [R1] 자동검사와 같은 HEAD면 그 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
 
 1. worktree(fork)를 생성한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:
