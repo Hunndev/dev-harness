@@ -1,0 +1,33 @@
+{
+  "name": "hb-ios",
+  "version": "0.1.0",
+  "description": "BUCCL iOS 웹뷰 앱(ios-buccl) 3-track 개발 하네스. 기획, 신규개발, 유지보수 파이프라인을 Codex skill로 제공한다.",
+  "author": {
+    "name": "buccl"
+  },
+  "license": "MIT",
+  "keywords": [
+    "buccl",
+    "android",
+    "webview",
+    "development-harness"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "BUCCL iOS Harness",
+    "shortDescription": "iOS 웹뷰 앱 작업을 planning, feature, maintenance 흐름으로 진행합니다.",
+    "longDescription": "BUCCL iOS 웹뷰 앱(ios-buccl) 레포에서 요구사항 정리, shell 기능·브리지 계약 작업, TDD, 기기 확인, 회귀 검증을 일관된 산출물 기반 흐름으로 수행하는 개발 하네스입니다.",
+    "developerName": "buccl",
+    "category": "Productivity",
+    "capabilities": [
+      "Write",
+      "Review"
+    ],
+    "defaultPrompt": [
+      "hb-ios feature auto로 이 브리지 함수를 추가해줘",
+      "hb-ios maintenance auto로 이 푸시 수신 버그를 고쳐줘",
+      "hb-ios planning deep으로 딥링크 구조를 잡아줘"
+    ],
+    "brandColor": "#3DDC84"
+  }
+}

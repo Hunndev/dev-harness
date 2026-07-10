@@ -44,6 +44,7 @@
    - FE(디자인 구현) = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
    - FE(API 바인딩) = 계약 일치·상태 처리(loading/empty/error/success)·mock 잔재 없음·api 계층(src/api·src/utils/api.js) 경유 — 어느 모드인지 seed 시점에 분류한다 (혼합이면 둘 다).
    - CHAT = 테스트·lint·build + 계약 검증(websocket-events·api-contract 등록) + dual review gate.
+   - AOS/IOS(모바일 웹뷰 앱) = 테스트·lint·빌드(gradlew / xcodebuild) + [shell 기능] 기기·권한·푸시·딥링크·스토어 확인 / [브리지 계약] 웹→네이티브 계약 일치·형제 플랫폼 동일성(bridge-contract.yaml) — 어느 모드인지 seed 시점에 분류한다 (혼합이면 둘 다).
    - 어느 스택이든 "무엇을 증거로 볼지"는 그 플러그인이 정의한다. 이 주문서는 그 증거를 가리키기만 한다.
 4. 검증 가능성을 점검한다: 각 완료기준이 build·evaluate 단계에서 객관적으로 확인 가능한가. 불가능하면 기준을 다시 쓴다.
 5. 울트라코드 ON이면 완성 초안을 반박검증한다 — "범위가 제외와 모순되지 않는가 / 완료기준이 비검증 가능하지 않은가". blocking 지적이 있으면 [S1]로 되돌린다.
@@ -95,7 +96,7 @@
 
 | 완료기준 | 적용 렌즈 (스택) | 어디서 검증 |
 |----------|------------------|-------------|
-| AC-01: ... | BE/CM=테스트·lint·build / FE=[디자인]시각·UX·반응형·접근성+Claude 검증·[바인딩]계약·상태·mock / CHAT=+계약·dual gate | build / evaluate |
+| AC-01: ... | BE/CM=테스트·lint·build / FE=[디자인]시각·UX·반응형·접근성+Claude 검증·[바인딩]계약·상태·mock / CHAT=+계약·dual gate / AOS·IOS=[shell]기기·권한·푸시·딥링크·[브리지]계약·형제 동일 | build / evaluate |
 
 ## 미결 사항
 - ...

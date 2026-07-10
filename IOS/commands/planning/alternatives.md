@@ -1,0 +1,160 @@
+# 대안 분석 — 3관점 병렬 (iOS)
+
+3개 독립 에이전트가 각각 기술/UX/비용 관점에서 대안을 분석하고, 메인이 병합한다.
+
+## 실행 방식
+
+이 skill은 **Claude Code 네이티브 Teams**로 실행된다. 표준 절차는 `commands/shared/team-protocol.md` 참조.
+1명이 3관점을 순차로 돌리면 뒤 관점이 앞 관점에 편향되므로 반드시 병렬 실행한다.
+
+### 팀 스펙
+
+- `team_name`: `planning-alt-{plan-id}` (예: `planning-alt-plan-20260411-push-deeplink`)
+- `description`: "3관점 대안 분석 (기술/UX/비용)"
+- 팀원 3명 (모두 `subagent_type: general-purpose`, 병렬 스폰):
+
+  | 팀원 이름 | 사용할 프롬프트 블록 | 산출 파일 |
+  |----------|--------------------|----------|
+  | `tech-analyst` | 아래 "Agent A: 기술 실현성" | `.harness/artifacts/planning/{plan-id}/alternatives-tech.md` |
+  | `ux-analyst`   | 아래 "Agent B: UX/제품 관점" | `.harness/artifacts/planning/{plan-id}/alternatives-ux.md` |
+  | `cost-analyst` | 아래 "Agent C: 비용/일정/리스크" | `.harness/artifacts/planning/{plan-id}/alternatives-cost.md` |
+
+- 메인: 3개 부분 산출물을 병합하여 최종 `alternatives.md` 작성 → 팀 해체 (`TeamDelete`)
+- 각 팀원 프롬프트는 `team-protocol.md`의 "팀원 프롬프트 템플릿"을 사용하되, 과제 본문에 아래 "Agent A/B/C" 블록을 그대로 넣는다.
+
+## 입력 (3개 에이전트 공통)
+
+- `scope.md`
+- `requirements-interview.md`
+- `external-research.md`
+- `.harness/docs/module-registry.yaml` (있으면)
+- `.harness/docs/architecture.yaml` (있으면)
+- `stakeholders.md`
+
+## Agent A: 기술 실현성
+
+```
+다음 요구사항과 외부 조사 결과를 바탕으로, 기술적 대안을 분석하라.
+
+대안은 최소 2개, 최대 4개를 제시하라.
+
+각 대안에 대해:
+1. 구현 방법 (Swift 기준, activity/webview/bridge/network/fcm 레이어 수준)
+2. 기존 모듈(module-registry.yaml)과의 호환성
+3. 기술적 위험 요소와 복잡도 (1~5)
+   - ANR/메인 스레드 블로킹 가능성
+   - 메모리 사용량, 앱 크기/배터리 영향
+   - 동시성/race condition
+4. 의존성 추가 필요 여부 (Xcode 라이브러리, 외부 서비스)
+5. WebView/브리지 API 변경 필요 여부 / 변경 위험도 (low/medium/high) — 변경 시 형제 플랫폼(AOS) 반영 필요
+6. 푸시·딥링크 구조 또는 Info.plist(권한·Universal Link·커스텀 스킴) 변경 필요 여부
+7. 웹(FE)·메인 BE(hb-be) 연동 변경 필요 여부
+
+출력 형식: 대안별로 위 항목을 채워라. 다른 관점(UX, 비용)은 평가하지 마라.
+
+[scope.md]
+[requirements-interview.md]
+[external-research.md]
+[module-registry.yaml]
+[architecture.yaml]
+```
+
+## Agent B: UX/제품 관점
+
+```
+다음 요구사항을 바탕으로, 사용자 경험 관점에서 대안을 분석하라.
+
+기술 에이전트가 제시한 대안과 동일한 대안 목록을 평가하되, 기술적 판단은 하지 마라.
+
+각 대안에 대해:
+1. 사용자(수강생/강사/관리자)별 경험 변화
+2. 즉시성/응답성 차이 (웹 화면 갱신 vs 네이티브 구현 vs 푸시 알림)
+3. 기존 사용 흐름과의 일관성 (높음/보통/낮음)
+4. 학습 비용 (사용자가 새로 배워야 하는 것)
+5. 전환 비용 (기존 방식에서 새 방식으로의 이동)
+6. 웹(WebView 안 화면)과 네이티브 shell 사이, 그리고 형제 플랫폼(AOS)과의 경험 일관성
+
+출력 형식: 대안별로 위 항목을 채워라. 기술/비용 관점은 평가하지 마라.
+
+[scope.md]
+[requirements-interview.md]
+[stakeholders.md]
+```
+
+## Agent C: 비용/일정/리스크
+
+```
+다음 요구사항을 바탕으로, 비용·일정·리스크 관점에서 대안을 분석하라.
+
+기술 에이전트가 제시한 대안과 동일한 대안 목록을 평가하되, 기술적/UX적 판단은 하지 마라.
+
+각 대안에 대해:
+1. 예상 구현 공수 (1인 개발 기준, 인일)
+2. 비용 변동 — 스토어 수수료·FCM 비용은 미미하다. 주 비용은 스토어 심사 리드타임과 릴리즈 사이클.
+3. 웹(FE)·메인 BE(hb-be) 연동 변경 비용 (별도 레포 작업 필요)
+4. 실패 리스크 (low/medium/high) — 실패 시 되돌리기 비용 포함 (스토어 배포는 즉시 롤백 불가, 심사 재대기)
+5. 점진적 출시 가능 여부 (staged rollout, 단계적 공개)
+6. 스토어 심사·릴리즈 리스크 (정책 위반 소지, 권한 추가 심사) 및 운영 모니터링 비용
+
+출력 형식: 대안별로 위 항목을 채워라. 기술/UX 관점은 평가하지 마라.
+
+[scope.md]
+[requirements-interview.md]
+[architecture.yaml]
+```
+
+## 메인: 병합
+
+1. 3개 팀원이 작성한 부분 산출물을 Read한다:
+   - `.harness/artifacts/planning/{plan-id}/alternatives-tech.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-ux.md`
+   - `.harness/artifacts/planning/{plan-id}/alternatives-cost.md`
+2. 대안별로 3관점을 통합한다.
+3. 관점 간 **충돌/모순**을 식별한다:
+   - 예: 기술적으로 최적인 대안이 비용이 가장 높은 경우
+   - 예: UX가 좋은 대안이 기술적으로 가장 복잡한 경우
+4. 충돌이 있으면 사용자에게 명시적으로 제시하고 판단을 요청한다.
+5. 병합 결과를 최종 `alternatives.md`로 저장한다.
+6. 팀 해체: 팀원 전원에게 `SendMessage({type: "shutdown_request"})` → `TeamDelete`.
+
+## 산출물: alternatives.md
+
+```markdown
+# 대안 분석
+
+## 대안 목록
+
+### 대안 A: {이름}
+#### 기술 실현성
+- 구현 방법: ...
+- 호환성: ...
+- 복잡도: {1~5}
+- 의존성: ...
+- WebView/브리지 API 변경 위험: {low|medium|high}
+- 푸시·딥링크/Info.plist 변경: {있음|없음}
+- 웹(FE)·BE 연동 변경: {있음|없음}
+
+#### UX/제품
+- 사용자 경험 변화: ...
+- 즉시성: ...
+- 기존 흐름 일관성: {높음|보통|낮음}
+- 학습 비용: ...
+
+#### 비용/일정/리스크
+- 공수: {N}인일
+- 심사 리드타임/릴리즈 영향: ...
+- 웹(FE)·BE 연동 변경 비용: ...
+- 실패 리스크: {low|medium|high}
+- 점진적 출시: {가능|불가}
+
+### 대안 B: {이름}
+(동일 구조)
+
+## 관점 간 충돌
+| 충돌 | 기술 | UX | 비용 | 비고 |
+|------|------|-----|------|------|
+| ... | ... | ... | ... | 사용자 판단 필요 |
+
+## 추천
+(메인이 3관점을 종합하여 추천. 단, 최종 결정은 사용자.)
+```

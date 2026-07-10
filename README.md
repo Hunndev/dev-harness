@@ -1,9 +1,9 @@
 # BUCCL Dev Harness
 
-BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CHAT)를 위한 Claude Code 기반 개발 자동화 파이프라인.
-하나의 마켓플레이스에 **다섯 플러그인**이 들어 있다 — 레포별 4개와 공통 방법론 코어 `hb-shared`.
+BUCCL의 여섯 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CHAT / 모바일 웹뷰 앱 AOS·iOS)를 위한 Claude Code 기반 개발 자동화 파이프라인.
+하나의 마켓플레이스에 **일곱 플러그인**이 들어 있다 — 레포별 6개와 공통 방법론 코어 `hb-shared`.
 
-## 다섯 플러그인
+## 일곱 플러그인
 
 | 플러그인 | 대상 레포 | 스택 | 슬래시 prefix |
 |---------|----------|------|--------------|
@@ -11,15 +11,18 @@ BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CH
 | `hb-cm` | `CM/` (커뮤니티) | Node 18 + TS 5.3 + Express + MySQL + Redis + Socket.io + Jest | `/hb-cm:...` |
 | `hb-fe` | `FE/` (프론트엔드) | React 18 + CRA + React Router + Zustand + MUI/Bootstrap + Capacitor | `/hb-fe:...` |
 | `hb-chat` | `CHAT/` (채팅 MSA) | Node 18 + TS + Express + Socket.io + MySQL + Redis + Azure Blob + Jest | `/hb-chat:...` |
-| `hb-shared` | (공통) | 스택 무관 방법론 코어 — 4개 플러그인이 공유 | `/hb-shared:...` |
+| `hb-aos` | `AOS/` (Android 웹뷰 앱) | Kotlin + Gradle KTS + WebView + FCM + JUnit | `/hb-aos:...` |
+| `hb-ios` | `IOS/` (iOS 웹뷰 앱) | Swift + Xcode + WKWebView + FCM + XCTest | `/hb-ios:...` |
+| `hb-shared` | (공통) | 스택 무관 방법론 코어 — 6개 플러그인이 공유 | `/hb-shared:...` |
 
 `hb-be`/`hb-cm`/`hb-fe`는 **3-track 구조**(기획/신규개발/유지보수)를 공유한다.
 `hb-chat`은 여기에 chat 특성상 **ADR 트랙·Contract 트랙·dual review gate**를 더한다 (계약이 깨지면 FE/BE/앱이 동시에 깨지므로). 스택별로 명령(테스트 명령, 레이어 용어, 컨벤션 ID)이 다르다.
-`hb-shared`는 4팀 공통 **방법론 순서표**(seed → evaluate → review → evolve)와 공통 보조 명령을 제공한다 (아래 "일하는 순서").
+`hb-aos`/`hb-ios`는 FE 웹을 싣는 **모바일 웹뷰 쌍둥이**다 — 3-track에 **두 모드(shell 기능 / 브리지 계약)**와 **패리티 장치**(전 트랙 완전 미러 + 형제 플랫폼 반영 기록, 설계는 `docs/MOBILE-SHELL-DESIGN.md`)를 더한다.
+`hb-shared`는 6팀 공통 **방법론 순서표**(seed → evaluate → review → evolve)와 공통 보조 명령을 제공한다 (아래 "일하는 순서").
 
 ## 운영 모드 — 명시 호출 (opt-in)
 
-이 하네스는 **명시 호출 방식**으로 운용한다. 제품 레포(BE/FE/Community)의 CLAUDE.md·AGENTS.md에는 하네스를 자동 연결하지 않는다 — 2026-06-26에 하네스 기계장치를 의도적으로 제거하고 지식(컨벤션·경계 규칙)만 남겼다. 필요할 때 해당 레포에서 `/hb-*` 트랙 명령을 직접 호출한다. 예외로 **chat 레포만** always-read 연결(CLAUDE.md 규약)을 유지한다.
+이 하네스는 **명시 호출 방식**으로 운용한다. 제품 레포(BE/FE/Community/모바일 AOS·iOS)의 CLAUDE.md·AGENTS.md에는 하네스를 자동 연결하지 않는다 — 2026-06-26에 하네스 기계장치를 의도적으로 제거하고 지식(컨벤션·경계 규칙)만 남겼다. 필요할 때 해당 레포에서 `/hb-*` 트랙 명령을 직접 호출한다. 예외로 **chat 레포만** always-read 연결(CLAUDE.md 규약)을 유지한다.
 
 ## 일하는 순서 (hb-shared 공통 방법론)
 
@@ -31,7 +34,7 @@ BUCCL의 네 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CH
 | ⑥ evolve | `/hb-shared:evolve` | 반복 문제 → 개선 제안 (제안만, 자동 수정 X) |
 
 - ①interview는 필요 시, ③build는 각 도메인 플러그인(feature/maintenance)이 담당한다.
-- **완료기준·증거·리뷰 렌즈는 각 스택을 따른다.** FE는 **디자인 구현 / API 바인딩** 두 모드로 나뉘어 기준이 다르다.
+- **완료기준·증거·리뷰 렌즈는 각 스택을 따른다.** FE는 **디자인 구현 / API 바인딩**, AOS/IOS는 **shell 기능 / 브리지 계약** 두 모드로 나뉘어 기준이 다르다.
 - 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다. 울트라코드(워크플로우)가 켜지면 병렬+반박으로 더 정밀해지고, 꺼져도 가볍게 작동한다.
 - 공통 보조 명령: `requirements`·`criteria`·`design-intent`·`prior-art`(feature), `convention-check`(maintenance), `feasibility`(planning) 가 `hb-shared`로 모여 있다. `requirements`·`criteria`는 seed에 **흡수**되어 기본 흐름에서는 seed가 대신하고, 나머지는 파이프라인 밖에서 그 단계만 따로 돌릴 때 쓰는 opt-in 명령이다.
 
@@ -99,6 +102,8 @@ full ceremony가 필요한 경우에만 명시적으로 `:deep`을 호출한다.
 FE feature/maintenance는 필요 시 design-source.md, visual-check.md,
 responsive-check.md, accessibility-notes.md, api-binding-check.md,
 visual-regression.md를 추가로 남긴다.
+AOS/IOS feature/maintenance는 필요 시 device-check.md, permission-check.md,
+release-check.md, bridge-check.md, parity-proposal.md(형제 플랫폼 반영 제안)를 추가로 남긴다.
 
 ## 참조 문서 (작업 레포의 `.harness/docs/` — 진실의 원천)
 
@@ -111,13 +116,14 @@ visual-regression.md를 추가로 남긴다.
   adr.yaml
   architecture.yaml
   module-registry.yaml
+  bridge-contract.yaml     ← AOS/IOS만 (웹→네이티브 브리지 계약 — 양 플랫폼 동일 유지)
 ```
 
 ## Quick Start
 
 1. 이 디렉토리(harness/)를 Claude Code 마켓플레이스로 등록한다.
-2. 각 레포에서 해당 플러그인을 활성화한다 — BE=`hb-be`, Community=`hb-cm`, FE=`hb-fe`, chat=`hb-chat`. 방법론 코어 `hb-shared`는 **모든 레포에서 함께 활성화**한다.
-3. 각 작업 레포의 `.harness/docs/` 디렉토리를 만들고 실제 코드 상태에 맞게 YAML을 작성한다 (BE/CM/FE는 4종, CHAT는 10종 — CHAT/CLAUDE.md 진실의 원천 표 참조).
+2. 각 레포에서 해당 플러그인을 활성화한다 — BE=`hb-be`, Community=`hb-cm`, FE=`hb-fe`, chat=`hb-chat`, Android=`hb-aos`, iOS=`hb-ios`. 방법론 코어 `hb-shared`는 **모든 레포에서 함께 활성화**한다.
+3. 각 작업 레포의 `.harness/docs/` 디렉토리를 만들고 실제 코드 상태에 맞게 YAML을 작성한다 (BE/CM/FE는 4종, CHAT는 10종 — CHAT/CLAUDE.md 진실의 원천 표 참조, AOS/IOS는 5종 — 4종 + bridge-contract.yaml).
 4. 작업 레포 `.gitignore`에 아래를 추가한다 — 산출물은 제외하되 `.harness/docs/`는 팀 공유용 진실의 원천이므로 트래킹한다.
    ```
    .harness/artifacts/
@@ -165,6 +171,12 @@ visual-regression.md를 추가로 남긴다.
 /hb-chat:contract:websocket
 /hb-chat:contract:api
 
+# 모바일 웹뷰 앱 레포에서 — 두 모드(shell 기능/브리지 계약) + 형제 플랫폼 패리티 기록
+/hb-aos:feature:auto         # buccl-aos 레포에서
+/hb-aos:maintenance:auto
+/hb-ios:feature:auto         # ios-buccl 레포에서
+/hb-ios:maintenance:auto
+
 # 모든 레포 공통 — 방법론 코어 (한 바퀴: seed → build → evaluate → review → evolve)
 /hb-shared:seed              # 주문서
 /hb-shared:evaluate          # 검사
@@ -174,12 +186,12 @@ visual-regression.md를 추가로 남긴다.
 
 ## Codex 사용
 
-다섯 플러그인(`BE/`, `CM/`, `FE/`, `CHAT/`, `SHARED/`) 모두 Codex용 `.codex-plugin/plugin.json`과 `skills/<plugin>/SKILL.md`를 포함한다.
-repo-local Codex marketplace는 `.agents/plugins/marketplace.json`에 있으며 `./BE`, `./CM`, `./FE`, `./CHAT`, `./SHARED` 다섯 플러그인을 모두 가리킨다.
+일곱 플러그인(`BE/`, `CM/`, `FE/`, `CHAT/`, `SHARED/`, `AOS/`, `IOS/`) 모두 Codex용 `.codex-plugin/plugin.json`과 `skills/<plugin>/SKILL.md`를 포함한다.
+repo-local Codex marketplace는 `.agents/plugins/marketplace.json`에 있으며 `./BE`, `./CM`, `./FE`, `./CHAT`, `./SHARED`, `./AOS`, `./IOS` 일곱 플러그인을 모두 가리킨다.
 Codex는 Claude slash command를 직접 실행하지 않으므로, `hb-be feature auto로 이 API 구현해줘`처럼 자연어 alias로 사용한다.
 Codex skill은 각 플러그인의 `<plugin>/commands/` 문서를 source of truth로 읽고 동일한 `.harness/artifacts/` 산출물 규약을 따른다.
 
-사용자의 `~/.codex/config.toml`에서 marketplace를 등록한 뒤 다섯 플러그인을 활성화한다:
+사용자의 `~/.codex/config.toml`에서 marketplace를 등록한 뒤 일곱 플러그인을 활성화한다:
 
 ```toml
 [plugins."hb-be@buccl-dev-harness-codex"]
@@ -196,10 +208,16 @@ enabled = true
 
 [plugins."hb-shared@buccl-dev-harness-codex"]
 enabled = true
+
+[plugins."hb-aos@buccl-dev-harness-codex"]
+enabled = true
+
+[plugins."hb-ios@buccl-dev-harness-codex"]
+enabled = true
 ```
 
 > marketplace를 git source로 등록한 경우 머지 직후 캐시가 stale일 수 있다.
-> `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 다섯 플러그인이 새로 설치된다.
+> `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 일곱 플러그인이 새로 설치된다.
 
 ## 업데이트 반영 확인 (버전 범프 후)
 
@@ -212,9 +230,9 @@ enabled = true
 ```
 harness/
 ├── .claude-plugin/
-│   └── marketplace.json          ← 다섯 플러그인 등록
+│   └── marketplace.json          ← 일곱 플러그인 등록
 ├── .agents/plugins/
-│   └── marketplace.json          ← Codex용 다섯 플러그인 등록
+│   └── marketplace.json          ← Codex용 일곱 플러그인 등록
 ├── BE/                           ← Django 플러그인
 │   ├── .claude-plugin/plugin.json
 │   ├── .codex-plugin/plugin.json
@@ -239,6 +257,18 @@ harness/
 │   ├── CLAUDE.md
 │   ├── commands/                 (planning/, feature/, maintenance/, adr/, contract/, shared/)
 │   └── skills/hb-chat/SKILL.md   (Codex 진입점)
+├── AOS/                          ← Android 웹뷰 앱 플러그인 (두 모드 + iOS 패리티)
+│   ├── .claude-plugin/plugin.json
+│   ├── .codex-plugin/plugin.json
+│   ├── CLAUDE.md
+│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
+│   └── skills/hb-aos/SKILL.md    (Codex 진입점)
+├── IOS/                          ← iOS 웹뷰 앱 플러그인 (AOS와 전 트랙 완전 미러)
+│   ├── .claude-plugin/plugin.json
+│   ├── .codex-plugin/plugin.json
+│   ├── CLAUDE.md
+│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
+│   └── skills/hb-ios/SKILL.md    (Codex 진입점)
 ├── SHARED/                        ← 공통 방법론 코어 (hb-shared)
 │   ├── .claude-plugin/plugin.json
 │   ├── .codex-plugin/plugin.json

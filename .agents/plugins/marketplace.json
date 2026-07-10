@@ -53,6 +53,30 @@
       "category": "Productivity"
     },
     {
+      "name": "hb-aos",
+      "source": {
+        "source": "local",
+        "path": "./AOS"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "hb-ios",
+      "source": {
+        "source": "local",
+        "path": "./IOS"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
       "name": "hb-shared",
       "source": {
         "source": "local",

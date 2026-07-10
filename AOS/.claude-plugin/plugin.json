@@ -1,0 +1,7 @@
+{
+  "name": "hb-aos",
+  "description": "BUCCL Android 웹뷰 앱(buccl-aos) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 + shell 기능·브리지 계약 검증 파이프라인.",
+  "version": "0.1.0",
+  "author": { "name": "buccl" },
+  "license": "MIT"
+}
