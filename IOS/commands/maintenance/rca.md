@@ -51,7 +51,7 @@ iOS(Swift/WebView) 특화 확인 항목:
 - 파일: {path}
 - 라인: {line}
 - 함수: {function_name}
-- 레이어: activity | webview | bridge | network | fcm | deeplink | permission | utils
+- 레이어: viewcontroller | webview | bridge | network | fcm | deeplink | permission | utils
 
 ## 근본 원인 추정
 

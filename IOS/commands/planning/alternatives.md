@@ -39,7 +39,7 @@
 대안은 최소 2개, 최대 4개를 제시하라.
 
 각 대안에 대해:
-1. 구현 방법 (Swift 기준, activity/webview/bridge/network/fcm 레이어 수준)
+1. 구현 방법 (Swift 기준, viewcontroller/webview/bridge/network/fcm 레이어 수준)
 2. 기존 모듈(module-registry.yaml)과의 호환성
 3. 기술적 위험 요소와 복잡도 (1~5)
    - ANR/메인 스레드 블로킹 가능성
