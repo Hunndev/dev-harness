@@ -1,6 +1,6 @@
 # 리뷰 관문 (review)
 
-머지 전 마지막 관문. **자동검사 → 관점별 리뷰 → Codex∥Claude 교차검증 → 반박(가짜 경보 제거) → 통과 판정**의 5단계로, 진짜 문제만 남겨 막는다. 모든 스택(BE/CM/FE/CHAT) 공통 stack-agnostic 관문이다.
+머지 전 마지막 관문. **자동검사 → 관점별 리뷰 → Codex∥Claude 교차검증 → 반박(가짜 경보 제거) → 통과 판정**의 5단계로, 진짜 문제만 남겨 막는다. 모든 스택(BE/CM/FE/CHAT/AOS/IOS) 공통 stack-agnostic 관문이다.
 
 ## 실행 방식
 
@@ -10,6 +10,7 @@
   - FE(디자인 구현) = 시각·UX·반응형·접근성 + Claude 디자인 검증 (시각 회귀를 텍스트 통과로 환원하지 않는다).
   - FE(API 바인딩) = 계약 일치·상태 처리(loading/empty/error/success)·mock 잔재 없음·api 계층(src/api·src/utils/api.js) 경유.
   - CHAT = 테스트·lint·build·tsc + 계약 검증(websocket-events·api-contract·database-schema 등록) + dual review gate.
+  - AOS/IOS = 테스트·lint·빌드(gradlew / xcodebuild) + 모바일 검증([shell] 기기·권한·푸시·딥링크 / [브리지] 계약 일치·형제 플랫폼 동일성 — bridge-contract.yaml).
 - **도구 선택 / 울트라코드 — 항상 작동**:
   - **ON**: 관점별 리뷰어를 병렬 Sub-agent(필요 시 Claude Code 네이티브 Teams, 표준 팀 절차는 각 플러그인의 `shared/team-protocol`)로 분리하고, 반박 라운드로 가짜 경보를 제거한다.
   - **OFF**: 단일 Sub-agent가 핵심 관점만 순차로 가볍게 본다. 가시화·반박은 줄지만 근거 기반·산출물 회수 원칙은 동일하다.
@@ -30,6 +31,7 @@
    - BE/CM = 버그 / 보안 / 성능 / 구조·간결성
    - FE = 디자인 일관성 / 시각 계층 / 접근성 / 구조 (+ Claude 디자인 리뷰) — API 바인딩 작업은 + 계약 적합성 / 상태 처리 / mock 잔재 / api 계층 경유
    - CHAT = BE/CM 렌즈 + 계약·경계 (Socket 이벤트·REST 계약 등록 여부, DB 스키마·migration, BE DB 직접 접근 금지, 첨부 정책)
+   - AOS/IOS = BE/CM 렌즈 + 모바일 ([shell] 권한 과다·푸시 수신 경로·딥링크 충돌·WebView 보안(JS 인터페이스 노출 범위) / [브리지] 함수 시그니처·메시지 포맷·에러 처리·형제 플랫폼 계약 동일성)
 3. 모든 코멘트는 `code-quality-guide.md` 기준에 **근거**한다. 의도적 결정(`design-intent.md`)은 존중하되, 의도–구현 불일치는 지적한다.
 4. **증거 교차검증(필수)**: 제출된 스택 증거가 실제 diff에 대응하는가 — 증거 대상(테스트명·화면·경로)이 변경 파일에 실재하는가, 전환 방향이 올바른가, 비어 있지 않은가. 불일치는 [p1] Evidence Mismatch.
 5. 울트라코드 ON이면 렌즈별 팀원을 병렬 스폰하고 부분 산출물 파일에 쓴다.
@@ -64,8 +66,8 @@
 (전체 품질 총평. 스택은 무엇이고, 완료기준 출처는 어디인지 1줄)
 
 ## 적용 기준 (스택 위임)
-- 스택: BE | CM | FE | CHAT
-- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = [디자인] 시각·UX·반응형·접근성+Claude 검증, [바인딩] 계약·상태·mock / CHAT = 테스트·빌드 + 계약 검증 + dual gate)
+- 스택: BE | CM | FE | CHAT | AOS | IOS
+- 완료기준 출처: 해당 플러그인 (BE/CM = 테스트·lint·build / FE = [디자인] 시각·UX·반응형·접근성+Claude 검증, [바인딩] 계약·상태·mock / CHAT = 테스트·빌드 + 계약 검증 + dual gate / AOS·IOS = [shell] 기기·권한·푸시·딥링크, [브리지] 계약·형제 동일)
 - 근거 문서: .harness/artifacts/{track}/{identifier}/code-quality-guide.md
 
 ## [R1] 자동검사
