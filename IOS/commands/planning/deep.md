@@ -69,7 +69,7 @@ branch가 없을 수 있으므로 `plan-YYYYMMDD-slug` 형식을 사용한다.
 다음 요구사항과 외부 조사 결과를 바탕으로, 기술적 대안을 분석하라.
 
 분석 항목:
-1. 각 대안의 구현 방법 (Swift 기준, activity/webview/bridge/network/fcm 레이어 수준)
+1. 각 대안의 구현 방법 (Swift 기준, viewcontroller/webview/bridge/network/fcm 레이어 수준)
 2. 기존 모듈(module-registry.yaml)과의 호환성
 3. 기술적 위험 요소와 복잡도 (ANR, 메모리, 동시성, 앱 크기/배터리 영향)
 4. 새로운 Xcode 의존성 추가 필요 여부
