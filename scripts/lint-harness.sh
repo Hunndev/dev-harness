@@ -370,9 +370,9 @@ if [ -n "$fe_stale" ]; then
 fi
 
 for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
-  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md; do
+  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md e2e-check.md; do
     if ! grep -q "$artifact" "$feature_doc"; then
-      fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드)"
+      fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드 + E2E 렌즈)"
       r8_violations=$((r8_violations + 1))
     fi
   done
