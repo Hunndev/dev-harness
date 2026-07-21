@@ -371,7 +371,8 @@ fi
 
 for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
   for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md e2e-check.md; do
-    if ! grep -q "$artifact" "$feature_doc"; then
+    artifact_re="${artifact//./\\.}"
+    if ! grep -q "$artifact_re" "$feature_doc"; then
       fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드 + E2E 렌즈)"
       r8_violations=$((r8_violations + 1))
     fi
@@ -379,7 +380,7 @@ for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
 done
 
 for maint_doc in FE/commands/maintenance/auto.md FE/commands/maintenance/deep.md; do
-  if ! grep -q "e2e-check.md" "$maint_doc"; then
+  if ! grep -q "e2e-check\.md" "$maint_doc"; then
     fail "$maint_doc : E2E 렌즈 산출물 누락 (e2e-check.md)"
     r8_violations=$((r8_violations + 1))
   fi
