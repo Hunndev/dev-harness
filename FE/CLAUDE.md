@@ -86,7 +86,7 @@ E2E는 제3의 작업 모드가 아니라 두 모드 공용의 **검증 렌즈**
 ### 자산 소재와 spec 재사용
 
 - Playwright dependency·config·spec의 **소유·보관 위치는 FE 제품 repo**다 — dev-harness plugin source repo에는 자산을 두지 않는다. 이 플러그인은 실행·판정·증거 규칙만 정의한다. 사용자가 승인한 FE 제품 구현에서 setup/변경이 필요하면 **hb-fe 구현 스텝이 FE 제품 repo 안의 dependency/config/spec을 생성·수정할 수 있다**.
-- **기존 spec 재사용 우선**: 기존 spec이 대상 시나리오를 덮으면 재실행만 한다. 새 route·새 흐름·기존 spec이 검증하지 않는 상태 전이 등 **갭이 확인될 때만** 신규 spec을 제품 repo의 기존 구조·관례에 맞춰 추가한다. 재사용/신규 구분을 `e2e-check.md`에 기록한다. 신규 spec 추가는 검증 스텝이 아니라 **구현 스텝에서** 수행한다 — 검증 Fork는 산출물만 생성한다(공통 규칙 1). 검증 스텝(F7/F9)에서 **spec 갭을 발견하면 구현 스텝으로 복귀**하고, 구현 단계가 신규 spec 작성·검증을 담당한다(이때 spec 추가는 TDD Red 범위 제한의 예외로 허용). maintenance 트랙에서 갭이 발견되면 해당 트랙의 수정(구현) 스텝에서 같은 예외로 수행한다.
+- **기존 spec 재사용 우선**: 기존 spec이 대상 시나리오를 덮으면 재실행만 한다. 새 route·새 흐름·기존 spec이 검증하지 않는 상태 전이 등 **갭이 확인될 때만** 신규 spec을 제품 repo의 기존 구조·관례에 맞춰 추가한다. 재사용/신규 구분을 `e2e-check.md`에 기록한다. 신규 spec 추가는 검증 스텝이 아니라 **구현 스텝에서** 수행한다 — 검증 Fork는 산출물만 생성한다(공통 규칙 1). 검증 스텝(F7/F9)에서 **spec 갭을 발견하면 구현 스텝으로 복귀**하고, 구현 단계가 신규 spec 작성·검증을 담당한다(이때 spec 추가는 TDD Red 범위 제한의 예외로 허용). maintenance 트랙에서 갭이 발견되면 해당 트랙의 수정(구현) 스텝에서 같은 예외로 수행한다. Playwright **setup 부재**(dependency/config/script)도 spec 갭과 같은 **구현 gap**이다 — 구현 스텝에서 setup을 생성·검증한 뒤 E2E를 재수행하며, `미확인`으로 종결하지 않는다.
 
 ### 실행 환경 3구분과 데이터 안전경계
 
@@ -105,8 +105,8 @@ E2E는 제3의 작업 모드가 아니라 두 모드 공용의 **검증 렌즈**
 
 - 증거: 시나리오별 screenshot은 판정 근거로 **필수**이며, **모든 시나리오의 screenshot을 `.harness/artifacts/{track}/{identifier}/e2e-evidence/`로 복사해 보존**한다. video 또는 trace(**하나 이상**)는 `비정상`·`미확인` 시나리오에 **필수**이고 **해당 건만 보존**한다 — `정상` 시나리오의 video/trace는 선택이며 기본적으로 보존하지 않는다. 실행 중 증거 파일은 제품 repo의 Playwright 기본 출력 디렉토리에 생성되지만 worktree 정리로 사라질 수 있으므로, `e2e-check.md`에는 **worktree 정리 후에도 유효한 보존 사본 경로만** 기록한다. 실행 자체가 불가해 증거가 생성되지 않은 `미확인` 건은 screenshot·video/trace 대신 **실패 로그와 "증거 없음" 사유**를 `e2e-check.md`에 기록한다 — 이 경우 video/trace 필수 요건도 함께 면제된다.
 - 판정은 2계층: 시나리오별 **`정상 / 비정상 / 미확인`**, verify 최종 판정은 기존 `PASS | FAIL` 유지. `비정상`이 1건이라도 있으면 FAIL, `미확인`이 남아 있으면 최종 PASS 불가 — 이때 최종 판정은 **FAIL로 기록**하고 사유를 "미확인 잔존(환경/데이터 사유)"으로 명시한 뒤 사용자 판단을 받는다. `미확인` = 환경 불안정·데이터 부재·외부 의존으로 정상/비정상을 판단할 수 없는 상태(실패로 단정하지 않되 통과로도 치지 않는다).
-- 산출물: `.harness/artifacts/{track}/{identifier}/e2e-check.md` — **검사 시점 HEAD SHA와 E2E 대상 source/spec 파일의 content fingerprint**(재사용 가드 판별 기준), **resolve된 origin 기록**, `actual-dev`면 **배포 identity**, 실행 환경, 사용 계정·context, 시나리오 표(판정·증거 경로), 재사용/신규 spec 구분, 생성 데이터 범위·cleanup 여부.
-- **actual-dev identity 결박**: `actual-dev` 실행의 증거·재사용은 local HEAD SHA·fingerprint에 더해 **배포 identity**에 결박한다 — served FE bundle URL + content digest, API/Chat deployment identity(노출되는 경우), secret 제외 behavior-affecting config/fixture fingerprint를 `e2e-check.md`에 기록한다. identity를 증명하지 못하면 `actual-dev` 결과는 **재사용 금지** — 재실행한다.
+- 산출물: `.harness/artifacts/{track}/{identifier}/e2e-check.md` — **검사 시점 HEAD SHA와 E2E 대상 source/spec 파일의 content fingerprint**(재사용 가드 판별 기준), **resolve된 origin 기록**, `local-dev-api`/`actual-dev`면 **해당 환경의 배포 identity 구성요소**(아래 배포 identity 결박 불릿 참조), 실행 환경, 사용 계정·context, 시나리오 표(판정·증거 경로), 재사용/신규 spec 구분, 생성 데이터 범위·cleanup 여부.
+- **배포 identity 결박**: `local-dev-api` 실행의 증거·재사용은 local HEAD SHA·fingerprint에 더해 **API/Chat deployment identity(노출되는 경우)·secret 제외 behavior-affecting config/fixture fingerprint**를 재사용 key에 포함한다. `actual-dev`는 여기에 **served FE bundle URL + content digest**까지 포함한다. 모두 `e2e-check.md`에 기록하며, identity를 증명하지 못하면 해당 환경의 결과는 **재사용 금지** — 재실행한다.
 - maintenance deep의 `regression-e2e.md`(전체 Jest 회귀)와는 **별개**다. Playwright E2E를 실제 실행한 경우 그 결과는 `e2e-check.md` 형식(3판정)을 따른다. maintenance 트랙은 **M6(auto)/M8(deep)의 조건부 E2E 항목**으로 이 렌즈를 실행하고 `e2e-check.md`를 생산한다.
 
 ## 실행 모드 정의
