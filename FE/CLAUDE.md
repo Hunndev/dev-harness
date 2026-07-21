@@ -98,14 +98,16 @@ E2E는 제3의 작업 모드가 아니라 두 모드 공용의 **검증 렌즈**
 
 - 환경 승격 기준: mock으로 검증 불가한 실제 API 계약·인증·realtime 시나리오에 한해 상위 환경으로 승격하며, `actual-dev`는 배포 환경 고유 동작 검증이 필요할 때만 쓴다.
 - 고위험·파괴적 변경(예약·차단·신고·결제·티켓, 기존 데이터 수정/삭제, DB 직접 조작, secret 변경)은 **별도 사용자 승인 없이는 금지**한다. 이 게이트는 실데이터·실인프라를 대상으로 한다 — `local-mock`에서 mock 데이터만 오가는 시나리오 실행은 게이트 대상이 아니며, 실데이터·실인프라에 닿는 순간 적용된다. **production 실행은 전면 금지.**
+- **Origin 확인(fail-closed)**: browser context 생성·로그인·mutation **이전에** 브라우저 baseURL과 API/Chat origin을 resolve해 `e2e-check.md`에 기록한다. **local origin 또는 사용자가 명시 승인한 dev allowlist**의 origin만 허용하며, production·unknown host가 하나라도 있으면 실행을 **즉시 중단(fail-closed)**한다.
 - **user-inst 독립 context**: `user`·`inst` **양 계정이 참여하는 시나리오**에서는 `user` 계정용 browser context와 `inst` 계정용 browser context를 **각각 독립 생성**하고, cookie·localStorage·sessionStorage·auth 상태(토큰/세션)를 context 간 격리한다. **단일 역할 시나리오는 필요한 계정의 context만** 독립 생성한다 — 격리 원칙은 동일하게 적용한다. 두 계정 모두 dev 전용 테스트 계정만 쓰며, 실사용자 세션·개인 데이터를 사용하지 않는다.
 
 ### 증거와 판정 (e2e-check.md)
 
 - 증거: 시나리오별 screenshot은 판정 근거로 **필수**이며, **모든 시나리오의 screenshot을 `.harness/artifacts/{track}/{identifier}/e2e-evidence/`로 복사해 보존**한다. video 또는 trace(**하나 이상**)는 `비정상`·`미확인` 시나리오에 **필수**이고 **해당 건만 보존**한다 — `정상` 시나리오의 video/trace는 선택이며 기본적으로 보존하지 않는다. 실행 중 증거 파일은 제품 repo의 Playwright 기본 출력 디렉토리에 생성되지만 worktree 정리로 사라질 수 있으므로, `e2e-check.md`에는 **worktree 정리 후에도 유효한 보존 사본 경로만** 기록한다. 실행 자체가 불가해 증거가 생성되지 않은 `미확인` 건은 screenshot·video/trace 대신 **실패 로그와 "증거 없음" 사유**를 `e2e-check.md`에 기록한다 — 이 경우 video/trace 필수 요건도 함께 면제된다.
 - 판정은 2계층: 시나리오별 **`정상 / 비정상 / 미확인`**, verify 최종 판정은 기존 `PASS | FAIL` 유지. `비정상`이 1건이라도 있으면 FAIL, `미확인`이 남아 있으면 최종 PASS 불가 — 이때 최종 판정은 **FAIL로 기록**하고 사유를 "미확인 잔존(환경/데이터 사유)"으로 명시한 뒤 사용자 판단을 받는다. `미확인` = 환경 불안정·데이터 부재·외부 의존으로 정상/비정상을 판단할 수 없는 상태(실패로 단정하지 않되 통과로도 치지 않는다).
-- 산출물: `.harness/artifacts/{track}/{identifier}/e2e-check.md` — **검사 시점 HEAD SHA와 E2E 대상 source/spec 파일의 content fingerprint**(재사용 가드 판별 기준), 실행 환경, 사용 계정·context, 시나리오 표(판정·증거 경로), 재사용/신규 spec 구분, 생성 데이터 범위·cleanup 여부.
-- maintenance deep의 `regression-e2e.md`(전체 Jest 회귀)와는 **별개**다. Playwright E2E를 실제 실행한 경우 그 결과는 `e2e-check.md` 형식(3판정)을 따른다.
+- 산출물: `.harness/artifacts/{track}/{identifier}/e2e-check.md` — **검사 시점 HEAD SHA와 E2E 대상 source/spec 파일의 content fingerprint**(재사용 가드 판별 기준), **resolve된 origin 기록**, `actual-dev`면 **배포 identity**, 실행 환경, 사용 계정·context, 시나리오 표(판정·증거 경로), 재사용/신규 spec 구분, 생성 데이터 범위·cleanup 여부.
+- **actual-dev identity 결박**: `actual-dev` 실행의 증거·재사용은 local HEAD SHA·fingerprint에 더해 **배포 identity**에 결박한다 — served FE bundle URL + content digest, API/Chat deployment identity(노출되는 경우), secret 제외 behavior-affecting config/fixture fingerprint를 `e2e-check.md`에 기록한다. identity를 증명하지 못하면 `actual-dev` 결과는 **재사용 금지** — 재실행한다.
+- maintenance deep의 `regression-e2e.md`(전체 Jest 회귀)와는 **별개**다. Playwright E2E를 실제 실행한 경우 그 결과는 `e2e-check.md` 형식(3판정)을 따른다. maintenance 트랙은 **M6(auto)/M8(deep)의 조건부 E2E 항목**으로 이 렌즈를 실행하고 `e2e-check.md`를 생산한다.
 
 ## 실행 모드 정의
 

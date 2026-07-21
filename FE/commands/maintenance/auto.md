@@ -140,8 +140,9 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
    - 새로 실패한 테스트가 있는지 확인
 4. build 검증: `npm run build`
 5. 시각/반응형 확인이 필요한 이슈는 `visual-regression.md`를 저장한다.
-6. 회귀 발견 시 M5로 복귀 (수정 루프).
-7. `regression-report.md`를 저장한다.
+6. **E2E 렌즈가 걸린 이슈면** `commands/shared/verify.md` 항목 5(E2E 검증)를 수행해 `e2e-check.md`를 생산·갱신한다 — Origin 확인(fail-closed)·안전경계·판정·재사용 가드 규칙 동일 적용. (해당 없으면 "N/A: E2E 미해당")
+7. 회귀 발견 시 M5로 복귀 (수정 루프).
+8. `regression-report.md`를 저장한다.
 
 ### [M7] 리뷰 + 반영 (Sub-agent + Fork) _(deep의 M9에 해당)_
 
@@ -152,10 +153,11 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
    - `.harness/docs/code-convention.yaml` (기준)
    - `git diff`
    - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M5/M6 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M5 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
+   - `e2e-check.md` (E2E 렌즈가 걸린 이슈일 때 — 환경·origin·판정·증거 확인)
 2. `review-comments.md`를 저장한다.
 3. worktree에서 리뷰 반영:
    - 각 코멘트의 수용/거부를 사용자에게 제시
-   - 수정 후 M6 경량 재실행
+   - 수정 후 M6 경량 재실행 (E2E 렌즈가 걸린 이슈면 `e2e-check.md` 재검증 포함)
 
 ### 완료
 
@@ -179,6 +181,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
   tdd-green-log.txt             ← NEW
   tdd-refactor-notes.md         ← NEW
   visual-regression.md          ← visual/responsive 이슈일 때
+  e2e-check.md                  ← E2E 렌즈가 걸린 이슈일 때
   regression-report.md
   review-comments.md
   INDEX.md
