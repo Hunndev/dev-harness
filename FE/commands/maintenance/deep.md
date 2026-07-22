@@ -278,9 +278,10 @@ npm test -- --watchAll=false
    - 전체 통과/실패 요약
    - 새로 발생한 실패 (회귀) 식별
    - 회귀가 있으면 M7로 돌아가 수정 루프
-3. 최종 `regression-report.md`를 저장한다.
-4. 팀 해체: `shutdown_request` → `TeamDelete`.
-5. 회귀 없으면 다음 단계로 진행.
+3. **E2E 렌즈가 걸린 이슈면** `commands/shared/verify.md` 항목 5(E2E 검증)를 수행해 `e2e-check.md`를 생산·갱신한다 — Origin 확인(fail-closed)·안전경계·판정·재사용 가드 규칙 동일 적용. (해당 없으면 "N/A: E2E 미해당")
+4. 최종 `regression-report.md`를 저장한다.
+5. 팀 해체: `shutdown_request` → `TeamDelete`.
+6. 회귀 없으면 다음 단계로 진행.
 
 ### [M9] 리뷰 + 반영 (Sub-agent + Fork)
 
@@ -291,12 +292,13 @@ npm test -- --watchAll=false
    - `convention-check.md` (기준)
    - `git diff` (변경 내용)
    - **TDD 증거 파일**: `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt` (M2 Red baseline) + `tdd-green-log.txt` (M7/M8 Green 상태). 리뷰어는 이 두 파일이 실제로 M2 재현 테스트와 M7 수정 diff에 대응하는지 **교차검증**한다 — test 이름, module 경로, FAIL→PASS 전환 방향 (refactor 유형은 PASS→PASS baseline 유지). 불일치 시 [p1] 이슈로 보고.
+   - `e2e-check.md` (E2E 렌즈가 걸린 이슈일 때 — 환경·origin·판정·증거 확인)
    - 리뷰 원칙: convention 근거 기반, 취향 리뷰 금지
 2. `review-comments.md`를 저장한다.
 3. **worktree(fork)에서** 리뷰를 반영한다:
    - 각 코멘트의 수용/거부 판단을 사용자에게 제시
    - 사용자 확인 후 수정
-   - 수정 후 M8 회귀 테스트 재실행 (경량)
+   - 수정 후 M8 회귀 테스트 재실행 (경량 — E2E 렌즈가 걸린 이슈면 `e2e-check.md` 재검증 포함)
 4. 최종 결과를 사용자에게 보고한다.
 
 ### 완료
@@ -324,5 +326,6 @@ npm test -- --watchAll=false
   regression-report.md       ← Team 병합본
   review-comments.md
   visual-regression.md       ← visual/responsive 이슈일 때
+  e2e-check.md               ← E2E 렌즈가 걸린 이슈일 때
   INDEX.md
 ```

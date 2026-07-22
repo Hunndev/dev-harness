@@ -370,12 +370,24 @@ if [ -n "$fe_stale" ]; then
 fi
 
 for feature_doc in FE/commands/feature/auto.md FE/commands/feature/deep.md; do
-  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md; do
-    if ! grep -q "$artifact" "$feature_doc"; then
-      fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드)"
+  for artifact in design-source.md visual-check.md responsive-check.md accessibility-notes.md api-binding-check.md e2e-check.md; do
+    artifact_re="${artifact//./\\.}"
+    if ! grep -q "$artifact_re" "$feature_doc"; then
+      fail "$feature_doc : FE 검증 산출물 누락 ($artifact — 디자인/API바인딩 두 모드 + E2E 렌즈)"
       r8_violations=$((r8_violations + 1))
     fi
   done
+done
+
+for maint_doc in FE/commands/maintenance/auto.md FE/commands/maintenance/deep.md; do
+  if ! grep -q "e2e-check\.md" "$maint_doc"; then
+    fail "$maint_doc : E2E 렌즈 산출물 누락 (e2e-check.md)"
+    r8_violations=$((r8_violations + 1))
+  fi
+  if ! grep -Eq "E2E 렌즈가 걸린 이슈면.*commands/shared/verify\.md.*항목 5" "$maint_doc"; then
+    fail "$maint_doc : E2E 렌즈 실행 배선 누락 (M6/M8 조건부 항목의 commands/shared/verify.md 항목 5 실행 참조)"
+    r8_violations=$((r8_violations + 1))
+  fi
 done
 
 bad_test_cmds=$(grep -rnE '(^|`|[[:space:]])npm test( |`|$)' FE/commands FE/skills/hb-fe/SKILL.md 2>/dev/null | grep -v -- '--watchAll=false' || true)

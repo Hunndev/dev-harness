@@ -79,6 +79,41 @@ FE 작업은 성격이 다른 두 모드로 나뉜다. **작업 시작(seed) 시
 
 - 대부분의 화면 작업. 두 모드의 산출물·기준·리뷰 렌즈를 **모두** 적용한다.
 
+## E2E 검증 렌즈 (Playwright)
+
+E2E는 제3의 작업 모드가 아니라 두 모드 공용의 **검증 렌즈**다. 변경이 다화면 사용자 흐름(라우팅·인증·핵심 과업 완주)을 관통하거나, 혼합 작업에서 화면과 데이터 흐름이 함께 바뀔 때 이 렌즈를 건다. 단일 컴포넌트의 국소 수정에는 걸지 않는다(N/A). 이 렌즈는 **웹 FE 한정**이다 — 모바일 shell 실기기 E2E는 미도입 상태를 유지한다(dev-harness repo `docs/MOBILE-SHELL-DESIGN.md`의 관찰 기록 철학).
+
+### 자산 소재와 spec 재사용
+
+- Playwright dependency·config·spec의 **소유·보관 위치는 FE 제품 repo**다 — dev-harness plugin source repo에는 자산을 두지 않는다. 이 플러그인은 실행·판정·증거 규칙만 정의한다. 사용자가 승인한 FE 제품 구현에서 setup/변경이 필요하면 **hb-fe 구현 스텝이 FE 제품 repo 안의 dependency/config/spec을 생성·수정할 수 있다**.
+- **기존 spec 재사용 우선**: 기존 spec이 대상 시나리오를 덮으면 재실행만 한다. 새 route·새 흐름·기존 spec이 검증하지 않는 상태 전이 등 **갭이 확인될 때만** 신규 spec을 제품 repo의 기존 구조·관례에 맞춰 추가한다. 재사용/신규 구분을 `e2e-check.md`에 기록한다. 신규 spec 추가는 검증 스텝이 아니라 **구현 스텝에서** 수행한다 — 검증 Fork는 산출물만 생성한다(공통 규칙 1). 검증 스텝(F7/F9)에서 **spec 갭을 발견하면 구현 스텝으로 복귀**하고, 구현 단계가 신규 spec 작성·검증을 담당한다(이때 spec 추가는 TDD Red 범위 제한의 예외로 허용). maintenance 트랙에서 갭이 발견되면 해당 트랙의 수정(구현) 스텝에서 같은 예외로 수행한다. Playwright **setup 부재**(dependency/config/script)도 spec 갭과 같은 **구현 gap**이다 — 구현 스텝에서 setup을 생성·검증한 뒤 E2E를 재수행하며, `미확인`으로 종결하지 않는다.
+
+### 실행 환경 3구분과 데이터 안전경계
+
+| 환경 | 무엇 | 데이터 변경 허용 범위 |
+|------|------|----------------------|
+| `local-mock` (기본값) | 로컬 앱 + mock API | 제약 없음 (mock 데이터이므로 — 아래 게이트는 실데이터·실인프라 대상) |
+| `local-dev-api` | 로컬 앱 + dev API 서버 | 쓰기는 dev 전용 테스트 계정 데이터에 한정 |
+| `actual-dev` | 배포된 dev 환경 | dev 전용 테스트 계정에 한해 **최소 mutation 허용** — 예: 고유 실행 ID를 붙인 테스트 메시지 생성(사용자가 사전 승인한 user-inst 채팅 realtime E2E 시나리오). 생성 범위와 cleanup 가능 여부를 `e2e-check.md`에 기록 |
+
+- 환경 승격 기준: mock으로 검증 불가한 실제 API 계약·인증·realtime 시나리오에 한해 상위 환경으로 승격하며, `actual-dev`는 배포 환경 고유 동작 검증이 필요할 때만 쓴다.
+- 고위험·파괴적 변경(예약·차단·신고·결제·티켓, 기존 데이터 수정/삭제, DB 직접 조작, secret 변경)은 **별도 사용자 승인 없이는 금지**한다. 이 게이트는 실데이터·실인프라를 대상으로 한다 — `local-mock`에서 mock 데이터만 오가는 시나리오 실행은 게이트 대상이 아니며, 실데이터·실인프라에 닿는 순간 적용된다. **production 실행은 전면 금지.**
+- **Origin 확인(fail-closed)**: browser context 생성·로그인·mutation **이전에** 브라우저 baseURL과 API/Chat origin을 resolve해 `e2e-check.md`에 기록한다. **local origin 또는 사용자가 명시 승인한 dev allowlist**의 origin만 허용하며, production·unknown host가 하나라도 있으면 실행을 **즉시 중단(fail-closed)하고 사유와 함께 FAIL로 기록**한다.
+- **Runtime network guard**: preflight 확인에 더해, **context 생성 직후 navigation/로그인/mutation 이전에 runtime network guard를 설치**한다 — 실행 내내 모든 browser navigation·request·redirect와 API/Chat 연결을 local 또는 사용자 승인 dev allowlist로 제한하고, production·unknown origin이 감지되면 **즉시 abort하고 FAIL로 기록**한다. guard는 browser context 밖의 실행 주체 — **globalSetup·APIRequestContext·Node/WebSocket setup·fixture client** — 에도 동일 적용한다: **첫 outbound traffic 이전에** 같은 fail-closed allowlist guard를 사용하고 **redirect까지 검사**하며, guard를 우회하는 reused spec/client는 **실행 거부**한다 — 거부 건은 사유와 함께 **FAIL로 기록**하고, spec/client의 guard 경유 수정은 **구현 단계 복귀**로 처리한 뒤 재실행한다.
+- **local-mock 강화**: unhandled mock 요청·proxy fallthrough는 **upstream dispatch 이전에 abort**한다. **non-mock upstream이 확인되면** 실행을 **거부**하거나, **환경 승격 기준을 충족하는 경우에 한해** **`local-dev-api`로 재분류**해 deployment identity 규칙을 적용한다(그 외에는 mock 보완을 **구현 단계 복귀**로 처리). CRA/dev proxy의 upstream은 **network 발생 이전에 resolve해 allowlist guard**를 적용하며, 증명 불가하면 local-mock 실행을 **거부하고 FAIL로 기록**한다 — 충족 조치는 **구현 단계 복귀** 후 재실행한다.
+- **Service worker 처리**: service worker는 browser 라우팅을 우회한다. **SW behavior(PWA/offline/cache/registration)가 acceptance scope에 포함되면 SW 차단을 금지**하며 **더 낮은 계층의 proxy allowlist가 필수**다. **scope 밖일 때는** SW 비활성화(예: service worker 차단 옵션) 기본 강제 **또는** 더 낮은 계층 proxy allowlist 중 **하나를 충족**한다 — 해당 조건을 충족하지 못하면 실행을 **거부하고 FAIL로 기록**한다 — 충족 조치는 **구현 단계 복귀** 후 재실행한다.
+- **user-inst 독립 context**: `user`·`inst` **양 계정이 참여하는 시나리오**에서는 `user` 계정용 browser context와 `inst` 계정용 browser context를 **각각 독립 생성**하고, cookie·localStorage·sessionStorage·auth 상태(토큰/세션)를 context 간 격리한다. **단일 역할 시나리오는 필요한 계정의 context만** 독립 생성한다 — 격리 원칙은 동일하게 적용한다. 두 계정 모두 dev 전용 테스트 계정만 쓰며, 실사용자 세션·개인 데이터를 사용하지 않는다.
+
+### 증거와 판정 (e2e-check.md)
+
+- 증거: 시나리오별 screenshot은 판정 근거로 **필수**이며, **모든 시나리오의 screenshot을 `.harness/artifacts/{track}/{identifier}/e2e-evidence/`로 복사해 보존**한다. video 또는 trace(**하나 이상**)는 `비정상`·`미확인` 시나리오에 **필수**이고 **해당 건만 보존**한다 — `정상` 시나리오의 video/trace는 선택이며 기본적으로 보존하지 않는다. 실행 중 증거 파일은 제품 repo의 Playwright 기본 출력 디렉토리에 생성되지만 worktree 정리로 사라질 수 있으므로, `e2e-check.md`에는 **worktree 정리 후에도 유효한 보존 사본 경로만** 기록한다. 실행 자체가 불가해 증거가 생성되지 않은 `미확인` 건은 screenshot·video/trace 대신 **실패 로그와 "증거 없음" 사유**를 `e2e-check.md`에 기록한다 — 이 경우 video/trace 필수 요건도 함께 면제된다. **context 생성 이전의 안전 중단(preflight 또는 non-browser client의 guard abort, FAIL)**은 screenshot/video/trace 대신 **guard log와 resolved-origin 기록**을 필수 증거로 하며, 파일 증거 요구는 면제된다.
+- **trace redaction**: 보존하는 trace는 token·cookie·auth header·response body·DOM 등 **secret·민감데이터의 redaction 또는 secret scan을 통과**해야 하며, **restricted evidence storage — 접근 제한이 확인된 `e2e-evidence/` 보존 경로(또는 사용자 지정 제한 저장소) — 에만 보존**한다. trace 보존 안전성이 **실행 전에 증명되지 않으면 initial run부터 fallback video를 기록**한다 — `정상` 시나리오의 video는 폐기하고(기본 미보존 유지), `비정상`/`미확인`은 그 video로 증거 계약을 충족하며, trace 보존은 **금지**된다.
+- 판정은 2계층: 시나리오별 **`정상 / 비정상 / 미확인`**, verify 최종 판정은 기존 `PASS | FAIL` 유지. `비정상`이 1건이라도 있으면 FAIL, `미확인`이 남아 있으면 최종 PASS 불가 — 이때 최종 판정은 **FAIL로 기록**하고 사유를 "미확인 잔존(환경/데이터 사유)"으로 명시한 뒤 사용자 판단을 받는다. `미확인` = 환경 불안정·데이터 부재·외부 의존으로 정상/비정상을 판단할 수 없는 상태(실패로 단정하지 않되 통과로도 치지 않는다).
+- 산출물: `.harness/artifacts/{track}/{identifier}/e2e-check.md` — **검사 시점 HEAD SHA와 실행 의미에 영향 주는 입력의 secret 제외 content fingerprint**(대상 source/spec·runner·Playwright config·global setup/network guard·behavior-affecting config/fixture·dependency lockfile — **local-mock 포함 모든 환경 공통**, 재사용 가드 판별 기준), **resolve된 origin 기록**, `local-dev-api`/`actual-dev`면 **해당 환경의 배포 identity 구성요소**(아래 배포 identity 결박 불릿 참조), 실행 환경, 사용 계정·context, 시나리오 표(판정·증거 경로), 재사용/신규 spec 구분, 생성 데이터 범위·cleanup 여부.
+- **배포 identity 결박**: `local-dev-api` 실행의 증거·재사용은 local HEAD SHA·fingerprint에 더해 **API/Chat deployment identity(노출되는 경우)**를 재사용 key에 포함한다(behavior-affecting config/fixture fingerprint는 위 전 환경 공통 fingerprint에 이미 포함). `actual-dev`는 여기에 **served FE bundle URL + content digest**까지 포함한다. 단 `actual-dev`는 **digest 기록만으로 PASS할 수 없다** — deployment metadata(commit SHA/build ID/build manifest)가 테스트 대상 HEAD·source fingerprint와 연결되고, served bundle digest가 그 build manifest와 일치함을 **증명**해야 하며, 불명·불일치면 `미확인` 또는 FAIL로 판정하고 **PASS·재사용 모두 금지**한다. 재사용 key에는 또한 **secret 제외 test-account identity/role**과 **deterministic fixture/data-state version**(seed 적재 상태의 버전 — config/fixture **파일** fingerprint와 별개)을 포함한다 — mutable live data에서 version을 증명하지 못하면 **재사용 금지**. **모든 환경의 재사용 key에는 normalized resolved browser/API/Chat origins와 승인 allowlist identity도 포함**한다. 또한 **secret-redacted resolved behavior env values hash·locale/timezone·Node 버전·browser channel/version·OS·project/worktree identity**를 모든 환경 공통으로 포함한다 — **behavior-affecting secret env는 값 비노출 방식(secret version 또는 keyed fingerprint)**으로 포함하고, **project/worktree identity는 임시 경로·machine/admin ID가 아니라 stable repository identity + content/dirty-state fingerprint**로 정의한다. 증명·비교 불가·불일치면 **재실행**한다. 재사용은 **`정상`/PASS 결과에 한정**하며 **시나리오 단위로 판단**한다 — `정상` 시나리오만 재사용 대상이고, `비정상`·`미확인` 시나리오는 key가 일치해도 **항상 재실행**한다. 모두 `e2e-check.md`에 기록하며, identity를 증명하지 못하면 해당 환경의 결과는 **재사용 금지** — 재실행한다.
+- **기존 dev server 재사용 identity**: `local-mock`/`local-dev-api`에서 이미 떠 있는 dev server를 재사용하려면 **현재 worktree/source fingerprint와 served frontend·process·build identity의 연결을 증명**해야 한다. 증명 불가·불일치면 **PASS·재사용 금지** — **현재 worktree에서 server를 재기동**한 뒤 재실행한다.
+- maintenance deep의 `regression-e2e.md`(전체 Jest 회귀)와는 **별개**다. Playwright E2E를 실제 실행한 경우 그 결과는 `e2e-check.md` 형식(3판정)을 따른다. maintenance 트랙은 **M6(auto)/M8(deep)의 조건부 E2E 항목**으로 이 렌즈를 실행하고 `e2e-check.md`를 생산한다.
+
 ## 실행 모드 정의
 
 | 모드 | 설명 | 사용자 상호작용 |
@@ -118,7 +153,7 @@ FE 작업은 성격이 다른 두 모드로 나뉜다. **작업 시작(seed) 시
 5. API 계약 또는 환경 설정이 포함된 변경은 반드시 API 계약 변경 내역을 별도로 리뷰한다.
 6. `package.json` / ESLint / Jest / CRA override / Dockerfile / nginx / 환경변수 변경은 사용자 승인 없이 수행하지 않는다.
 7. API 호출은 src/api 또는 src/utils/api.js 계층을 우선 사용하고, base URL·토큰·에러 처리를 화면 컴포넌트에 흩뿌리지 않는다.
-8. **디자인 구현** 작업은 `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` 중 해당 산출물을, **API 바인딩** 작업은 `api-binding-check.md`(계약 일치·상태 처리·mock 잔재·api 계층 경유)를 남긴다. 혼합이면 둘 다 남긴다.
+8. **디자인 구현** 작업은 `design-source.md`, `design-intent.md`, `visual-check.md`, `responsive-check.md`, `accessibility-notes.md` 중 해당 산출물을, **API 바인딩** 작업은 `api-binding-check.md`(계약 일치·상태 처리·mock 잔재·api 계층 경유)를 남긴다. 혼합이면 둘 다 남긴다. **E2E 검증 렌즈**가 걸린 작업은 `e2e-check.md`(환경·판정·증거)를 추가로 남긴다.
 9. TDD: feature/maintenance 트랙은 Red→Green→Refactor 사이클을 따른다. 실패 테스트를 먼저 작성(Red), 최소 구현으로 PASS(Green), 테스트 녹색 유지하며 정리(Refactor). 증거 로그는 아티팩트 디렉토리의 `tdd-baseline-log.txt`(bug/feature는 FAIL, refactor는 PASS baseline) / `tdd-green-log.txt` / `tdd-refactor-notes.md`에 캡처한다. 테스트 러너는 **React Testing Library + Jest**. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 
 ## 방법론 연결 (hb-shared 순서표)
