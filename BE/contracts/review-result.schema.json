@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/review-result.schema.json",
+  "title": "Blind Fresh Review Result",
+  "$ref": "provider-result-base.schema.json",
+  "x-stage": "review",
+  "description": "Correctness, security, authorization, errors, regression, performance, architecture, operations, and test-quality review."
+}

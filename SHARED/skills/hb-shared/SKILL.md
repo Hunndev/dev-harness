@@ -26,6 +26,8 @@ Auxiliary steps (opt-in; requirements/criteria are absorbed into seed):
 - Prior art: `commands/feature/prior-art.md`
 - Convention check: `commands/maintenance/convention-check.md`
 - Feasibility: `commands/planning/feasibility.md`
+- Evaluate: `commands/evaluate.md`
+- Review: `commands/review.md`
 
 ## Command Mapping
 
@@ -41,10 +43,14 @@ Codex does not execute Claude slash commands directly. Treat these phrases as in
 - `hb-shared feature prior-art` or `/hb-shared:feature:prior-art`
 - `hb-shared maintenance convention-check` or `/hb-shared:maintenance:convention-check`
 - `hb-shared planning feasibility` or `/hb-shared:planning:feasibility`
+- `hb-shared evaluate` or `/hb-shared:evaluate`
+- `hb-shared review` or `/hb-shared:review`
 
 ## Codex Operating Rules
 
 1. Keep the same artifact paths as the stack plugins: `.harness/artifacts/{track}/{identifier}/`.
-2. These commands are **stack-agnostic** — do not assume a test runner or framework. Stack-specific build/test steps live in the BE/CM/FE/CHAT plugins.
-3. Use `.harness/docs/*.yaml` as the project truth when present.
-4. Push heavy reading/research into subagents and keep only the conclusion and artifact paths in the main context.
+2. These commands are **stack-agnostic** — do not assume a test runner or framework. Read actual commands, architecture, ADRs, and QA policy from the target repository and its stack plugin; do not require a duplicated Stack Profile.
+3. Use repository instructions, CI, manifests, and `.harness/docs/*.yaml` as project truth when present. Missing or contradictory required facts fail closed or require clarification.
+4. Development TDD checks test design before Green and test sensitivity after Green. Evaluate checks whether that evidence proves actual ACs; Review independently checks assertion strength, mocks, boundary/failure paths, regression detection, and flake risk.
+5. Every environment requires blind fresh Claude+Codex Evaluate followed by blind fresh Claude+Codex Review on one immutable packet. Missing/failed/malformed providers, stale snapshots, or repository writes cannot become PASS.
+6. Push heavy reading/research into subagents and keep only the conclusion and artifact paths in the main context.

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/evaluate-result.schema.json",
+  "title": "Blind Fresh Evaluate Result",
+  "$ref": "provider-result-base.schema.json",
+  "x-stage": "evaluate",
+  "description": "Request, AC, evidence, scope, exclusions, operational completion, and same-packet decision only."
+}

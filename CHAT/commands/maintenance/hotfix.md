@@ -1,6 +1,6 @@
 # 긴급 수정 (hotfix, T0)
 
-**재현 테스트 → 수정 → 단위 테스트** 3단계만 수행한다.
+**재현 테스트 → 최소 수정 → 단위 테스트**로 개발 부담을 줄이되, 마지막 Gate → 검사(Evaluate) → 평가(Review)는 생략하지 않는다.
 오타·한 줄 버그·긴급 hotfix 전용.
 
 > **Tier 선택**
@@ -19,7 +19,7 @@
 - **범위 폭주 금지**: 사용자가 지정한 파일·라인 이외는 절대 수정하지 않는다. "옆에 있는 코드도 같이 정리"는 금지.
 - **재현 테스트 필수**: 수정 전에 반드시 현재 상태에서 FAIL하는 테스트를 남긴다. 이게 없으면 "진짜 고쳐졌나?"를 증명할 수 없다.
 - **새 ADR/convention 금지**: 이 경로에서 어떤 설계 결정도 새로 만들지 않는다. 필요하면 중단하고 planning으로 에스컬레이션.
-- **3단계 외에는 아무것도 하지 않는다**: RCA, 영향도, 리뷰, 전체 회귀 모두 스킵. 의심되면 `:auto`로 전환.
+- **개발 ceremony 최소화**: RCA, 광범위 영향도 분석, 리팩터링, 전체 회귀는 생략한다. 단, H4 Gate와 blind fresh Dual Evaluate/Review는 생략하지 않는다. 의심되면 `:auto`로 전환.
 - **TDD 사이클 부분 적용**: H1=Red, H2=Green. Refactor는 hotfix 범위를 벗어나므로 의도적으로 제외. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 
 ## 식별자
@@ -47,6 +47,7 @@
    - 재현 단계
    - 테스트 파일 경로
    - FAIL 출력 요약
+8. **T0 Test Design Check**를 수행한다: 완료기준과 테스트 연결, 행동 중심 assertion, 올바른 실패 이유, SUT 경계 밖 mock 여부를 확인하고 Red 테스트 파일 SHA-256과 함께 `tdd-test-design-result.json`에 `PASS`를 기록한다. 하나라도 불명확하면 구현하지 않고 `:auto`로 에스컬레이션한다.
 
 ### [H2] 수정 [TDD Green] (메인)
 
@@ -75,6 +76,7 @@
    - 수정된 파일 목록
    - H1 재현 테스트 파일 경로
    - 단위 테스트 통과/실패 요약
+5. **T0 Test Sensitivity Check**를 수행한다: H1과 동일 테스트 경로·동일 SHA-256인지, Red가 실제 결함 때문에 FAIL했고 수정 후 Green인지 확인한다. 결과를 `tdd-sensitivity-result.json`에 기록한다. 테스트가 Green 과정에서 바뀌었거나 결함을 잡지 못하면 `BLOCKED` 후 H1부터 다시 시작한다.
 
 > **Refactor 금지 — 조작적 정의**:
 > - **허용**: H1 Red 테스트를 PASS시키는 데 **직접 필요한** 코드 변경 (새 조건, null/undefined 체크, 타입 가드, 수정된 리터럴, 올바른 분기 추가).
@@ -83,6 +85,14 @@
 > - **Compound fix 예외**: 하나의 수정이 **여러 독립적 변경의 합집합**으로 이루어질 때 (예: 두 핸들러에 동시에 null 체크를 넣어야 FAIL이 해소되는 경우), **전체 합집합을 단일 fix로 간주**한다. 개별 변경을 독립 평가하지 않는다. 단, 합집합이 2개 이상 모듈에 걸치면 hotfix 범위 밖이므로 `:auto`로 에스컬레이션한다.
 > 코드 정리가 필요하면 `/hb-chat:maintenance:auto`로 전환한다.
 
+### [H4] Gate → 검사(Evaluate) → 평가(Review) (부모 runner)
+
+1. Production·DB·secret·인증·권한·destructive 변경이면 구현 전에 받은 사용자 승인을 확인한다. 승인이 없으면 `BLOCKED`다.
+2. H1~H3 증거와 request/AC/scope/diff를 같은 snapshot의 sealed packet으로 고정하고 deterministic Gate를 통과시킨다.
+3. `hb-eval-review run`으로 blind fresh Claude+Codex **검사(Evaluate)**를 실행한다. 둘 다 PASS일 때만 다음 단계로 간다.
+4. 같은 packet으로 blind fresh Claude+Codex **평가(Review)**를 실행한다. provider 누락·timeout·schema 오류·snapshot mismatch·mutation은 fail-closed `BLOCKED`다.
+5. 부모 finalizer의 `PASS`만 완료로 인정한다. 모델의 process/timeout/mutation 자기보고는 실행 증거로 인정하지 않는다.
+
 ### 완료
 
 `INDEX.md`를 생성하여 다음을 기록한다:
@@ -90,6 +100,8 @@
 - 수정된 파일 목록 (범위 제한 준수 여부 명시)
 - H1 재현 테스트 파일 경로
 - 단위 테스트 결과 요약
+- Test Design/Sensitivity 결과와 sealed packet ID
+- Dual Evaluate/Review 및 parent finalizer 결과 경로
 - **에스컬레이션 여부**: 범위 초과로 hotfix가 중단됐는지, auto/deep으로 넘겨졌는지
 
 ## 산출물
@@ -100,6 +112,9 @@
   hotfix-red-log.txt      ← NEW
   hotfix-green-log.txt    ← NEW
   hotfix-summary.md
+  tdd-test-design-result.json
+  tdd-sensitivity-result.json
+  eval-review/final-result.json
   INDEX.md
 ```
 

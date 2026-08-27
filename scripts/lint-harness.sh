@@ -13,6 +13,8 @@
 #   R9. 플러그인 이름·버전 패리티 (claude plugin.json ↔ codex plugin.json ↔ marketplace.json)
 #   R10. 문서 참조 경로 실재성 — 백틱 `commands/**.md`는 같은 플러그인 안에, `SHARED/commands/**.md`는 레포 루트에 실재해야 함
 #   R11. 슬래시 명령 참조 실재성 — /hb-<plugin>:<track>:<cmd> 가 실제 <PLUGIN>/commands/<track>/<cmd>.md 에 대응해야 함
+#   R12. Evaluate/Review canonical core와 standalone plugin vendored copy 일치
+#   R13. Evaluate/Review 역할 분리·fresh dual·fail-closed 계약 존재
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -493,11 +495,52 @@ while IFS= read -r f; do
 done < <(find BE CM FE CHAT SHARED AOS IOS -name '*.md' 2>/dev/null; echo README.md)
 [ $r11_violations -eq 0 ] && pass "슬래시 명령 참조 실재성 OK"
 
+# ── R12: standalone vendored core drift ────────────────────────────
+echo
+echo "R12. Evaluate/Review standalone core drift 방지"
+if python3 scripts/sync-eval-review-core.py --check >/dev/null 2>&1; then
+  pass "SHARED canonical core와 BE/CM/FE/CHAT/AOS/IOS vendored copy 일치"
+else
+  fail "Evaluate/Review core drift 발견 — python3 scripts/sync-eval-review-core.py 실행 필요"
+fi
+
+# ── R13: 역할·freshness·fail-closed 계약 ──────────────────────────
+echo
+echo "R13. Evaluate/Review 역할 분리와 mandatory dual-provider 계약"
+r13_violations=0
+for required in \
+  "SHARED/contracts/tdd-test-design-result.schema.json" \
+  "SHARED/contracts/tdd-sensitivity-result.schema.json" \
+  "SHARED/contracts/evaluate-result.schema.json" \
+  "SHARED/contracts/review-result.schema.json" \
+  "SHARED/contracts/execution-envelope.schema.json" \
+  "SHARED/contracts/sealed-result.schema.json" \
+  "SHARED/contracts/final-result.schema.json"
+do
+  if [ ! -f "$required" ] || ! python3 -m json.tool "$required" >/dev/null 2>&1; then
+    fail "필수 contract 없음 또는 JSON 오류: $required"
+    r13_violations=$((r13_violations + 1))
+  fi
+done
+for phrase in "실제 작업 AC" "Fresh Claude Evaluate" "Fresh Codex Evaluate" "일반 버그 탐색" "parent-owned execution envelope" "자기증명할 수 없다"; do
+  if ! grep -q "$phrase" SHARED/commands/evaluate.md; then
+    fail "Evaluate 계약 문구 누락: $phrase"
+    r13_violations=$((r13_violations + 1))
+  fi
+done
+for phrase in "테스트 코드 품질" "Fresh Claude Review" "Fresh Codex Review" "생략.*PASS" "parent-owned execution envelope" "자기주장은 금지"; do
+  if ! grep -qE "$phrase" SHARED/commands/review.md; then
+    fail "Review 계약 문구 누락: $phrase"
+    r13_violations=$((r13_violations + 1))
+  fi
+done
+[ $r13_violations -eq 0 ] && pass "Evaluate/Review 역할·fresh dual·fail-closed 계약 OK"
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R11)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R13)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

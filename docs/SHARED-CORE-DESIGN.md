@@ -69,7 +69,7 @@
 ```
  dev-harness/
  ├── SHARED/ ◀ 공통 순서표(새로): seed·evaluate·review·evolve (+보조 6종)
- └── BE/ CM/ FE/ CHAT/ ◀ 팀별: 빌드·테스트 명령·스택 규칙 (그대로)
+ └── BE/ CM/ FE/ CHAT/ AOS/ IOS/ ◀ 팀별: 빌드·테스트 명령·스택 규칙 (그대로)
 ```
 - **hotfix**(한 줄): 주문서 3줄 · 혼자
 - **auto**(일상): 주문서 짧게 · 기본 혼자
@@ -77,7 +77,7 @@
 
 ## 7. 명령 재배치 (요약)
 - **SHARED로 이동(무손실, 3-way 0-diff)**: feature/criteria·design-intent·prior-art·requirements, maintenance/convention-check, planning/feasibility (6개 — team-protocol은 도메인 잔류).
-- **SHARED로 흡수(실착지)**: seed ← scope+requirements+criteria / evaluate ← verify(방법)·reflect(취지 — 두 파일은 opt-in으로 도메인 잔류) / evolve = 개선 제안 전용(update-docs는 도메인 잔류) / interview·team-protocol 도메인 잔류 / review-gates는 CHAT 잔류(스택 우선 게이트), 대신 SHARED review(5단계 관문) 신설.
+- **SHARED로 흡수(실착지)**: seed ← scope+requirements+criteria / evaluate ← 실제 AC·증거·scope 판정 / review ← 구현·보안·회귀·테스트 품질 판정 / evolve = 개선 제안 전용(update-docs는 도메인 잔류). Evaluate와 Review는 각각 동일 packet의 blind fresh Claude+Codex 필수 관문이며, 도메인 review-gates는 stack lens로 잔류한다.
 - **도메인 잔류(스택 엮임)**: feature·maintenance·planning의 auto/deep, shared/verify(테스트 명령), shared/tdd 등.
 
 ## 8. 구현 단계 (다음)

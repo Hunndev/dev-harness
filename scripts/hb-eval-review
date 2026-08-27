@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+PYTHONPATH="$ROOT/SHARED/runtime${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m hb_eval_review.cli "$@"

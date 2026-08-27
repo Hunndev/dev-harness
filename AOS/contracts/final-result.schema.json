@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/final-result.schema.json",
+  "title": "Deterministic Final Result",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": {"enum": ["PASS", "BLOCKED", "NEEDS_HUMAN_REVIEW"]},
+    "packet_id": {"type": "string"},
+    "source_snapshot_id": {"type": "string"},
+    "evidence_bundle_id": {"type": "string"},
+    "sealed_results": {"type": "array", "items": {"type": "string"}},
+    "error_codes": {"type": "array", "items": {"type": "string"}},
+    "missing": {"type": "array", "items": {"type": "string"}},
+    "validation": {"type": "object"}
+  }
+}
