@@ -59,6 +59,19 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
      - (c) 각 재시도의 최종 출력만 `tdd-baseline-log.txt`에 덮어쓰기
      - (d) **재시도 카운터 persistence**: 재시도 횟수는 `tdd-red-debug.md`의 attempt 라인 수(`attempt N: {reason}`)로 결정한다. 파일이 없으면 0부터 시작. 워크플로우 재개 시에도 카운터가 유지된다.
 
+### Test Design Check: Green 구현 전 테스트 코드 검수
+
+Red가 올바른 이유로 실패한 뒤, **구현 코드를 작성하기 전에** 다음을 검사하고 `tdd-test-design-result.json`에 기록한다.
+
+1. 테스트 하나가 하나의 실제 AC 또는 하나의 재현 버그에 연결되는가.
+2. 이름과 assertion이 내부 메서드 호출이 아니라 사용자가 관찰할 행동·상태·부작용·오류 계약을 검증하는가.
+3. 성공·실패·경계 경로 중 해당 위험과 repository 정책이 요구하는 경로가 포함됐는가.
+4. 외부 네트워크·시간·결제사 같은 불가피한 경계만 mock하며, **System Under Test 자체를 mock하지 않았는가**.
+5. 순서·실시간·실제 네트워크에 불필요하게 의존하는 flaky 구조가 아닌가.
+6. T2/high-risk는 구현 context와 분리된 read-only Sub-agent/Team lens가 테스트 설계를 독립 확인했는가.
+
+검사 실패 시 Green 구현을 시작하지 않는다. 테스트를 수정한 뒤 올바른 Red를 다시 실행하고 새 Test Design 결과를 봉인한다.
+
 ### Green: 최소 구현으로 통과
 
 1. Red 테스트가 PASS가 되도록 **최소한의 코드만** 작성
@@ -90,6 +103,18 @@ Green 구현 중 수용기준(AC) 자체가 잘못 서술되었거나 Red 테스
    - (b) `rm -f {artifacts-dir}/tdd-red-debug.md` (retry 카운터 reset to 0)
    - (c) `tdd-baseline-log.txt`를 덮어쓰기할 준비 상태로 Red 단계 진입
    `tdd-red-revisions.md`는 revision 카운터이므로 절대 reset하지 않는다 (revision 3 cap 유지).
+
+### Test Sensitivity Check: Green 이후 회귀 검출력 확인
+
+Refactor 전에 `tdd-sensitivity-result.json`을 생성한다.
+
+1. 같은 test identity와 test-file hash의 Red `FAIL` → Green `PASS` 전환을 확인한다.
+2. hash가 달라졌다면 승인된 Red revision과 새 baseline이 있는지 확인한다. 승인 없는 assertion 약화·테스트 교체는 `BLOCKED`다.
+3. repository가 정의한 관련 회귀 suite가 PASS인지 확인한다.
+4. 인증·권한·결제·DB 무결성·API contract 등 T2/high-risk에서 안전하고 지원되는 경우 격리 worktree의 targeted mutation/revert로 핵심 결함을 되살렸을 때 테스트가 FAIL하는지 확인한다.
+5. 필요한 mutation을 실행할 수 없으면 사유를 명시하고 `BLOCKED` 또는 `NEEDS_HUMAN_REVIEW`로 보낸다. 조용히 PASS하지 않는다.
+
+T0에는 routine mutation을 강제하지 않는다. 동일 테스트의 올바른 Red→Green과 관련 회귀가 최소 조건이다.
 
 ### Refactor: 테스트 녹색 유지하며 정리
 
@@ -130,6 +155,8 @@ Red/Green/Refactor가 적용되는 단계에서 다음 파일을 **반드시** �
 .harness/artifacts/{track}/{identifier}/
   tdd-baseline-log.txt     ← Red 단계 baseline (FAIL or PASS per issue type)
   tdd-green-log.txt        ← Green 단계 PASS 증거
+  tdd-test-design-result.json ← Green 전 AC·assertion·mock·경계 검수
+  tdd-sensitivity-result.json ← 동일 테스트 Red→Green·hash·회귀·mutation 증거
   tdd-refactor-notes.md    ← Refactor 내용 요약 (skip 시 "skipped: {reason}")
   tdd-red-revisions.md     ← (선택) Red 재작성 이력. 없으면 생성 안 함.
 ```
@@ -151,6 +178,9 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 - Refactor 단계에서 새 기능 추가
 - 실패 로그 캡처를 생략하고 "PASS 확인함"이라고만 기록
 - Green 단계에서 Red 테스트를 몰래 수정하여 PASS 만들기 (test-after 회귀)
+- Test Design Check 없이 Green 구현을 시작하는 것
+- System Under Test를 mock으로 대체하고 실제 행동을 검증했다고 주장하는 것
+- 필수 sensitivity/mutation 증거를 사유 없이 생략하고 PASS로 처리하는 것
 - hotfix 트랙에서 Refactor 수행 (에스컬레이션 → `:auto` 또는 `:deep`으로 전환)
 - `pytest` 대신 `python manage.py test`를 사용하는 것 (BE 스택은 pytest로 통일되어 있다)
 

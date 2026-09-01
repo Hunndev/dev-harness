@@ -2,7 +2,7 @@
 
 REST API 계약을 검토·갱신한다. **코드 구현보다 계약 정합성 검증이 목적**이다.
 
-> chat의 모든 REST 엔드포인트는 `.harness/docs/api-contract.yaml`을 단일 진실의 원천으로 한다.
+> 실제 route·test·CI·repository API 문서가 우선이다. `.harness/docs/api-contract.yaml`은 repository가 사용하는 경우의 보조 계약 cache이며, 실제 구현과 충돌하면 `BLOCKED` 후 승인된 내용으로 갱신한다.
 
 ## 사전 조건
 

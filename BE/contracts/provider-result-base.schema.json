@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/provider-result-base.schema.json",
+  "title": "Model-owned semantic stage result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage", "status", "blocking", "findings", "evidence_refs"],
+  "properties": {
+    "schema_version": {"type": "string", "enum": ["2.0"]},
+    "stage": {"type": "string", "enum": ["evaluate", "review"]},
+    "status": {"type": "string", "enum": ["PASS", "BLOCKED", "NEEDS_HUMAN_REVIEW"]},
+    "blocking": {"type": "array", "items": {"type": "string"}},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "risk", "disposition", "evidence_ref", "message", "blocking"],
+        "properties": {
+          "finding_id": {"type": "string"},
+          "risk": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
+          "disposition": {"type": "string", "enum": ["PASS", "BLOCK", "HUMAN"]},
+          "evidence_ref": {"type": "string"},
+          "message": {"type": "string"},
+          "blocking": {"type": "boolean"}
+        }
+      }
+    },
+    "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

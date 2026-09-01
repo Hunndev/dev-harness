@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/tdd-sensitivity-result.schema.json",
+  "title": "TDD Sensitivity Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage", "tier", "status", "test_id", "red_test_hash", "green_test_hash", "red_outcome", "green_outcome", "approved_red_revision", "high_risk", "mutation", "regression"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": "tdd-sensitivity"},
+    "tier": {"enum": ["T0", "T1", "T2"]},
+    "status": {"enum": ["PASS", "BLOCKED", "NEEDS_HUMAN_REVIEW"]},
+    "test_id": {"type": "string", "minLength": 1},
+    "red_test_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "green_test_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "red_outcome": {"const": "FAIL"},
+    "green_outcome": {"const": "PASS"},
+    "approved_red_revision": {"type": "boolean"},
+    "high_risk": {"type": "boolean"},
+    "mutation": {"type": "object", "required": ["required", "performed", "outcome"], "properties": {"required": {"type": "boolean"}, "performed": {"type": "boolean"}, "outcome": {"enum": ["KILLED", "SURVIVED", "NOT_REQUIRED", "BLOCKED"]}}},
+    "regression": {"type": "object", "required": ["status"], "properties": {"status": {"const": "PASS"}}}
+  }
+}

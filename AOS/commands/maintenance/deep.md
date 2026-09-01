@@ -284,7 +284,7 @@ M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 gre
 
 ### [M9] 리뷰 + 반영 (Sub-agent + Fork)
 
-> **이 리뷰 = `/hb-shared:review` 5단계 관문**: [R1] 자동검사(테스트·빌드, 실패면 멈춤) → [R2] 아래 관점별 리뷰 → [R3] Codex∥Claude 교차검증(codex 자동 호출) → [R4] 반박(가짜 경보 제거) → [R5] 관문(blocking이면 고치고 [R1]부터). 아래 절차는 [R2] 관점별 리뷰의 세부다.
+> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다.
 
 1. **sub-agent를 호출**하여 코드리뷰를 수행한다:
    - `fix-plan.md` (의도)

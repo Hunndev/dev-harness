@@ -45,11 +45,13 @@ seed 시점에 분류한다. 혼합이면 둘 다 적용.
 명령: `/hb-aos:{track}:{tier}`, `/hb-ios:{track}:{tier}`, `/hb-aos:shared:update-docs` 등.
 산출물: `.harness/artifacts/{track}/{identifier}/` (feature=branch명, maintenance=issue-id, planning=plan-YYYYMMDD-slug).
 
-## 6. 진실의 원천 (`.harness/docs` — 각 앱 레포, 5종)
+## 6. Repository 진실의 원천과 선택적 `.harness/docs` (각 앱 레포, 5종)
+
+각 앱 repository의 정책·실제 CI·manifest·architecture/ADR이 우선이다. 아래 YAML은 repository가 사용하기로 선택한 경우의 보조 context이며 실제 source/CI와 충돌하면 `BLOCKED` 후 갱신한다.
 
 - 공통 4종: `code-convention.yaml` / `adr.yaml` / `architecture.yaml` / `module-registry.yaml`
 - **+ `bridge-contract.yaml`**: 브리지 함수·메시지 포맷·에러 계약. **양 레포가 동일 내용을 유지**한다 — 브리지 계약 모드 작업은 이 파일 갱신을 동반하고, 형제 레포 반영 필요를 기록한다.
-- 플러그인은 템플릿을 싣지 않는다 — 각 레포에서 update-docs로 작성 (기존 규칙).
+- 플러그인은 템플릿을 강제하지 않는다. 각 레포가 사용하기로 선택한 경우에만 update-docs로 작성한다.
 - iOS `Lib/`(벤더 코드)는 module-registry 대상에서 제외한다.
 
 ## 7. 패리티 장치 (3중)

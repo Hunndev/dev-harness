@@ -1,6 +1,6 @@
 # 문서 갱신 (shared:update-docs)
 
-`.harness/docs/`의 진실의 원천 YAML을 갱신한다. **승인된 변경만** 편입한다(특히 ADR).
+repository가 선택적으로 사용하는 `.harness/docs/` 보조 context YAML을 실제 코드·CI·manifest·repository 문서와 일치하도록 갱신한다. **승인된 변경만** 편입한다(특히 ADR). YAML이 실제 repository truth를 덮어쓰지 않는다.
 
 ## 사용법
 

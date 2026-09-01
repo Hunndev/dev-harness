@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/gate-result.schema.json",
+  "title": "Deterministic Gate Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stage",
+    "status",
+    "source_snapshot_id",
+    "evidence_bundle_id",
+    "packet_id",
+    "commands",
+    "tdd_evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": "gate"},
+    "status": {"enum": ["PASS", "BLOCKED"]},
+    "source_snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_bundle_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "packet_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "exit_code", "duration_ms", "evidence_ref"],
+        "properties": {
+          "command": {"type": "array", "items": {"type": "string"}},
+          "exit_code": {"type": "integer"},
+          "duration_ms": {"type": "integer", "minimum": 0},
+          "evidence_ref": {"type": "string"}
+        }
+      }
+    },
+    "tdd_evidence": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buccl.dev/harness/sealed-result.schema.json",
+  "title": "Sealed semantic result with parent execution envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["semantic", "envelope"],
+  "properties": {
+    "semantic": {"$ref": "provider-result-base.schema.json"},
+    "envelope": {"$ref": "execution-envelope.schema.json"}
+  }
+}

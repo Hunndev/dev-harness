@@ -7,8 +7,8 @@ dev-harness 공통 개발 방법론 코어. BE/CM/FE/CHAT/AOS/IOS 플러그인�
 | 명령 | 단계 | 용도 |
 |------|------|------|
 | `/hb-shared:seed` | ② | 주문서 — 목표·범위·완료기준 한 장 (ambiguity 점검 내장) |
-| `/hb-shared:evaluate` | ④ | 검사 — seed 기준 증거 확인 |
-| `/hb-shared:review` | ⑤ | 리뷰 관문 — 자동검사·관점별·Codex 교차·반박·게이트 |
+| `/hb-shared:evaluate` | ④ | 검사(Evaluate) — 같은 packet에서 실제 AC·증거·scope·운영 완료 판정 |
+| `/hb-shared:review` | ⑤ | 평가(Review) — 같은 packet에서 구현·보안·회귀·테스트 품질 독립 검토 |
 | `/hb-shared:evolve` | ⑥ | 개선 제안 — 반복 문제 → 메모리(제안만) |
 
 빌드(③)는 각 도메인 플러그인(BE/CM/FE/CHAT/AOS/IOS)이, interview(①)는 필요 시 진행한다.
@@ -30,7 +30,9 @@ dev-harness 공통 개발 방법론 코어. BE/CM/FE/CHAT/AOS/IOS 플러그인�
 
 - 이 플러그인의 명령은 **"어떻게 일하나"(방법)** 만 다룬다. 실제 빌드·테스트 명령과 스택 규칙은 BE/CM/FE/CHAT/AOS/IOS 각 플러그인에 있다.
 - 산출물은 작업 레포의 `.harness/artifacts/{track}/{identifier}/`에 남긴다.
-- 진실의 원천 문서는 작업 레포의 `.harness/docs/*.yaml`이다.
+- 진실의 원천은 작업 repository의 지침·CI·manifest·architecture·ADR이다. `.harness/docs/*.yaml`이 있으면 이를 포함해 사용하며, 별도 Stack Profile이나 architecture 사본을 강제하지 않는다.
 - 무거운 읽기·조사는 서브에이전트로 내려 메인 컨텍스트를 아끼고, **결론과 산출물 경로만** 회수한다.
+- Evaluate와 Review는 각각 구현 context와 분리된 fresh process/session에서 수행한다. 모든 환경에서 blind fresh Claude+Codex Evaluate를 먼저 완료하고, 그 뒤 blind fresh Claude+Codex Review를 수행한다.
+- Gate·Evaluate·Review·Finalize는 하나의 `packet_id`/`source_snapshot_id`/`evidence_bundle_id`에 묶인다. timeout·auth 실패·malformed result·provider 누락·snapshot mismatch·repository mutation은 PASS가 아니라 `BLOCKED`다.
 
 > 설계 전문: `docs/SHARED-CORE-DESIGN.md` (dev-harness 레포 루트 기준 — 플러그인 배포본에는 미포함). 이 플러그인은 순서표(seed→evaluate→review→evolve)와 공통 단계 명령을 제공하고, 스택별 빌드·테스트·규칙은 BE/CM/FE/CHAT/AOS/IOS 각 플러그인에 둔다.
