@@ -1,7 +1,7 @@
 {
   "files": {
     "bin/hb-eval-review": "9e70f0ac4fcf5192b0a8b945c4b32ac646d063fa9ccdc4ec47e2a630f4c8a805",
-    "commands/shared/evaluate.md": "7aab87bf757b07d1022e54b65e5d4b52f19beeb84f30fdaf7a23b7268142ee1c",
+    "commands/shared/evaluate.md": "d02220c9a439e1f6a4362aa07e79e0a440b9054d6e8ed96cb43d012f9821de17",
     "commands/shared/review.md": "c4714a16884ba86d2b46bedee83cfcc5c56f4be74aaee3e13bc3e69dd4c5c4b8",
     "contracts/evaluate-result.schema.json": "6cac8e31915cea5ed0c76238e3ee9134dead039d98cf58ffddf023d9ea0238b0",
     "contracts/execution-envelope.schema.json": "eadf39b30d063c286b2092adce12a4924796c8bb2f49173a2969a79cfbadb832",

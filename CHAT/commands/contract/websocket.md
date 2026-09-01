@@ -2,7 +2,7 @@
 
 Socket.io 이벤트 계약을 검토·갱신한다. **코드 구현보다 계약 정합성 검증이 목적**이다. 계약이 깨지면 FE/앱이 동시에 깨진다.
 
-> 실제 event handler·test·CI·repository 계약 문서가 우선이다. `.harness/docs/websocket-events.yaml`은 repository가 사용하는 경우의 보조 계약 cache이며, 실제 구현과 충돌하면 `BLOCKED` 후 승인된 내용으로 갱신한다.
+> chat repository가 `.harness/docs/websocket-events.yaml`을 Socket.io 계약의 진실의 원천으로 선언한다. 실제 event handler·test와 충돌하면 계약을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 승인된 계약 변경의 문서 drift인지 판정한다.
 
 ## 사전 조건
 

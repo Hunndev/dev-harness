@@ -66,9 +66,9 @@ cross-repo 작업이 필요하면 직접 수정하지 말고 → 필요한 contr
 - review: `.harness/artifacts/review/{identifier}/` (review-gates **단독 호출 시** — 트랙 안에서는 해당 트랙 경로에 남긴다)
 - contract: `.harness/artifacts/review/{api|ws}-{slug}/` (contract:api/websocket 단독 검토 산출물)
 
-## Repository 진실의 원천과 선택적 chat `.harness/docs/`
+## Repository 주제별 진실의 원천과 chat `.harness/docs/`
 
-먼저 repository 정책·실제 CI·manifest·architecture/ADR을 확인한다. 아래 YAML은 chat repository가 사용하기로 선택한 경우의 보조 contract/context cache다. 실제 route·schema·test·운영 문서와 충돌하면 YAML을 신뢰하지 않고 `BLOCKED` 후 갱신한다.
+chat repository의 `AGENTS.md`와 `.harness/README.md`가 아래 YAML을 해당 주제의 진실의 원천으로 선언한다. 실제 route·schema·migration·test와 충돌하면 YAML을 자동으로 버리지 않고 `BLOCKED` 후 코드가 승인된 계약을 위반했는지 문서가 오래됐는지 판정한다.
 
 | 파일 | 역할 |
 |---|---|

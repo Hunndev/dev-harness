@@ -103,6 +103,22 @@ class WorkflowDocumentationContract(unittest.TestCase):
             self.assertIn("hb-eval-review run", text, track)
             self.assertNotIn("리뷰, 전체 회귀 모두 스킵", text, track)
 
+    def test_repository_declared_canonical_docs_are_not_downgraded_to_auxiliary_cache(self):
+        shared = (ROOT / "SHARED" / "CLAUDE.md").read_text()
+        self.assertIn("진실의 원천은 작업 repository가 주제별로 선언", shared)
+        self.assertIn("어느 한쪽을 자동으로 무시하지 않고", shared)
+
+        for track in ("BE", "CM", "FE", "CHAT", "AOS", "IOS"):
+            text = (ROOT / track / "CLAUDE.md").read_text()
+            self.assertIn("진실의 원천", text, track)
+            self.assertNotIn("보조 context", text, track)
+            self.assertNotIn("보조 contract/context cache", text, track)
+
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn("Repository 주제별 진실의 원천", readme)
+        self.assertIn("충돌하면 어느 한쪽을 자동으로 무시하지 않고", readme)
+        self.assertNotIn("선택적 보조 context", readme)
+
 
 if __name__ == "__main__":
     unittest.main()
