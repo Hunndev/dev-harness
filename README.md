@@ -301,37 +301,36 @@ visual-regression.md를 추가로 남긴다.
 AOS/IOS feature/maintenance는 필요 시 device-check.md, permission-check.md,
 release-check.md, bridge-check.md, parity-proposal.md(형제 플랫폼 반영 제안)를 추가로 남긴다.
 
-## Repository 진실의 원천과 선택적 `.harness/docs/`
+## Repository 주제별 진실의 원천과 `.harness/docs/`
 
-판단 우선순위는 다음과 같다. 충돌하거나 필수 정보가 없으면 추측하지 않고 `BLOCKED` 또는 사용자 확인으로 보낸다.
+하네스가 모든 사실의 우선순위를 임의로 정하지 않는다. 먼저 repository의 `AGENTS.md` / `CLAUDE.md` / `.harness/README.md`가 **어떤 주제의 진실의 원천이 어디인지** 선언했는지 확인한다.
 
-1. `AGENTS.md` / `CLAUDE.md` / repository 정책
-2. CI가 실제 실행하는 workflow와 명령
-3. `package.json` / `pyproject.toml` / Makefile 등 manifest
-4. repository의 architecture / ADR / 운영 문서
-5. 선택적 `.harness/docs/*.yaml` 보조 문서
+1. 코딩 규칙·ADR·목표 architecture·모듈 경계·제품 계약은 repository가 선언한 canonical 문서를 사용한다.
+2. BUCCL처럼 `.harness/docs/*.yaml`을 canonical로 선언한 repository에서는 해당 YAML이 그 주제의 진실의 원천이다.
+3. 실제 실행 명령과 dependency는 checked-in CI·script·manifest를 사용한다.
+4. 현재 구현 상태는 source·migration·실제 test/lint/build 결과로 확인한다.
+5. 문서와 구현이 충돌하면 어느 한쪽을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 문서 drift인지 판정한다.
 
-`.harness/docs/`는 repository가 이미 사용하기로 선택한 경우에만 유지하는 **보조 context cache**다. 실제 코드·CI·manifest·repository 문서를 덮어쓰는 별도 Stack Profile이나 architecture 사본을 강제하지 않는다.
+portable workflow는 `.harness/docs`를 사용하지 않는 외부 repository에 복사본을 강제하지 않는다. 그러나 repository가 이를 canonical로 채택했다면 단순 보조 cache로 낮추거나 실제 코드가 다르다는 이유로 무시하지 않는다.
 
 ```
-.harness/docs/             ← 선택적 보조 context (repository truth와 일치할 때만 사용)
-  code-convention.yaml
-  adr.yaml
-  architecture.yaml
-  module-registry.yaml
-  bridge-contract.yaml     ← AOS/IOS만 (웹→네이티브 브리지 계약 — 양 플랫폼 동일 유지)
+.harness/
+  README.md                 ← 주제별 ownership과 충돌 정책
+  docs/                     ← repository가 선언한 canonical 문서
+    code-convention.yaml
+    adr.yaml
+    architecture.yaml
+    module-registry.yaml
+    bridge-contract.yaml    ← AOS/IOS
+  artifacts/                ← 작업별 실행 증거
 ```
 
 ## Quick Start
 
 1. 이 디렉토리(harness/)를 Claude Code 마켓플레이스로 등록한다.
 2. 각 레포에서 해당 플러그인을 활성화한다 — BE=`hb-be`, Community=`hb-cm`, FE=`hb-fe`, chat=`hb-chat`, Android=`hb-aos`, iOS=`hb-ios`. 방법론 코어 `hb-shared`는 **모든 레포에서 함께 활성화**한다.
-3. 먼저 repository 정책·CI·manifest·architecture/ADR을 확인한다. repository가 `.harness/docs/`를 사용하기로 선택한 경우에만 실제 상태와 일치하는 보조 YAML을 작성·갱신한다.
-4. 작업 레포 `.gitignore`에 아래를 추가한다. `.harness/docs/`를 사용하는 repository라면 팀 공유 여부는 해당 repository 정책에 따른다.
-   ```
-   .harness/artifacts/
-   ```
-   (`.harness/` 전체를 ignore하지 말 것. 만약 과거 설정이 `.harness/`이면 `!.harness/docs/`로 예외 처리한다.)
+3. repository의 `AGENTS.md` / `CLAUDE.md` / `.harness/README.md`에서 주제별 진실의 원천을 확인한다. `.harness/docs/`가 canonical로 선언된 repository에서는 코드·계약 변경과 함께 해당 YAML을 갱신하고, 충돌 시 자동으로 한쪽을 무시하지 말고 `BLOCKED`한다.
+4. 작업 레포 `.gitignore`는 canonical 문서를 추적하고 raw artifact 정책만 repository별로 정한다. `.harness/` 전체를 ignore하지 않는다. 대용량 raw log를 제외할 때도 최종 판정과 hash manifest는 보존한다.
 5. Claude Code에서 작업 유형에 맞는 트랙을 실행한다.
 
 ```
@@ -346,7 +345,7 @@ release-check.md, bridge-check.md, parity-proposal.md(형제 플랫폼 반영 �
 /hb-be:maintenance:deep      # 영향도 3방향 Team + ADR 충돌 체크
 
 # BE 레포에서 — 긴급 수정 (T0, hotfix)
-/hb-be:maintenance:hotfix    # 재현 테스트 + 수정 + 단위 테스트만
+/hb-be:maintenance:hotfix    # 경량 개발 + 최소 테스트 품질검사 + 최종 Dual 관문
 
 # CM 레포에서 — 동일 tier 구조
 /hb-cm:planning:auto

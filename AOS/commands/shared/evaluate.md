@@ -28,13 +28,13 @@ Evaluate가 소유하지 않는다:
 
 ## Repository 진실의 원천
 
-별도 Stack Profile이나 architecture 사본을 강제하지 않는다. 다음을 우선 사용한다.
+별도 Stack Profile이나 architecture 사본을 강제하지 않는다. 대신 repository가 선언한 주제별 ownership을 사용한다.
 
-1. 작업 repository의 `AGENTS.md`, `CLAUDE.md`, 명시적 정책
-2. 실제 CI workflow와 checked-in script
-3. `package.json`, `pyproject.toml`, `Makefile` 등 manifest
-4. repository architecture, ADR, 운영 문서
-5. 필수 정보가 없거나 충돌하면 추측하지 않고 `BLOCKED` 또는 사용자 확인
+1. 작업 repository의 `AGENTS.md`, `CLAUDE.md`, `.harness/README.md`에서 주제별 진실의 원천을 확인
+2. 코딩 규칙·ADR·architecture·제품 계약은 선언된 canonical 문서 사용 (`.harness/docs/*.yaml` 포함)
+3. 실제 실행 명령·dependency는 CI workflow·checked-in script·manifest 사용
+4. 현재 구현 상태는 source·migration·실제 test/lint/build 결과로 확인
+5. 문서와 구현이 충돌하면 한쪽을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 문서 drift인지 판정
 
 스택별 완료기준은 해당 플러그인의 `shared/verify`가 소유한다. BE/CM의 test·lint·build, FE의 시각·접근성·API 바인딩, CHAT의 websocket/API/data contract, AOS/IOS의 기기·권한·푸시·딥링크·bridge parity를 이 공통 명령에 하드코딩하거나 복제하지 않는다. 실제 test·lint·build 명령도 repository 정책과 CI가 정한 값을 그대로 사용한다.
 

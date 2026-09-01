@@ -38,7 +38,7 @@
 
 ### tier 선택 기준
 
-- **T0 hotfix** — 수정 범위가 한 파일·한 라인으로 명확하고, 재현 테스트 + 수정 + 단위 테스트만으로 충분한 경우
+- **T0 hotfix** — 수정 범위가 한 파일·한 라인으로 명확해 개발은 재현 테스트 + 최소 Test Design/Sensitivity + 수정 + 관련 단위 테스트로 제한할 수 있는 경우. 최종 Dual Evaluate/Review는 유지한다.
 - **T1 auto** (기본값) — 일상 작업. 사용자 핑퐁 최소화, Agent Team 없음
 - **T2 deep** — 아키텍처급 결정, 다중 모듈 영향, 기존 ADR 위반 의심 등 full ceremony가 필요한 경우
 
@@ -52,7 +52,7 @@
 
 ## 참조 문서
 
-작업 시작 시 repository의 `AGENTS.md`/`CLAUDE.md`/정책 → 실제 CI 명령 → manifest → architecture/ADR 순서로 확인한다. `.harness/docs/*.yaml`은 repository가 사용하기로 선택한 경우의 보조 context이며, 실제 repository truth와 충돌하면 사용하지 않고 `BLOCKED` 또는 사용자 확인으로 보낸다.
+작업 시작 시 repository의 `AGENTS.md`/`CLAUDE.md`/`.harness/README.md`에서 주제별 소유권을 확인한다. BUCCL IOS가 canonical로 선언한 `.harness/docs/*.yaml`은 코딩 규칙·ADR·architecture·모듈·브리지 계약의 진실의 원천이다. CI·manifest·source와 충돌하면 YAML을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 문서 drift인지 판정한다.
 
 - `.harness/docs/code-convention.yaml` — 코딩 컨벤션 (Swift/iOS WebView/XCTest 특화)
 - `.harness/docs/adr.yaml` — Architecture Decision Records

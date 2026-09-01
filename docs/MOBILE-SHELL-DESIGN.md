@@ -45,9 +45,9 @@ seed 시점에 분류한다. 혼합이면 둘 다 적용.
 명령: `/hb-aos:{track}:{tier}`, `/hb-ios:{track}:{tier}`, `/hb-aos:shared:update-docs` 등.
 산출물: `.harness/artifacts/{track}/{identifier}/` (feature=branch명, maintenance=issue-id, planning=plan-YYYYMMDD-slug).
 
-## 6. Repository 진실의 원천과 선택적 `.harness/docs` (각 앱 레포, 5종)
+## 6. Repository 주제별 진실의 원천 (`.harness/docs`, 각 앱 레포 5종)
 
-각 앱 repository의 정책·실제 CI·manifest·architecture/ADR이 우선이다. 아래 YAML은 repository가 사용하기로 선택한 경우의 보조 context이며 실제 source/CI와 충돌하면 `BLOCKED` 후 갱신한다.
+각 앱 repository의 `AGENTS.md`와 `.harness/README.md`가 아래 YAML을 코딩 규칙·ADR·architecture·모듈·브리지 계약의 진실의 원천으로 선언한다. 실제 Gradle/Xcode 설정·manifest·source·test와 충돌하면 YAML을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 문서 drift인지 판정한다.
 
 - 공통 4종: `code-convention.yaml` / `adr.yaml` / `architecture.yaml` / `module-registry.yaml`
 - **+ `bridge-contract.yaml`**: 브리지 함수·메시지 포맷·에러 계약. **양 레포가 동일 내용을 유지**한다 — 브리지 계약 모드 작업은 이 파일 갱신을 동반하고, 형제 레포 반영 필요를 기록한다.
