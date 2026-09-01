@@ -13,13 +13,20 @@ def claude_environment(source: Optional[Mapping[str, str]] = None) -> Dict[str, 
     return minimal_environment(source or os.environ, _CLAUDE_AUTH)
 
 
-def build_claude_command(packet_prompt: str, schema_json: str) -> List[str]:
+def build_claude_command(packet_prompt: str, schema_json: str, model: Optional[str] = None) -> List[str]:
     """Build a fresh, non-persistent, structured, read-only Claude invocation."""
-    return [
+    command = [
         "claude", "-p", packet_prompt,
         "--no-session-persistence",
         "--output-format", "json",
         "--json-schema", schema_json,
         "--permission-mode", "plan",
         "--allowedTools", "Read,Glob,Grep",
+        "--safe-mode",
+        "--disable-slash-commands",
+        "--strict-mcp-config",
+        "--mcp-config", "{}",
     ]
+    if model:
+        command.extend(["--model", model])
+    return command

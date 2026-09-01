@@ -13,7 +13,8 @@ def codex_environment(source: Optional[Mapping[str, str]] = None) -> Dict[str, s
 
 
 def build_codex_command(
-    repository: Path, schema_path: Path, result_path: Path, prompt: Optional[str] = None
+    repository: Path, schema_path: Path, result_path: Path, prompt: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> List[str]:
     """Build an ephemeral Codex invocation inside the parent's macOS/container sandbox.
 
@@ -21,7 +22,7 @@ def build_codex_command(
     (sandbox_apply exits 71). The outer parent sandbox still denies protected
     source writes and peer-output reads, then detects mutation by tree digest.
     """
-    return [
+    command = [
         "codex", "exec",
         "--ephemeral",
         "--sandbox", "danger-full-access",
@@ -29,5 +30,8 @@ def build_codex_command(
         "--cd", str(repository),
         "--output-schema", str(schema_path),
         "--output-last-message", str(result_path),
-        prompt if prompt is not None else "-",
     ]
+    if model:
+        command.extend(["--model", model])
+    command.append(prompt if prompt is not None else "-")
+    return command

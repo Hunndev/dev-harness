@@ -3,11 +3,13 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 _EXCLUDED_PARTS = (".harness", "artifacts")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _digest(value: Any) -> str:
@@ -76,3 +78,64 @@ def compute_packet_id(request: Dict[str, Any], source_snapshot_id: str, evidence
             "evidence_bundle_id": evidence_bundle_id,
         }
     )
+
+
+def validate_packet_bindings(packet: Dict[str, Any], repository: Path) -> List[str]:
+    """Recompute every packet identity from local source, request, and evidence bytes."""
+    errors: List[str] = []
+    repo = Path(repository).resolve()
+    for field in ("packet_id", "source_snapshot_id", "evidence_bundle_id"):
+        value = packet.get(field)
+        if not isinstance(value, str) or not _HEX64.fullmatch(value):
+            errors.append("PACKET_IDENTITY_FORMAT_INVALID")
+    request = packet.get("request")
+    entries = packet.get("evidence_entries")
+    if not isinstance(request, dict):
+        errors.append("PACKET_REQUEST_MISSING")
+        request = {}
+    if not isinstance(entries, list):
+        errors.append("PACKET_EVIDENCE_ENTRIES_MISSING")
+        entries = []
+
+    try:
+        actual_source = compute_source_snapshot(repo)["source_snapshot_id"]
+    except (OSError, subprocess.CalledProcessError):
+        errors.append("SOURCE_SNAPSHOT_UNAVAILABLE")
+        actual_source = ""
+    if actual_source != packet.get("source_snapshot_id"):
+        errors.append("SOURCE_SNAPSHOT_MISMATCH")
+
+    normalized_entries: List[Dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            errors.append("EVIDENCE_ENTRY_INVALID")
+            continue
+        entry_hash = entry.get("sha256")
+        if not isinstance(entry_hash, str) or not _HEX64.fullmatch(entry_hash):
+            errors.append("EVIDENCE_ENTRY_HASH_INVALID")
+            continue
+        relative = Path(entry["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append("EVIDENCE_ENTRY_PATH_ESCAPE")
+            continue
+        candidate = (repo / relative).resolve()
+        if repo != candidate and repo not in candidate.parents:
+            errors.append("EVIDENCE_ENTRY_PATH_ESCAPE")
+            continue
+        if not candidate.is_file() or candidate.is_symlink():
+            errors.append("EVIDENCE_ENTRY_MISSING")
+            continue
+        actual_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        normalized = dict(entry)
+        normalized["path"] = relative.as_posix()
+        normalized_entries.append(normalized)
+        if actual_sha != entry.get("sha256"):
+            errors.append("EVIDENCE_ENTRY_MISMATCH")
+
+    actual_evidence = compute_evidence_bundle_id(normalized_entries)
+    if actual_evidence != packet.get("evidence_bundle_id"):
+        errors.append("EVIDENCE_BUNDLE_ID_MISMATCH")
+    actual_packet = compute_packet_id(request, actual_source, actual_evidence)
+    if actual_packet != packet.get("packet_id"):
+        errors.append("PACKET_ID_MISMATCH")
+    return list(dict.fromkeys(errors))
