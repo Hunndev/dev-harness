@@ -84,6 +84,19 @@ def command_run(args: argparse.Namespace) -> int:
     if packet.get("request", {}).get("model_ids") != model_ids:
         _emit({"status": "BLOCKED", "errors": ["MODEL_ID_MISMATCH"]})
         return 2
+    parent_facts = json.dumps({
+        "packet_id": packet["packet_id"],
+        "source_snapshot_id": packet["source_snapshot_id"],
+        "evidence_bundle_id": packet["evidence_bundle_id"],
+    }, ensure_ascii=False, sort_keys=True)
+    effective_prompts = {
+        stage: value + "\n\n# Parent-owned packet facts\n" + parent_facts
+        for stage, value in prompts.items()
+    }
+    effective_prompt_sha256 = {
+        stage: hashlib.sha256(value.encode("utf-8")).hexdigest()
+        for stage, value in effective_prompts.items()
+    }
     output_root.mkdir(parents=True, exist_ok=True)
     materialized_root = output_root / "materialized-packet"
     materialized_manifest = materialize_source_packet(packet_source, materialized_root)
@@ -97,6 +110,7 @@ def command_run(args: argparse.Namespace) -> int:
         "source_snapshot_id": packet["source_snapshot_id"],
         "evidence_bundle_id": packet["evidence_bundle_id"],
         "prompt_sha256": prompt_sha256,
+        "effective_prompt_sha256": effective_prompt_sha256,
         "model_ids": model_ids,
         "isolation_policy": "macos-deny-default-v1",
     }, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
@@ -122,7 +136,7 @@ def command_run(args: argparse.Namespace) -> int:
             packet=packet,
             packet_source=provider_source,
             output_root=output_root / f"{stage}-{engine}",
-            prompt=prompts[stage],
+            prompt=effective_prompts[stage],
             timeout_seconds=args.timeout,
             peer_output_root=output_root / f"{stage}-{peer}",
             model=model_ids[engine],

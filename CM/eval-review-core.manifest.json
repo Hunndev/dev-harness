@@ -17,7 +17,7 @@
     "runtime/hb_eval_review/adapters/__init__.py": "99d81eff550df355f6456ba8e9dce7bf7b5a72cbb821bb6097268d3c403dc079",
     "runtime/hb_eval_review/adapters/claude.py": "1da83e5fd2836a447c48fbac521d5e37f2e341ce0624b9dbcf95883e4fd97f5f",
     "runtime/hb_eval_review/adapters/codex.py": "5740da830455d9104c5c5318bd3e7b320cc882ff381477d9a867eb6d9cc5ab70",
-    "runtime/hb_eval_review/cli.py": "bc871f4bc927f9f12eb78c096371ed205a03eac0f3e3a5d332feddffc1ca5376",
+    "runtime/hb_eval_review/cli.py": "fa09d8bbb2b2bec67dd106ed995ad019afafe49bf2201d974cf85c1c6faa3315",
     "runtime/hb_eval_review/finalize.py": "f5b820f316ccedc49bc6832f26fe499870e6ffcd257da752472e77c8113e78be",
     "runtime/hb_eval_review/materialize.py": "456c9384805a38bd6a94740b3c3439d07edb211db99bfaa4ffc2a8a2935bece0",
     "runtime/hb_eval_review/orchestrate.py": "3e9079c5563c1f934f2d9c551e60cd5cf5459efa3837fe4b716b18cad1f3a44a",
