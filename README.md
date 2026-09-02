@@ -53,10 +53,21 @@ SHARED/bin/hb-eval-review run \
   --evaluate-prompt .harness/artifacts/<track>/<id>/evaluate-prompt.md \
   --review-prompt .harness/artifacts/<track>/<id>/review-prompt.md \
   --output-root .harness/artifacts/<track>/<id>/eval-review \
+  --claude-model claude-fable-5-1 \
+  --codex-model gpt-5.6-sol \
   --timeout 480
 ```
 
 standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. output 디렉토리는 비어 있어야 하며 packet source 밖에 둔다. 부모 runner가 Evaluate 두 결과를 확인한 뒤에만 Review를 시작하고 `final-result.json`을 저장한다.
+
+#### 실행 전 보안 조건
+
+- macOS runner는 `(deny default)` Seatbelt profile에서 provider를 실행한다. materialized packet은 읽기 전용이고, 현재 provider output만 쓰기 가능하다. 사용자 HOME, sibling output, SSH/GH/Keychain CLI는 접근할 수 없다.
+- Claude는 사용자 Keychain/HOME을 재사용하지 않는다. `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` 중 하나를 process 환경에 최소 주입해야 하며 없으면 `CLAUDE_MINIMAL_AUTH_MISSING`으로 중단한다.
+- Codex는 `HB_CODEX_AUTH_FILE`로 지정한 `auth.json` 한 파일만 provider별 임시 HOME에 복사한다. 생략 시 `$HOME/.codex/auth.json`을 parent가 복사하지만 provider에게 원래 HOME 경로는 열지 않는다.
+- provider별 임시 HOME은 해당 stage가 끝나면 성공·실패·timeout과 관계없이 삭제한다.
+- `packet.json`은 `request`, `evidence_entries`, 세 identity를 포함해야 한다. runner가 source bytes와 evidence hash를 다시 계산하고 prompt digest까지 일치할 때만 provider를 시작한다.
+- oracle과 A/B mapping은 provider sandbox의 readable root 밖에 두고, raw 결과를 hash·봉인하기 전에는 provider prompt/source에 넣지 않는다.
 
 ### 1. 개발 — 안전하게 구현하고 테스트
 

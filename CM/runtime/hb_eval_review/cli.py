@@ -1,6 +1,7 @@
 """Command-line interface for deterministic Evaluate/Review contracts."""
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -9,10 +10,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .finalize import finalize
+from .materialize import materialize_source_packet, verify_materialized_packet
 from .orchestrate import run_dual_stages
 from .result_validation import validate_provider_result
 from .run_provider import run_provider_stage
-from .snapshot import compute_source_snapshot
+from .snapshot import compute_source_snapshot, validate_packet_bindings
 
 
 def _load(path: str) -> Dict[str, Any]:
@@ -62,11 +64,56 @@ def command_run(args: argparse.Namespace) -> int:
         raise ValueError("output_root must be outside packet_source")
     if output_root.exists() and any(output_root.iterdir()):
         raise ValueError("output_root must be absent or empty")
-    output_root.mkdir(parents=True, exist_ok=True)
+    binding_errors = validate_packet_bindings(packet, packet_source)
+    if binding_errors:
+        _emit({"status": "BLOCKED", "errors": binding_errors})
+        return 2
     prompts = {
         "evaluate": Path(args.evaluate_prompt).read_text(),
         "review": Path(args.review_prompt).read_text(),
     }
+    prompt_sha256 = {
+        stage: hashlib.sha256(value.encode("utf-8")).hexdigest()
+        for stage, value in prompts.items()
+    }
+    expected_prompt_sha256 = packet.get("request", {}).get("prompt_sha256")
+    if expected_prompt_sha256 != prompt_sha256:
+        _emit({"status": "BLOCKED", "errors": ["PROMPT_DIGEST_MISMATCH"]})
+        return 2
+    model_ids = {"claude": args.claude_model, "codex": args.codex_model}
+    if packet.get("request", {}).get("model_ids") != model_ids:
+        _emit({"status": "BLOCKED", "errors": ["MODEL_ID_MISMATCH"]})
+        return 2
+    parent_facts = json.dumps({
+        "packet_id": packet["packet_id"],
+        "source_snapshot_id": packet["source_snapshot_id"],
+        "evidence_bundle_id": packet["evidence_bundle_id"],
+    }, ensure_ascii=False, sort_keys=True)
+    effective_prompts = {
+        stage: value + "\n\n# Parent-owned packet facts\n" + parent_facts
+        for stage, value in prompts.items()
+    }
+    effective_prompt_sha256 = {
+        stage: hashlib.sha256(value.encode("utf-8")).hexdigest()
+        for stage, value in effective_prompts.items()
+    }
+    output_root.mkdir(parents=True, exist_ok=True)
+    materialized_root = output_root / "materialized-packet"
+    materialized_manifest = materialize_source_packet(packet_source, materialized_root)
+    if not verify_materialized_packet(materialized_root, materialized_manifest):
+        _emit({"status": "BLOCKED", "errors": ["MATERIALIZED_PACKET_MISMATCH"]})
+        return 2
+    provider_source = materialized_root / "source"
+    (output_root / "execution-manifest.json").write_text(json.dumps({
+        "schema_version": "1.0",
+        "packet_id": packet["packet_id"],
+        "source_snapshot_id": packet["source_snapshot_id"],
+        "evidence_bundle_id": packet["evidence_bundle_id"],
+        "prompt_sha256": prompt_sha256,
+        "effective_prompt_sha256": effective_prompt_sha256,
+        "model_ids": model_ids,
+        "isolation_policy": "macos-deny-default-v1",
+    }, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
     lock = threading.Lock()
     review_cleanup_done = False
 
@@ -87,11 +134,12 @@ def command_run(args: argparse.Namespace) -> int:
             engine=engine,
             stage=stage,
             packet=packet,
-            packet_source=packet_source,
+            packet_source=provider_source,
             output_root=output_root / f"{stage}-{engine}",
-            prompt=prompts[stage],
+            prompt=effective_prompts[stage],
             timeout_seconds=args.timeout,
             peer_output_root=output_root / f"{stage}-{peer}",
+            model=model_ids[engine],
         )
 
     result = run_dual_stages(runner, packet)
@@ -143,6 +191,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--review-prompt", required=True)
     run.add_argument("--output-root", required=True)
     run.add_argument("--timeout", type=float, default=240)
+    run.add_argument("--claude-model", required=True)
+    run.add_argument("--codex-model", required=True)
     run.set_defaults(func=command_run)
     return parser
 

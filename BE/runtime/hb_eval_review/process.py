@@ -17,6 +17,30 @@ _COMMON_ENV = (
 )
 _SECRET_RE = re.compile(r"(?i)(api[_-]?key|password|secret|token)(\s*[:=]\s*)[^\s,]+")
 
+_MACOS_SYSTEM_READ_ROOTS = (
+    Path("/System"),
+    Path("/usr"),
+    Path("/bin"),
+    Path("/sbin"),
+    Path("/Library/Developer/CommandLineTools"),
+    Path("/Library/Frameworks"),
+    Path("/private/etc"),
+    Path("/etc"),
+    Path("/dev"),
+)
+_DENIED_EXECUTABLES = (
+    Path("/usr/bin/security"),
+    Path("/usr/bin/ssh"),
+    Path("/usr/bin/scp"),
+    Path("/usr/bin/sftp"),
+)
+_DENIED_MACH_SERVICES = (
+    "com.apple.securityd",
+    "com.apple.securityd.xpc",
+    "com.apple.security.agent",
+    "com.apple.security.authhost",
+)
+
 
 def minimal_environment(source: Optional[Mapping[str, str]] = None, extra_keys: Optional[List[str]] = None) -> Dict[str, str]:
     """Copy only explicitly permitted operating-system and provider variables."""
@@ -51,6 +75,51 @@ def _sandbox_quote(path: Path) -> str:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def build_macos_sandbox_profile(
+    protected_root: Path,
+    output_root: Path,
+    readable_roots: Optional[List[Path]] = None,
+    writable_roots: Optional[List[Path]] = None,
+    denied_read_roots: Optional[List[Path]] = None,
+) -> str:
+    """Build a deny-by-default Seatbelt profile for one provider process."""
+    protected_root = Path(protected_root).resolve()
+    output_root = Path(output_root).resolve()
+    reads = list(_MACOS_SYSTEM_READ_ROOTS) + [protected_root, output_root]
+    reads.extend(Path(item).resolve() for item in readable_roots or [])
+    writes = [output_root]
+    writes.extend(Path(item).resolve() for item in writable_roots or [])
+    lines = [
+        "(version 1)",
+        "(deny default)",
+        '(import "system.sb")',
+        "(allow process*)",
+        "(allow signal (target self))",
+        "(allow sysctl-read)",
+        "(allow mach-lookup)",
+        "(allow network-outbound)",
+    ]
+    for root in reads:
+        lines.append(f'(allow file-read* (subpath "{_sandbox_quote(root)}"))')
+    ancestors = set()
+    for root in reads + writes:
+        parent = root.parent
+        while parent != parent.parent:
+            ancestors.add(parent)
+            parent = parent.parent
+    for parent in sorted(ancestors, key=lambda item: str(item)):
+        lines.append(f'(allow file-read-metadata (literal "{_sandbox_quote(parent)}"))')
+    for root in writes:
+        lines.append(f'(allow file-write* (subpath "{_sandbox_quote(root)}"))')
+    for root in denied_read_roots or []:
+        lines.append(f'(deny file-read* (subpath "{_sandbox_quote(root)}"))')
+    for executable in _DENIED_EXECUTABLES:
+        lines.append(f'(deny process-exec (literal "{_sandbox_quote(executable)}"))')
+    for service in _DENIED_MACH_SERVICES:
+        lines.append(f'(deny mach-lookup (global-name "{service}"))')
+    return "\n".join(lines)
 
 
 def run_read_only_process(
@@ -98,6 +167,8 @@ def run_isolated_process(
     stage: str, engine: str, timeout_seconds: float,
     env: Optional[Mapping[str, str]] = None,
     denied_read_roots: Optional[List[Path]] = None,
+    readable_roots: Optional[List[Path]] = None,
+    writable_roots: Optional[List[Path]] = None,
 ) -> Dict[str, Any]:
     """Run one child under an OS-enforced source write barrier and emit parent facts."""
     protected_root = Path(protected_root).resolve()
@@ -111,14 +182,13 @@ def run_isolated_process(
     isolation_mode = "unsupported"
     wrapped = list(command)
     if sys.platform == "darwin" and Path("/usr/bin/sandbox-exec").exists():
-        profile_lines = [
-            "(version 1)",
-            "(allow default)",
-            f'(deny file-write* (subpath "{_sandbox_quote(protected_root)}"))',
-        ]
-        for denied_root in denied_read_roots or []:
-            profile_lines.append(f'(deny file-read* (subpath "{_sandbox_quote(denied_root)}"))')
-        profile = "\n".join(profile_lines)
+        profile = build_macos_sandbox_profile(
+            protected_root,
+            output_root,
+            readable_roots=readable_roots,
+            writable_roots=writable_roots,
+            denied_read_roots=denied_read_roots,
+        )
         wrapped = ["/usr/bin/sandbox-exec", "-p", profile, "--"] + wrapped
         isolation_mode = "macos-sandbox-exec"
     else:

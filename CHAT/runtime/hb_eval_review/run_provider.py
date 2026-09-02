@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -26,6 +28,37 @@ def _extract_claude(stdout: str) -> Dict[str, Any]:
     return semantic
 
 
+def _ephemeral_environment(engine: str, output_root: Path) -> Dict[str, str]:
+    """Create one minimal provider HOME; never expose the user's normal HOME."""
+    provider_home = output_root / ".provider-home"
+    temp_root = provider_home / "tmp"
+    temp_root.mkdir(parents=True, exist_ok=False)
+    provider_home.chmod(0o700)
+    temp_root.chmod(0o700)
+    overrides = dict(os.environ)
+    overrides.update({
+        "HOME": str(provider_home),
+        "TMPDIR": str(temp_root),
+        "XDG_CONFIG_HOME": str(provider_home / ".config"),
+        "XDG_CACHE_HOME": str(provider_home / ".cache"),
+    })
+    if engine == "claude":
+        environment = claude_environment(overrides)
+        if not any(environment.get(key) for key in (
+            "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"
+        )):
+            raise ValueError("CLAUDE_MINIMAL_AUTH_MISSING")
+        return environment
+    auth_source = Path(os.environ.get("HB_CODEX_AUTH_FILE", str(Path.home() / ".codex" / "auth.json")))
+    if not auth_source.is_file():
+        raise ValueError("CODEX_AUTH_FILE_MISSING")
+    auth_target = provider_home / "auth.json"
+    shutil.copyfile(str(auth_source), str(auth_target))
+    auth_target.chmod(0o600)
+    overrides["CODEX_HOME"] = str(provider_home)
+    return codex_environment(overrides)
+
+
 def run_provider_stage(
     engine: str,
     stage: str,
@@ -35,6 +68,7 @@ def run_provider_stage(
     prompt: str,
     timeout_seconds: float = 240,
     peer_output_root: Optional[Path] = None,
+    model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run Claude or Codex as a fresh sibling process against one protected packet copy."""
     packet_source = Path(packet_source).resolve()
@@ -48,23 +82,36 @@ def run_provider_stage(
     claude_schema.pop("$id", None)
     denied = [peer_output_root] if peer_output_root is not None else []
     home = Path.home()
+    provider_home = output_root / ".provider-home"
+    claude_temp = Path("/tmp/claude-501")
 
     if engine == "claude":
-        command = build_claude_command(prompt, json.dumps(claude_schema, separators=(",", ":")))
-        environment = claude_environment()
+        command = build_claude_command(
+            prompt, json.dumps(claude_schema, separators=(",", ":")), model=model
+        )
         denied.append(home / ".codex")
     elif engine == "codex":
         result_path = output_root / "semantic-result.json"
-        command = build_codex_command(packet_source, semantic_schema, result_path, prompt)
-        environment = codex_environment()
+        local_schema = output_root / "provider-result.schema.json"
+        local_schema.write_text(semantic_schema.read_text())
+        command = build_codex_command(packet_source, local_schema, result_path, prompt, model=model)
         denied.append(home / ".claude")
     else:
         raise ValueError("unsupported engine")
 
-    execution = run_isolated_process(
-        command, packet_source, output_root, packet, stage, engine, timeout_seconds,
-        environment, denied_read_roots=[Path(item) for item in denied],
-    )
+    try:
+        environment = _ephemeral_environment(engine, output_root)
+        execution = run_isolated_process(
+            command, packet_source, output_root, packet, stage, engine, timeout_seconds,
+            environment, denied_read_roots=[Path(item) for item in denied],
+            readable_roots=[Path.home() / ".npm-global"] + ([claude_temp] if engine == "claude" else []),
+            writable_roots=[claude_temp] if engine == "claude" else [],
+        )
+    finally:
+        if provider_home.exists():
+            shutil.rmtree(str(provider_home))
+        if engine == "claude" and claude_temp.exists():
+            shutil.rmtree(str(claude_temp))
     envelope = execution["envelope"]
     semantic: Dict[str, Any] = {}
     if envelope["status"] == "PASS":
