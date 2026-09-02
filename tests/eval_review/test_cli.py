@@ -62,7 +62,7 @@ class CliTests(unittest.TestCase):
                 str(CLI), "run", "--packet", str(packet), "--packet-source", str(source),
                 "--evaluate-prompt", str(evaluate), "--review-prompt", str(review),
                 "--output-root", str(output), "--claude-model", "sonnet",
-                "--codex-model", "gpt-5.6-sol",
+                "--codex-model", "gpt-5.6-sol-900k",
             ], text=True, capture_output=True)
             result = json.loads(cp.stdout)
             output_created = output.exists()
