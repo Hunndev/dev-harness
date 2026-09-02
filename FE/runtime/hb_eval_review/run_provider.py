@@ -83,6 +83,7 @@ def run_provider_stage(
     denied = [peer_output_root] if peer_output_root is not None else []
     home = Path.home()
     provider_home = output_root / ".provider-home"
+    claude_temp = Path("/tmp/claude-501")
 
     if engine == "claude":
         command = build_claude_command(
@@ -103,11 +104,14 @@ def run_provider_stage(
         execution = run_isolated_process(
             command, packet_source, output_root, packet, stage, engine, timeout_seconds,
             environment, denied_read_roots=[Path(item) for item in denied],
-            readable_roots=[Path.home() / ".npm-global"],
+            readable_roots=[Path.home() / ".npm-global"] + ([claude_temp] if engine == "claude" else []),
+            writable_roots=[claude_temp] if engine == "claude" else [],
         )
     finally:
         if provider_home.exists():
             shutil.rmtree(str(provider_home))
+        if engine == "claude" and claude_temp.exists():
+            shutil.rmtree(str(claude_temp))
     envelope = execution["envelope"]
     semantic: Dict[str, Any] = {}
     if envelope["status"] == "PASS":
