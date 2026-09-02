@@ -24,14 +24,14 @@ class AdapterTests(unittest.TestCase):
 
     def test_codex_is_ephemeral_structured_and_defers_to_parent_sandbox(self):
         command = build_codex_command(
-            Path("/repo"), Path("schema.json"), Path("result.json"), model="gpt-5.6-sol-900k"
+            Path("/repo"), Path("schema.json"), Path("result.json"), model="gpt-5.6-sol"
         )
         self.assertIn("--ephemeral", command)
         self.assertIn("danger-full-access", command)
         self.assertNotIn("read-only", command)
         self.assertIn("--output-schema", command)
         self.assertIn("--output-last-message", command)
-        self.assertEqual("gpt-5.6-sol-900k", command[command.index("--model") + 1])
+        self.assertEqual("gpt-5.6-sol", command[command.index("--model") + 1])
 
     def test_codex_environment_excludes_claude_auth(self):
         source = {
