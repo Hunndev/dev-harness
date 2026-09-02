@@ -15,7 +15,7 @@
     "contracts/tdd-test-design-result.schema.json": "868e46327bde50f16b4fc39704f032f3256b7cdf7c27745ba248ffbbf0c39f1e",
     "runtime/hb_eval_review/__init__.py": "ac034f23898203bddeee3b290135fea0cadae3ad6cc863652d64aa2f7f80a989",
     "runtime/hb_eval_review/adapters/__init__.py": "99d81eff550df355f6456ba8e9dce7bf7b5a72cbb821bb6097268d3c403dc079",
-    "runtime/hb_eval_review/adapters/claude.py": "1da83e5fd2836a447c48fbac521d5e37f2e341ce0624b9dbcf95883e4fd97f5f",
+    "runtime/hb_eval_review/adapters/claude.py": "b3f72b86302bad4e1ae6eb0eb4c839fdd03c93ab41c199517bd03dc8b2fbfb4e",
     "runtime/hb_eval_review/adapters/codex.py": "5740da830455d9104c5c5318bd3e7b320cc882ff381477d9a867eb6d9cc5ab70",
     "runtime/hb_eval_review/cli.py": "fa09d8bbb2b2bec67dd106ed995ad019afafe49bf2201d974cf85c1c6faa3315",
     "runtime/hb_eval_review/finalize.py": "f5b820f316ccedc49bc6832f26fe499870e6ffcd257da752472e77c8113e78be",

@@ -25,7 +25,7 @@ def build_claude_command(packet_prompt: str, schema_json: str, model: Optional[s
         "--safe-mode",
         "--disable-slash-commands",
         "--strict-mcp-config",
-        "--mcp-config", "{}",
+        "--mcp-config", '{"mcpServers":{}}',
     ]
     if model:
         command.extend(["--model", model])

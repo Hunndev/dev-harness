@@ -20,6 +20,7 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn("--continue", command)
         self.assertNotIn("Edit", joined)
         self.assertNotIn("Write", joined)
+        self.assertEqual('{"mcpServers":{}}', command[command.index("--mcp-config") + 1])
         self.assertEqual("sonnet", command[command.index("--model") + 1])
 
     def test_codex_is_ephemeral_structured_and_defers_to_parent_sandbox(self):
