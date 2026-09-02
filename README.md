@@ -53,7 +53,7 @@ SHARED/bin/hb-eval-review run \
   --evaluate-prompt .harness/artifacts/<track>/<id>/evaluate-prompt.md \
   --review-prompt .harness/artifacts/<track>/<id>/review-prompt.md \
   --output-root .harness/artifacts/<track>/<id>/eval-review \
-  --claude-model sonnet \
+  --claude-model claude-fable-5-1 \
   --codex-model gpt-5.6-sol \
   --timeout 480
 ```
