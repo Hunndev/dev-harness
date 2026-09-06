@@ -1,3 +1,5 @@
+import hashlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -10,13 +12,23 @@ from hb_eval_review.orchestrate import run_dual_stages
 PACKET = {"packet_id": "p1", "source_snapshot_id": "s1", "evidence_bundle_id": "e1"}
 
 
+def result_hash(semantic):
+    payload = json.dumps(semantic, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def sealed(stage, engine, semantic_status="PASS", envelope_status="PASS"):
+    semantic = {
+        "schema_version": "2.0", "stage": stage, "status": semantic_status,
+        "blocking": ["x"] if semantic_status == "BLOCKED" else [],
+        "findings": [{
+            "finding_id": "x", "risk": "HIGH", "disposition": "BLOCK",
+            "evidence_ref": "gate:test", "message": "blocked", "blocking": True,
+        }] if semantic_status == "BLOCKED" else [],
+        "evidence_refs": ["gate:test"],
+    }
     return {
-        "semantic": {
-            "schema_version": "2.0", "stage": stage, "status": semantic_status,
-            "blocking": ["x"] if semantic_status == "BLOCKED" else [],
-            "findings": [], "evidence_refs": ["gate:test"],
-        },
+        "semantic": semantic,
         "envelope": {
             "schema_version": "2.0", "stage": stage, "engine": engine, "provider": engine,
             "run_id": f"{stage}-{engine}", "started_at": "a", "finished_at": "b",
@@ -25,7 +37,7 @@ def sealed(stage, engine, semantic_status="PASS", envelope_status="PASS"):
             "isolation_mode": "macos-sandbox-exec",
             "source_snapshot_before": "s1", "source_snapshot_after": "s1",
             "packet_id": "p1", "evidence_bundle_id": "e1", "repository_mutated": False,
-            "result_sha256": "a" * 64, "status": envelope_status,
+            "result_sha256": result_hash(semantic), "status": envelope_status,
             "error_code": None if envelope_status == "PASS" else "PROCESS_NONZERO",
         },
     }

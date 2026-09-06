@@ -14,7 +14,11 @@ from .materialize import materialize_source_packet, verify_materialized_packet
 from .orchestrate import run_dual_stages
 from .result_validation import validate_provider_result
 from .run_provider import run_provider_stage
-from .snapshot import compute_source_snapshot, validate_packet_bindings
+from .snapshot import PacketPolicyError, compute_source_snapshot, validate_packet_bindings
+
+
+_STAGES = ("evaluate", "review")
+_ENGINES = ("claude", "codex")
 
 
 def _load(path: str) -> Dict[str, Any]:
@@ -147,13 +151,19 @@ def command_run(args: argparse.Namespace) -> int:
     result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
     sealed_root = output_root / "sealed-results"
     sealed_root.mkdir(parents=True, exist_ok=True)
-    for record in result.get("results", []):
-        semantic = record.get("semantic", {}) if isinstance(record, dict) else {}
+    for index, record in enumerate(result.get("results", [])):
         envelope = record.get("envelope", {}) if isinstance(record, dict) else {}
-        stage = semantic.get("stage") or envelope.get("stage", "unknown")
-        engine = envelope.get("engine", "unknown")
-        path = sealed_root / f"{stage}-{engine}.json"
-        path.write_text(json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+        stage = envelope.get("stage")
+        engine = envelope.get("engine")
+        # The file name comes from the parent-owned envelope and only from the two
+        # enums; a model-owned string must never decide where the parent writes.
+        if stage in _STAGES and engine in _ENGINES:
+            name = f"{stage}-{engine}.json"
+        else:
+            name = f"unknown-{index}.json"
+        (sealed_root / name).write_text(
+            json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        )
     _emit({
         "status": result.get("status", "BLOCKED"),
         "stage": result.get("stage", "unknown"),
@@ -201,7 +211,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         args = build_parser().parse_args(argv)
         return args.func(args)
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except PacketPolicyError as error:
+        # Paths only. The refused bytes never reach stdout.
+        _emit({"status": "BLOCKED", "errors": [error.code], "paths": error.paths})
+        return 2
+    except Exception as error:
+        # Untrusted provider output and a resource fault must both leave a JSON verdict
+        # rather than a traceback, so every ordinary exception is mapped to BLOCKED and
+        # only its type is published. KeyboardInterrupt and SystemExit derive from
+        # BaseException and are deliberately left to propagate.
         _emit({"status": "BLOCKED", "errors": [type(error).__name__]})
         return 2
 

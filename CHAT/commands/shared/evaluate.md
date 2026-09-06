@@ -95,6 +95,13 @@ Fresh Claude Evaluate ∥ Fresh Codex Evaluate
 - provider 내부 agent 수는 Claude/Codex 교차 독립성을 대체하지 않는다.
 - 각 provider는 AC 판정·finding·근거만 담은 model-owned semantic result를 낸다. 모델은 `fresh`, `read_only`, `repository_mutated`를 자기증명할 수 없다.
 - 부모 runner가 process/run ID, timeout, exit code, packet binding, 실행 전후 digest, isolation mode를 `execution-envelope.<engine>.json`에 직접 기록한다.
+- provider 자식은 자기 process group에서 시작하며, 정상 종료·timeout·예외 모든 경로에서 부모가 그 group을 bounded reap(SIGTERM→SIGKILL)한다. 살아남은 자손이 있으면 `PROVIDER_DESCENDANTS_ALIVE`로 BLOCKED다.
+- 자식 출력은 bytes로 수집한다. 유효하지 않은 UTF-8은 예외가 아니라 `PROCESS_OUTPUT_UNDECODABLE`(BLOCKED)이고, 진단용 사본만 replacement 문자로 보여준다. 파이프 자체가 실패하면 예외 클래스 이름만 남기고 `PROCESS_OUTPUT_UNAVAILABLE`(BLOCKED)이다.
+- timeout 경로에서 커널이 group signal을 거부해도(EPERM·ESRCH) 그것은 진단 사실로 기록될 뿐 예외가 아니며, 마지막 출력 수집에도 상한이 있어 group을 벗어난 자손이 pipe를 쥐고 있어도 부모는 유계 시간에 `PROCESS_TIMEOUT` envelope을 낸다.
+- **격리 범위(정직한 한정)**: 이 reap은 *process group* 단위다. 자식이 `setsid`로 group을 벗어나 띄운 자손은 macOS에 cgroup이 없어 포획·차단할 수 없다. diagnostics `descendant_containment: "process-group-only"`가 이 범위를 그대로 기록하며, 완전 격리를 주장하지 않는다.
+- 같은 이유로 REQ-M05의 "디스크에 secret 없음" 보장은 **부모 복귀 시점의 부모 소유 아티팩트**와 **exact literal** 기준이다. group을 벗어난 자손의 사후 쓰기와 자식이 재인코딩한 값은 이 보장 밖이다.
+- exact literal 판정은 **파일 내용과 entry 이름 양쪽**, 그리고 JSON **키와 값 양쪽**에 적용한다. raw 진단 텍스트는 `\uXXXX`·`\/` 같은 JSON escape로 되돌린 형태까지 같은 literal로 본다. 두 키가 redaction 후 같은 이름으로 겹치면 병합하지 않고 `RESULT_MALFORMED`(BLOCKED)이다. 자식이 자격증명을 파일명·디렉토리명으로 인코딩하면 정규 파일·symlink·FIFO는 unlink하고, 디렉토리는 하위 처리 후 `rmdir`하거나 실패 시 redaction한 이름으로 제자리 rename한다. 둘 다 못 하면 `PURGE_INCOMPLETE`(BLOCKED)이며 조용한 성공이 아니다. 모든 조작은 부모가 이미 쥔 디렉토리 descriptor 기준이라 stage root 밖으로는 나가지 않는다.
+- **BLOCKED일 때의 잔존(정직한 한정)**: 자식이 cleanup을 pin하면(`chflags uchg`, mode strip, 재귀 한계를 넘는 깊이) 부모는 owner 권한으로 복구를 시도하지만 실패는 `cleanup_errors`와 함께 BLOCKED로만 보고된다. 이때 output_root에 부모가 복사한 자격증명 사본이 남아 있을 수 있으므로 **운영자는 BLOCKED 판정의 output_root를 폐기한다.**
 - semantic result와 parent envelope가 모두 있어야 sealed result가 된다.
 
 ### [E3] AC별 판정
@@ -117,6 +124,16 @@ Fresh Claude Evaluate ∥ Fresh Codex Evaluate
 - same packet/source/evidence ID
 - repository mutation 없음
 - malformed/secret-shaped/forbidden context 없음
+- packet에 secret material 유입 없음 — 있으면 provider 기동 전 `PACKET_SECRET_MATERIAL_PRESENT`. deny 이름 규칙(`.env`·`.env.*`·`local.properties`·`secrets`·`.jks .keystore .p12 .pfx .pem .key`)은 leaf뿐 아니라 **모든 경로 성분**에 대소문자 무관하게 적용한다
+- packet entry의 상위 경로 성분이 symlink가 아님 — 아니면 복사 전 `PACKET_PATH_UNSAFE`
+- provider가 남긴 결과 파일이 링크·FIFO·하드링크가 아닌 자기 정규 파일 — 아니면 `RESULT_PATH_UNSAFE`
+- 결과 파싱·redaction·canonical 직렬화가 자식이 정한 중첩 깊이로 `RecursionError`를 내도 stage 밖으로 나가지 않는다 — `RESULT_MALFORMED`(BLOCKED)이며 cleanup·diagnostics는 그대로 완주한다
+- stage output_root가 실행 전후 같은 디렉토리 — 삭제·교체 시 `OUTPUT_ROOT_TAMPERED`
+- envelope `result_sha256`가 semantic canonical JSON에서 재계산한 값과 일치 — 불일치는 `SEALED_RESULT_HASH_MISMATCH`
+- findings와 top-level status 모순 없음 — 모순은 `SEMANTIC_STATUS_CONTRADICTS_FINDINGS`
+- `findings`/`blocking`/`evidence_refs`/`status`와 finding의 `finding_id`/`blocking`/`disposition`/`risk` 타입이 schema대로 — 이탈은 `SEMANTIC_SCHEMA_INVALID`, `blocking` ID가 findings에 없으면 `SEMANTIC_BLOCKING_ID_UNKNOWN`
+- stage cleanup 완주 — `.provider-home`이 남으면 `PROVIDER_HOME_NOT_REMOVED`, 크기 상한 초과·읽기 불가·이름 제거 불가로 마치지 못한 항목이 있으면 `PURGE_INCOMPLETE`. `ENOENT`만 "이미 없음"이며, 읽기는 되지만 탐색이 막힌 디렉토리(0400·0600)를 포함해 그 밖의 실패는 부모가 자기 descriptor로 mode를 한 번 회복해 재시도하고, 그래도 확인하지 못하면 unscanned로 보고한다. 부모가 봉인한 결과 파일 자체가 purge·rename·unscanned로 잡히면 `SEALED_RESULT_PURGED`(BLOCKED)다. cleanup 단계는 서로 격리되어 한 단계가 어떤 예외를 내도(OSError가 아니어도) 다음 단계가 실행되며, 그 실패는 `PROVIDER_HOME_CLEANUP_FAILED`·`RAW_RESULT_CLEANUP_FAILED`·`PURGE_FAILED`로 코드화된다. 전부 조용한 성공이 아니라 BLOCKED다.
+- diagnostics의 경로·문자열 필드(`purged_secret_files`·`renamed_secret_paths`·`leftover_temp_paths`·`unscanned_paths`·`purge_notes`)는 자식이 정한 이름이므로 known_secrets + vendor redaction을 거친 뒤에만 sealed result·디스크에 기록한다.
 
 한 provider 실패를 다른 provider PASS로 보완하지 않는다.
 
