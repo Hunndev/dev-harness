@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Iterable, List, Tuple
 
-from .result_validation import validate_sealed_result
+from .result_validation import STATUS_RANK, derive_semantic_floor, validate_sealed_result
 
 _REQUIRED: Tuple[Tuple[str, str], ...] = (
     ("evaluate", "claude"), ("evaluate", "codex"),
@@ -50,13 +50,17 @@ def finalize(records: List[Dict[str, Any]], packet: Dict[str, str]) -> Dict[str,
 
     semantics = [_semantic(record) for record in ordered]
     envelopes = [record["envelope"] for record in ordered]
-    if any(item.get("status") == "BLOCKED" or item.get("blocking") for item in semantics):
-        return {"status": "BLOCKED", "error_codes": ["FINAL_PROVIDER_BLOCKER"]}
+    # Second line of defence: never trust a top-level status that its own findings contradict.
+    floor = max(
+        (STATUS_RANK[derive_semantic_floor(item)] for item in semantics), default=0
+    )
     if any(item.get("status") != "PASS" for item in envelopes):
         return {"status": "BLOCKED", "error_codes": ["FINAL_EXECUTION_BLOCKER"]}
     if _has_high_risk_disagreement(ordered):
         return {"status": "NEEDS_HUMAN_REVIEW", "error_codes": ["FINAL_HIGH_RISK_DISAGREEMENT"]}
-    if any(item.get("status") == "NEEDS_HUMAN_REVIEW" for item in semantics):
+    if any(item.get("status") == "BLOCKED" or item.get("blocking") for item in semantics) or floor >= 2:
+        return {"status": "BLOCKED", "error_codes": ["FINAL_PROVIDER_BLOCKER"]}
+    if any(item.get("status") == "NEEDS_HUMAN_REVIEW" for item in semantics) or floor >= 1:
         return {"status": "NEEDS_HUMAN_REVIEW", "error_codes": ["FINAL_PROVIDER_ESCALATION"]}
     return {
         "status": "PASS", "packet_id": packet["packet_id"],

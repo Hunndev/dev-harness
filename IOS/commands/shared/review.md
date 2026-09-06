@@ -63,6 +63,7 @@ Fresh Claude Review ∥ Fresh Codex Review
 - reviewer는 content-verified packet copy만 보며, source는 macOS `sandbox-exec` 또는 read-only container로 OS 수준 쓰기 차단하고 실행 전후 digest도 비교한다.
 - provider별 내부 Team은 T2·대형·고위험에 선택적으로 사용할 수 있다.
 - provider는 finding·근거만 담은 semantic result를 낸다. 부모 runner가 fresh process, timeout, packet binding, isolation, 실행 전후 digest를 별도 execution envelope로 기록한다.
+- 부모는 정상 종료·timeout·예외 모든 경로에서 자식 process group을 bounded reap한다. 살아남은 자손은 `PROVIDER_DESCENDANTS_ALIVE`로 BLOCKED다. 단 `setsid`로 group을 벗어난 자손은 포획할 수 없으므로 격리 범위는 diagnostics `descendant_containment: "process-group-only"`로 그대로 공개한다.
 - 모델의 `fresh/read_only/repository_mutated` 자기주장은 금지하며 semantic+envelope 두 파일이 모두 있어야 sealed result가 된다.
 
 ### [R2] 구현 품질 렌즈
@@ -121,7 +122,13 @@ blocking 여부
 - 두 provider의 parent-owned execution envelope 존재·유효
 - fresh/read-only/same packet
 - repository mutation 없음
-- blocking finding과 status 모순 없음
+- blocking finding과 status 모순 없음 — 모순은 `SEMANTIC_STATUS_CONTRADICTS_FINDINGS`, `blocking` ID가 findings에 없으면 `SEMANTIC_BLOCKING_ID_UNKNOWN`
+- `findings`/`blocking`/`evidence_refs`/`status`와 finding의 `finding_id`/`blocking`/`disposition`/`risk` 타입이 schema대로 — 이탈은 `SEMANTIC_SCHEMA_INVALID`
+- stage cleanup 완주 — `.provider-home` 잔존은 `PROVIDER_HOME_NOT_REMOVED`, credential scan·이름 제거를 마치지 못한 항목은 `PURGE_INCOMPLETE`, 단계 자체가 예외로 끝나면 `PROVIDER_HOME_CLEANUP_FAILED`·`RAW_RESULT_CLEANUP_FAILED`·`PURGE_FAILED`. `ENOENT`만 "이미 없음"으로 인정하며, 부모가 봉인한 결과 파일이 purge되면 `SEALED_RESULT_PURGED`
+- 자격증명은 파일 **내용과 entry 이름** 양쪽에서 exact literal로 제거한다. 재인코딩한 값과 group을 벗어난 자손의 사후 쓰기는 이 보장 밖이며, cleanup을 pin당해 BLOCKED가 된 stage의 output_root에는 자격증명 사본이 남아 있을 수 있으므로 운영자가 폐기한다.
+- packet에 secret material 유입 없음 — deny 이름 규칙은 모든 경로 성분에 대소문자 무관 적용하며 있으면 provider 기동 전 `PACKET_SECRET_MATERIAL_PRESENT`, entry 상위 성분이 symlink면 `PACKET_PATH_UNSAFE`
+- provider 결과 파일이 자기 정규 파일 — 아니면 `RESULT_PATH_UNSAFE`; stage output_root 삭제·교체는 `OUTPUT_ROOT_TAMPERED`
+- envelope `result_sha256`가 semantic canonical JSON에서 재계산한 값과 일치 — 불일치는 `SEALED_RESULT_HASH_MISMATCH`
 
 Raw provider 결과는 수정하지 않는다. reconciliation은 별도 artifact다.
 
