@@ -262,6 +262,59 @@ class CheckInstallTests(unittest.TestCase):
         self.assertEqual("MATCH", rows["hb-be"]["codex"]["status"])
         self.assertIsNone(rows["hb-be"]["claude"]["enabled"])
 
+    def _codex_rows(self, text: str):
+        (self.fx.codex_home / "config.toml").write_text(text, encoding="utf-8")
+        return {r["plugin"]: r for r in json.loads(self.fx.run("--json").stdout)["rows"]}
+
+    def test_quoted_key_multiline_strings_are_not_registrations(self) -> None:
+        # Codex v4 review B1-A: a quoted key before the triple quote, and an escaped
+        # terminator inside a basic string, must both keep the example out of the config.
+        self.all_match()
+        mkt = CODEX_MKT["name"]
+        dq, sq = '"' * 3, "'" * 3
+        rows = self._codex_rows("\n".join([
+            '"developer_instructions" = ' + dq, f'[plugins."hb-aos@{mkt}"]', "enabled = true", dq, "",
+            "'notes' = " + sq, f'[plugins."hb-ios@{mkt}"]', "enabled = true", sq, "",
+            "hint = " + dq, "see \\" + dq, f'[plugins."hb-chat@{mkt}"]', "enabled = true", dq, "",
+            f'[plugins."hb-be@{mkt}"]', "enabled = true", "",
+        ]))
+        self.assertIs(True, rows["hb-be"]["codex"]["registered"])
+        for name in ("hb-aos", "hb-ios", "hb-chat"):
+            self.assertIs(False, rows[name]["codex"]["registered"], name)
+            self.assertIs(False, rows[name]["codex"]["enabled"], name)
+
+    def test_dotted_keys_and_quoted_table_headers_are_parsed(self) -> None:
+        # Codex v4 review B1-B: valid TOML spellings that the previous parser silently
+        # read as "not registered".
+        self.all_match()
+        mkt = CODEX_MKT["name"]
+        rows = self._codex_rows("\n".join([
+            "[plugins]", f'"hb-be@{mkt}".enabled = true', f"'hb-cm@{mkt}'.enabled = \"false\"", "",
+            f'["plugins"."hb-fe@{mkt}"]', "enabled = true", "",
+            '["plugins"]', f'"hb-chat@{mkt}" = {{ enabled = true }}', "",
+        ]))
+        self.assertIs(True, rows["hb-be"]["codex"]["enabled"])
+        self.assertIs(False, rows["hb-cm"]["codex"]["enabled"])
+        self.assertIs(True, rows["hb-fe"]["codex"]["enabled"])
+        self.assertIs(True, rows["hb-chat"]["codex"]["enabled"])
+        self.assertIs(False, rows["hb-aos"]["codex"]["registered"])
+
+    def test_unreadable_entries_under_plugins_table_are_unknown(self) -> None:
+        # Codex v4 review B1-B: anything under [plugins] the parser cannot read means the
+        # file is not fully understood, so absent plugins are null, never false.
+        self.all_match()
+        mkt = CODEX_MKT["name"]
+        rows = self._codex_rows("\n".join(["[plugins]", f'"hb-be@{mkt}".enabled = true', "weird = 1", ""]))
+        self.assertIs(True, rows["hb-be"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-cm"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-cm"]["codex"]["enabled"])
+        rows = self._codex_rows("\n".join(["[plugins]", f'"hb-be@{mkt}".enabled = 1', ""]))
+        self.assertIs(True, rows["hb-be"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-be"]["codex"]["enabled"])
+        self.assertIsNone(rows["hb-cm"]["codex"]["registered"])
+        rows = self._codex_rows("\n".join([f'[plugins."hb-be@{mkt}".extra]', "enabled = true", ""]))
+        self.assertIsNone(rows["hb-be"]["codex"]["registered"])
+
     def test_unreadable_marketplace_exits_two(self) -> None:
         import shutil
         fake_repo = Path(self.tmp.name) / "not-a-harness"

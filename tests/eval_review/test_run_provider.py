@@ -70,13 +70,15 @@ def blocked_envelope(stage, engine, stdout, error_code, timed_out=False):
 
 
 
-# Nine tests below exercise mechanisms that only exist on macOS, where the runtime is
-# supported (non-darwin hosts are BLOCKED with ISOLATION_UNAVAILABLE before any
-# provider runs): BSD file flags (`os.chflags`), `chmod(..., dir_fd=, follow_symlinks=False)`
-# used to restore a stripped mode, and APFS not reusing an inode number for a directory
-# recreated in place (ext4/tmpfs on Linux reuse it, so the (st_dev, st_ino) identity
-# check cannot tell a recreated root apart). They are skipped on other platforms with
-# this exact reason so CI can count them; see .github/workflows/lint-harness.yml.
+# Nine tests below depend on behaviour the runtime only supports on macOS (non-darwin
+# hosts are BLOCKED with ISOLATION_UNAVAILABLE before any provider runs): BSD file
+# flags (`os.chflags`, absent on Linux), `chmod(..., dir_fd=, follow_symlinks=False)`
+# used to restore a stripped mode (unsupported on Linux; the runtime gates it with
+# _NOFOLLOW_CHMOD), and the (st_dev, st_ino) identity of a directory removed and
+# recreated in place. On the macOS CI runner the recreated directory had a different
+# identity and on the Ubuntu runner the same one; that is an observation about those
+# runners' filesystems, not a guarantee. They are skipped elsewhere with this exact
+# reason so CI can count them; see .github/workflows/lint-harness.yml.
 MACOS_FS = unittest.skipUnless(sys.platform == "darwin", "macOS filesystem semantics required")
 
 class ProviderStageTestCase(unittest.TestCase):

@@ -56,13 +56,16 @@ def cache_versions(base: Path) -> List[str]:
     return sorted(entry.name for entry in base.iterdir() if entry.is_dir())
 
 
-_HEADER = re.compile(r"""^\[\s*plugins\s*\.\s*(["'])(.+?)\1\s*\]\s*(#.*)?$""")
-_PLUGINS_TABLE = re.compile(r"^\[\s*plugins\s*\]\s*(#.*)?$")
+_TABLE = r"""(?:plugins|"plugins"|'plugins')"""
+_KEY = r"""(?:[A-Za-z0-9_-]+|"[^"]*"|'[^']*')"""
+_HEADER = re.compile(r"^\[\s*" + _TABLE + r"""\s*\.\s*(["'])(.+?)\1\s*\]\s*(#.*)?$""")
+_PLUGINS_TABLE = re.compile(r"^\[\s*" + _TABLE + r"\s*\]\s*(#.*)?$")
+_ANY_PLUGINS_HEADER = re.compile(r"^\[\s*" + _TABLE + r"(?![A-Za-z0-9_-])")
 _INLINE = re.compile(r"""^(["'])(.+?)\1\s*=\s*\{(.*)\}\s*(#.*)?$""")
+_DOTTED = re.compile(r"""^(["'])(.+?)\1\s*\.\s*([A-Za-z0-9_-]+)\s*=\s*(.*)$""")
 _ENABLED = re.compile(r"""enabled\s*=\s*["']?(true|false)["']?(?![A-Za-z0-9_-])""", re.IGNORECASE)
-_MULTILINE_OPEN = re.compile(r"^[^#\"']*?=\s*(\"\"\"|''')")
-_ANY_PLUGINS_HEADER = re.compile(r"^\[\s*plugins\b")
-_QUOTED_KEY_ASSIGN = re.compile(r"""^["'].+?["']\s*=""")
+_MULTILINE_OPEN = re.compile(r"^" + _KEY + r"(?:\s*\.\s*" + _KEY + r")*\s*=\s*(\"\"\"|''')")
+_KEY_ASSIGN = re.compile(r"^" + _KEY + r"(?:\s*\.\s*" + _KEY + r")*\s*=")
 
 
 def _flag(text: str) -> Optional[bool]:
@@ -70,20 +73,47 @@ def _flag(text: str) -> Optional[bool]:
     return None if not found else found.group(1).lower() == "true"
 
 
+def _closes(text: str, delim: str) -> bool:
+    """True when `text` holds an unescaped occurrence of the multi-line delimiter.
+
+    A backslash escapes the next character only inside basic (double-quoted) strings,
+    so a backslash immediately before the closing triple quote does not terminate the
+    string; literal (single-quoted) strings have no escapes at all.
+    """
+    start = 0
+    while True:
+        index = text.find(delim, start)
+        if index < 0:
+            return False
+        if delim == "'''":
+            return True
+        backslashes = 0
+        probe = index - 1
+        while probe >= 0 and text[probe] == "\\":
+            backslashes += 1
+            probe -= 1
+        if backslashes % 2 == 0:
+            return True
+        start = index + 1
+
+
 def parse_toml_plugins(text: str) -> Tuple[Dict[str, Optional[bool]], bool]:
     """Tolerant parser for Codex plugin entries.
 
     Returns (plugins, certain). `plugins` maps "name@marketplace" to True/False, or None
     when the key exists without a readable flag. `certain` is False when the file holds
-    something this parser cannot classify (a plugins header in an unknown form, an entry
-    under [plugins] it cannot read, or an unterminated multi-line string); callers must
-    then report UNKNOWN instead of confirming "not registered".
+    plugin configuration this parser cannot classify (a plugins header in an unknown
+    form, an assignment under [plugins] it cannot read, an enabled value that is not a
+    boolean, or an unterminated multi-line string); callers must then report UNKNOWN
+    instead of confirming "not registered".
 
-    Understood forms: [plugins."name@mkt"] and [plugins.'name@mkt'] headers with optional
-    trailing comments; enabled = true | false | "true" | 'false'; a [plugins] table with
-    inline entries "name@mkt" = { enabled = true }. Lines inside triple-quoted multi-line
-    strings (for example developer_instructions holding a config example) are skipped and
-    never treated as configuration.
+    Understood forms: [plugins."name@mkt"] / [plugins.'name@mkt'] / ["plugins"."name@mkt"]
+    headers with optional trailing comments; enabled = true | false | "true" | 'false';
+    a [plugins] (or ["plugins"]) table with inline entries "name@mkt" = { enabled = true }
+    or dotted keys "name@mkt".enabled = true. Lines inside triple-quoted multi-line
+    strings are skipped whatever their key looks like (bare, quoted, dotted), honouring
+    backslash-escaped terminators in basic strings, so a configuration example inside
+    developer_instructions is never read as a registration.
     """
     plugins: Dict[str, Optional[bool]] = {}
     current: Optional[str] = None
@@ -93,7 +123,7 @@ def parse_toml_plugins(text: str) -> Tuple[Dict[str, Optional[bool]], bool]:
     for raw in text.splitlines():
         line = raw.strip()
         if string_delim is not None:
-            if string_delim in line:  # terminator of the multi-line string
+            if _closes(line, string_delim):
                 string_delim = None
             continue
         if not line or line.startswith("#"):
@@ -101,7 +131,7 @@ def parse_toml_plugins(text: str) -> Tuple[Dict[str, Optional[bool]], bool]:
         opened = _MULTILINE_OPEN.match(line)
         if opened:
             delim = opened.group(1)
-            if delim not in line[opened.end():]:  # opened but not closed on this line
+            if not _closes(line[opened.end():], delim):
                 string_delim = delim
             continue
         header = _HEADER.match(line)
@@ -114,19 +144,33 @@ def parse_toml_plugins(text: str) -> Tuple[Dict[str, Optional[bool]], bool]:
             continue
         if line.startswith("["):
             if _ANY_PLUGINS_HEADER.match(line):
-                certain = False  # a plugins header we do not understand
+                certain = False  # a plugins header in a form we do not understand
             current, in_table = None, False
             continue
         if current is not None:
-            flag = _flag(line) if line.lower().startswith("enabled") else None
-            if flag is not None:
-                plugins[current] = flag
-        elif in_table:
+            if line.lower().startswith("enabled"):
+                flag = _flag(line)
+                if flag is None:
+                    certain = False  # enabled present but not a boolean we can read
+                else:
+                    plugins[current] = flag
+            continue
+        if in_table:
             inline = _INLINE.match(line)
+            dotted = _DOTTED.match(line)
             if inline:
                 plugins[inline.group(2)] = _flag(inline.group(3))
-            elif _QUOTED_KEY_ASSIGN.match(line):
-                certain = False  # an entry under [plugins] we could not read
+            elif dotted:
+                key, leaf, value = dotted.group(2), dotted.group(3), dotted.group(4)
+                plugins.setdefault(key, None)
+                if leaf.lower() == "enabled":
+                    flag = _flag("enabled = " + value)
+                    if flag is None:
+                        certain = False
+                    else:
+                        plugins[key] = flag
+            elif _KEY_ASSIGN.match(line):
+                certain = False  # an assignment under [plugins] we could not read
     if string_delim is not None:
         certain = False  # unterminated multi-line string
     return plugins, certain
