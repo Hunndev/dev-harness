@@ -314,6 +314,19 @@ class CheckInstallTests(unittest.TestCase):
         self.assertIsNone(rows["hb-cm"]["codex"]["registered"])
         rows = self._codex_rows("\n".join([f'[plugins."hb-be@{mkt}".extra]', "enabled = true", ""]))
         self.assertIsNone(rows["hb-be"]["codex"]["registered"])
+        # Codex v5 review: the inline form with a non-boolean enabled must propagate the
+        # same uncertainty as the header and dotted forms.
+        rows = self._codex_rows("\n".join(["[plugins]", f'"hb-be@{mkt}" = {{ enabled = 1 }}', ""]))
+        self.assertIs(True, rows["hb-be"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-be"]["codex"]["enabled"])
+        self.assertIsNone(rows["hb-cm"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-cm"]["codex"]["enabled"])
+        # An inline table without any enabled key is "registered, flag unknown", not an
+        # unreadable file: other plugins stay confirmed absent.
+        rows = self._codex_rows("\n".join(["[plugins]", f'"hb-be@{mkt}" = {{ note = "x" }}', ""]))
+        self.assertIs(True, rows["hb-be"]["codex"]["registered"])
+        self.assertIsNone(rows["hb-be"]["codex"]["enabled"])
+        self.assertIs(False, rows["hb-cm"]["codex"]["registered"])
 
     def test_unreadable_marketplace_exits_two(self) -> None:
         import shutil

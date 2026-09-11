@@ -63,7 +63,7 @@ _PLUGINS_TABLE = re.compile(r"^\[\s*" + _TABLE + r"\s*\]\s*(#.*)?$")
 _ANY_PLUGINS_HEADER = re.compile(r"^\[\s*" + _TABLE + r"(?![A-Za-z0-9_-])")
 _INLINE = re.compile(r"""^(["'])(.+?)\1\s*=\s*\{(.*)\}\s*(#.*)?$""")
 _DOTTED = re.compile(r"""^(["'])(.+?)\1\s*\.\s*([A-Za-z0-9_-]+)\s*=\s*(.*)$""")
-_ENABLED = re.compile(r"""enabled\s*=\s*["']?(true|false)["']?(?![A-Za-z0-9_-])""", re.IGNORECASE)
+_ENABLED = re.compile(r"""\benabled\s*=\s*["']?(true|false)["']?(?![A-Za-z0-9_-])""", re.IGNORECASE)
 _MULTILINE_OPEN = re.compile(r"^" + _KEY + r"(?:\s*\.\s*" + _KEY + r")*\s*=\s*(\"\"\"|''')")
 _KEY_ASSIGN = re.compile(r"^" + _KEY + r"(?:\s*\.\s*" + _KEY + r")*\s*=")
 
@@ -159,7 +159,11 @@ def parse_toml_plugins(text: str) -> Tuple[Dict[str, Optional[bool]], bool]:
             inline = _INLINE.match(line)
             dotted = _DOTTED.match(line)
             if inline:
-                plugins[inline.group(2)] = _flag(inline.group(3))
+                body = inline.group(3)
+                flag = _flag(body)
+                plugins[inline.group(2)] = flag
+                if flag is None and re.search(r"(?i)\benabled\s*=", body):
+                    certain = False  # enabled present in the inline table but not a boolean
             elif dotted:
                 key, leaf, value = dotted.group(2), dotted.group(3), dotted.group(4)
                 plugins.setdefault(key, None)
