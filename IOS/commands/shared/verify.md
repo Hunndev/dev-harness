@@ -17,21 +17,24 @@ Swift 컴파일 오류, 리소스/Info.plist 오류, 의존성 해석 실패를 
 
 ### 2. 린트 (SwiftLint — 설치·설정된 경우만)
 ```bash
-if command -v swiftlint >/dev/null 2>&1 && [ -f .swiftlint.yml ]; then
-  swiftlint lint --strict
-else
+cfg=""; for f in .swiftlint.yml bucclapp/.swiftlint.yml; do [ -f "$f" ] && cfg="$f" && break; done
+if [ -z "$cfg" ]; then
   echo "SwiftLint 미구성 — 린트 N/A"
+elif ! command -v swiftlint >/dev/null 2>&1; then
+  echo "SwiftLint 설정($cfg)은 있으나 실행 파일이 없음 — 환경 오류"; exit 1
+else
+  swiftlint lint --strict --config "$cfg" bucclapp
 fi
 ```
-SwiftLint 실행 파일이 있고 저장소 루트에 `.swiftlint.yml`이 있을 때만 실행하고 위반을 차단한다. 둘 중 하나라도 없으면 결과를 `N/A (SwiftLint 미구성)`으로 기록하고 PASS로 적지 않는다. 빌드 명령(`xcodebuild build`)을 린트 결과로 대신 세지 않는다.
+`.swiftlint.yml`(저장소 루트 또는 `bucclapp/`)이 있고 `swiftlint`가 설치돼 있을 때만 실행하고 위반을 차단한다. 설정이 없으면 결과를 `N/A (SwiftLint 미구성)`으로 기록하고 PASS로 적지 않는다. 설정은 있는데 실행 파일이 없으면 N/A로 가리지 않고 환경 오류로 보고한다. 대상 경로는 앱·테스트 소스인 `bucclapp`으로 한정해 벤더 소스를 제외한다. 빌드 명령(`xcodebuild build`)을 린트 결과로 대신 세지 않는다.
 
 ### 3. 테스트 실행
 ```bash
-xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}    # 대상 클래스 — 로그의 "Executed N tests"에서 N ≥ 1 확인 (0개 실행은 PASS 아님)
+xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}    # 대상 클래스 — 실행 수 ≥ 1 확인 (XCTest "Executed N tests" / Swift Testing "Test run with N tests"; 0개 실행은 PASS 아님)
 xcodebuild -scheme bucclapp test -enableCodeCoverage YES -resultBundlePath .harness/artifacts/{track}/{identifier}/verify/{attempt}/test.xcresult    # 전체 (회귀 확인) + 커버리지
 xcrun xccov view --report --only-targets .harness/artifacts/{track}/{identifier}/verify/{attempt}/test.xcresult    # 타깃별 line coverage
 ```
-`{attempt}`는 이 검증의 회차(1, 2, 3…)다. `-resultBundlePath`는 이미 존재하는 경로를 거부하므로(`Existing file at -resultBundlePath`, exit 64) 회차마다 새 경로를 쓰고, 커버리지는 그 회차의 실제 bundle을 `xccov`에 넘겨 읽는다. `xcrun xccov view --report`가 `No coverage data in result bundle`을 내면 그 실행은 커버리지가 수집되지 않은 것이다 — 수치 없이 PASS로 적지 않고 새 회차로 다시 실행한다.
+`{attempt}`는 이 검증의 회차(1, 2, 3…)다. `-resultBundlePath`는 이미 존재하는 경로를 거부하므로(`Existing file at -resultBundlePath`, exit 64) 회차마다 새 경로를 쓰고, 커버리지는 그 회차의 실제 bundle을 `xccov`에 넘겨 읽는다. `xcrun xccov view --report`가 `No coverage data in result bundle`(exit 1)을 내면 그 실행은 커버리지가 수집되지 않은 것이다(이 Mac에서 1회 관측, 같은 명령의 재실행과 clean 뒤 실행에서는 모두 수집됨, 원인 미확인). 수치 없이 PASS로 적지 않고 새 회차로 다시 실행한다.
 
 ### 4. 기기/계약 검증
 shell 기능 변경(WebView 설정·푸시·딥링크·권한·릴리즈)이 있으면 `device-check.md`, `permission-check.md`, `release-check.md` 또는 `device-regression.md`가 최신인지 확인한다.
@@ -61,7 +64,7 @@ shell 기능 변경(WebView 설정·푸시·딥링크·권한·릴리즈)이 있
 ### 빌드 (xcodebuild build): PASS | FAIL (에러 목록)
 ### 린트 (SwiftLint): PASS | FAIL (위반 목록) | N/A (미구성)
 ### 테스트
-- 대상 클래스: {N} 통과 / {M} 실패 (Executed N tests, N ≥ 1)
+- 대상 클래스: {N} 통과 / {M} 실패 (실행 수 N ≥ 1 — 판정 줄 인용)
 - 전체: {N} 통과 / {M} 실패
 - 커버리지: xccov line coverage {X}% (타깃 bucclapp — `xcrun xccov view --report --only-targets …/verify/{attempt}/test.xcresult`)
 ### 기기/계약 검증: PASS | FAIL | N/A

@@ -12,6 +12,8 @@
 
 ### 1. 테스트 러너 사전 검증 (fail-fast)
 
+모든 `xcodebuild` 명령은 제품 저장소 루트에서 `-project bucclapp/bucclapp.xcodeproj`를 붙여 실행한다(제품 저장소 CLAUDE.md의 빌드 명령과 같은 형태 — 루트에는 프로젝트 파일이 없어 접두 없이는 "does not contain an Xcode project"로 실패한다). 이 문서와 트랙 문서의 명령은 그 접두를 생략해 표기한다. `-destination`이 필요하면 제품 저장소의 관례를 따른다.
+
 ```bash
 xcodebuild -scheme bucclapp test -enumerate-tests
 xcodebuild -version
@@ -22,7 +24,7 @@ xcodebuild -version
   - "`xcodebuild -scheme bucclapp test` 실행 불가 (Xcode 프로젝트/SDK 설정 문제)" OR
   - "`bucclapp/bucclapp.xcodeproj`의 테스트 타깃 의존성 또는 Xcode 툴체인(선택된 Xcode·SDK) 설정 문제" OR
   - 실제 에러 메시지 그대로 전달
-- target test 실행은 `-only-testing:bucclappTests/{TestClass}` 식별자(`Target/Class[/Method]`)로 지정한다. 와일드카드·부분 일치는 없다. 존재하지 않는 식별자를 주어도 xcodebuild는 실패하지 않고 `Executed 0 tests`로 조용히 통과하므로(exit 0), 파일 생성 직후 `-enumerate-tests` 목록에 클래스가 보이는지 확인하고, 실행 로그의 `Executed N tests` 줄에서 N ≥ 1을 확인한다(아래 "`-only-testing:` 타깃 실행" 참조).
+- target test 실행은 `-only-testing:bucclappTests/{TestClass}` 식별자(`Target/Class[/Method]`)로 지정한다. 와일드카드·부분 일치는 없다. 존재하지 않는 식별자를 주어도 xcodebuild는 실패하지 않고 0개 실행(XCTest는 `Executed 0 tests`, Swift Testing은 `Test run` 줄 없음)으로 조용히 통과하므로(exit 0), 파일 생성 직후 `-enumerate-tests` 목록에 클래스가 보이는지 확인하고, 실행 로그에서 실행 수 ≥ 1을 확인한다(판정 규칙은 아래 "`-only-testing:` 타깃 실행" 절).
 
 ### 2. 이전 TDD 아티팩트 정리 (stale counter 방지)
 
@@ -89,7 +91,7 @@ Red가 올바른 이유로 실패한 뒤, **구현 코드를 작성하기 전에
    tail -30 {artifacts-dir}/xcodebuild-green.log > {artifacts-dir}/tdd-green-log.txt
    ```
 
-   `** TEST SUCCEEDED **`만으로 PASS로 보지 않는다. `Executed N tests`의 N ≥ 1과 `xcodebuild exit=0`을 함께 확인한다(0개 실행은 식별자 불일치).
+   `** TEST SUCCEEDED **`만으로 PASS로 보지 않는다. 실행 수 ≥ 1(판정 규칙: "`-only-testing:` 타깃 실행" 절)과 `xcodebuild exit=0`을 함께 확인한다(0개 실행은 식별자 불일치).
 
 5. 추가 검증 (컴파일 오류 없음 확인. 린트는 `commands/shared/verify.md`의 SwiftLint 정책을 따른다 — 설치·설정된 경우만, 미구성이면 N/A):
 
@@ -132,7 +134,7 @@ T0에는 routine mutation을 강제하지 않는다. 동일 테스트의 올바�
 4. 각 리팩토링 후 전체 테스트 재실행. 깨지면 즉시 revert.
 
    ```bash
-   xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}
+   xcodebuild -scheme bucclapp test
    ```
 
 5. 변경 내용을 `tdd-refactor-notes.md`에 요약
@@ -176,7 +178,7 @@ Red/Green/Refactor가 적용되는 단계에서 다음 파일을 **반드시** �
 - `tdd-refactor-notes.md`: 리팩토링 변경 요약 + 최종 PASS 확인. 건너뛸 때는 `skipped: {reason}` 기록.
 - `tdd-red-revisions.md`: Green 단계에서 Red 재작성이 필요했을 때만 생성. `revision 1: {reason}` 형태로 누적.
 
-hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green-log.txt` (Refactor 없음).
+hotfix 트랙은 tail 파일에 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green-log.txt` (Refactor 없음). 전체 출력 원본 `xcodebuild-red.log`/`xcodebuild-green.log`는 모든 트랙에서 같은 이름이다.
 
 ---
 
@@ -209,9 +211,14 @@ xcodebuild는 Gradle식 와일드카드 테스트 필터(옛 문서 형태)를 �
 xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}
 ```
 
-존재하지 않는 식별자를 주어도 xcodebuild는 에러를 내지 않는다 — `Executed 0 tests, with 0 failures`를 찍고 `** TEST SUCCEEDED **`(exit 0)로 끝난다. 따라서 0개 실행은 PASS가 아니다. 로그의 `Executed N tests` 줄에서 N ≥ 1을 확인하고, 0이면 식별자를 `-enumerate-tests` 목록과 대조해 고친다.
+**실행 수 판정 규칙** — 로그의 요약 줄에서 실행 수 N을 읽는다. 트랙 문서의 "실행 수 ≥ 1"은 이 규칙을 가리킨다.
 
-테스트 타깃이 Swift Testing(`import Testing`)을 쓰면 실행 수는 `Test run with N tests in M suites passed` 줄에 나오고, XCTest 몫의 `Executed 0 tests` 줄이 함께 찍힌다. 이때는 `Test run with N tests` 줄의 N ≥ 1로 판정하고, 이 줄이 아예 없으면 0개 실행이다. `-enumerate-tests` 목록과 `-only-testing:{Target}/{Suite}` 형식은 두 프레임워크에서 같다.
+- XCTest 클래스: `Executed N tests, with F failures (U unexpected)` 줄의 N.
+- Swift Testing(`import Testing`) 스위트: `Test run with N tests in M suite(s) passed …` 또는 `Test run with N tests in M suite(s) failed … with K issue(s)`(exit 65; N=1이면 `1 test`) 줄의 N. 이때 XCTest 몫의 `Executed 0 tests` 줄이 함께 찍히므로 그 0은 실행 수가 아니다.
+- 두 종류가 섞였으면 각각의 N을 더한다.
+- 어느 줄에서도 N ≥ 1이 아니면(XCTest 0이고 `Test run` 줄이 없으면) **0개 실행**이다. 존재하지 않는 식별자를 주어도 xcodebuild는 에러 없이 `** TEST SUCCEEDED **`(exit 0)로 끝나므로 0개 실행은 PASS가 아니다 — 식별자를 `-enumerate-tests` 목록과 대조해 고친다.
+
+`-enumerate-tests` 목록과 `-only-testing:{Target}/{Class 또는 Suite}` 형식은 두 프레임워크에서 같다.
 
 ---
 

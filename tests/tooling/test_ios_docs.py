@@ -63,8 +63,18 @@ FORBIDDEN = [
     ("build command repeated on one line", re.compile(
         r"xcodebuild -scheme bucclapp build[^\n]*xcodebuild -scheme bucclapp build")),
     ("pipe to tail hides the xcodebuild exit code", re.compile(
-        r"xcodebuild[^\n]*\|\s*tail\s+-\d+\s*>")),
+        r"xcodebuild[^\n]*\|\s*tail\s+(?:-n\s*)?\d+\s*>")),
 ]
+
+# XCTest-only executed-count wording must not come back into the track documents; the
+# framework-neutral rule lives in shared/tdd.md (Swift Testing prints "Executed 0 tests" too).
+FORBIDDEN_OUTSIDE_TDD = [
+    ("XCTest-only executed-count criterion", re.compile(r"`Executed N tests`의 N")),
+    ("XCTest-only zero-executed criterion", re.compile(r"`Executed N tests`가 0")),
+    ("XCTest-only report template", re.compile(r"\(Executed N tests, N ≥ 1\)")),
+]
+PREFLIGHT_ENUMERATE = re.compile(r"xcodebuild[^\n`]*-scheme bucclapp[^\n`]*\btest\b[^\n`]*-enumerate-tests")
+PREFLIGHT_VERSION = re.compile(r"xcodebuild(?: [^\n`]*)? -version\b")
 
 XCRESULT_PER_ATTEMPT = re.compile(r"-resultBundlePath\s+\S*[{<]attempt[}>]/test\.xcresult")
 XCODEBUILD_HELP_FLAGS = (
@@ -98,14 +108,27 @@ class ForbiddenFormsTests(unittest.TestCase):
                             path.relative_to(REPO), number, label, line.strip()))
         self.assertEqual(offenders, [], "\n" + "\n".join(offenders))
 
+    def test_track_docs_do_not_restate_the_xctest_only_criterion(self):
+        offenders = []
+        for path in ios_docs():
+            if path.relative_to(IOS_COMMANDS).as_posix() == "shared/tdd.md":
+                continue
+            for number, line in enumerate(read(path).splitlines(), 1):
+                for label, pattern in FORBIDDEN_OUTSIDE_TDD:
+                    if pattern.search(line):
+                        offenders.append("%s:%d [%s] %s" % (
+                            path.relative_to(REPO), number, label, line.strip()))
+        self.assertEqual(offenders, [], "\n" + "\n".join(offenders))
+
 
 class RequiredFormsTests(unittest.TestCase):
     def test_preflight_uses_enumerate_tests_and_dash_version(self):
+        # Regexes, not literal commands: a document may add -project/-destination later.
         for rel in PREFLIGHT_DOCS:
             text = read(IOS_COMMANDS / rel)
             with self.subTest(doc=rel):
-                self.assertIn("xcodebuild -scheme bucclapp test -enumerate-tests", text)
-                self.assertIn("xcodebuild -version", text)
+                self.assertRegex(text, PREFLIGHT_ENUMERATE)
+                self.assertRegex(text, PREFLIGHT_VERSION)
 
     def test_target_tests_use_only_testing_identifier(self):
         for rel in SELECTOR_DOCS:
@@ -115,7 +138,9 @@ class RequiredFormsTests(unittest.TestCase):
 
     def test_tdd_doc_explains_zero_executed_tests(self):
         text = read(IOS_COMMANDS / "shared/tdd.md")
-        self.assertRegex(text, r"Executed N tests")
+        self.assertIn("실행 수 판정 규칙", text)
+        self.assertRegex(text, r"Executed N tests")          # XCTest summary line
+        self.assertRegex(text, r"Test run with N tests")     # Swift Testing summary line
         self.assertIn("-enumerate-tests", text)
         self.assertNotIn("와일드카드 패턴을 사용한다", text)
 
@@ -123,6 +148,16 @@ class RequiredFormsTests(unittest.TestCase):
         text = read(IOS_COMMANDS / "shared/tdd.md")
         self.assertRegex(text, r"tail -30 [^\n|]*\.log[^\n|]* > [^\n]*tdd-baseline-log\.txt")
         self.assertRegex(text, r"tail -30 [^\n|]*\.log[^\n|]* > [^\n]*tdd-green-log\.txt")
+
+    def test_artifact_trees_list_the_full_xcodebuild_logs(self):
+        # tdd.md makes Red/Green write the full output next to the tail files;
+        # every track's artifact tree must list both so the convention stays in one piece.
+        for rel in ("shared/tdd.md", "feature/auto.md", "feature/deep.md",
+                    "maintenance/auto.md", "maintenance/deep.md", "maintenance/hotfix.md"):
+            text = read(IOS_COMMANDS / rel)
+            with self.subTest(doc=rel):
+                self.assertIn("xcodebuild-red.log", text)
+                self.assertIn("xcodebuild-green.log", text)
 
     def test_coverage_uses_xcresult_per_attempt_and_xccov(self):
         for rel in ("shared/verify.md", "maintenance/deep.md"):
@@ -161,6 +196,9 @@ class XcodebuildHelpTests(unittest.TestCase):
         proc = subprocess.run(["xcodebuild", "-help"], capture_output=True, text=True, timeout=120)
         # Xcode 26.5 prints the usage text on stderr with exit 0; older versions used stdout.
         usage = proc.stdout + proc.stderr
+        if proc.returncode != 0 and "requires Xcode" in usage:
+            # Command Line Tools only: /usr/bin/xcodebuild is a shim without Xcode behind it.
+            self.skipTest("full Xcode required")
         self.assertEqual(proc.returncode, 0, usage[-2000:])
         for flag in XCODEBUILD_HELP_FLAGS:
             self.assertIn(flag, usage)

@@ -30,7 +30,7 @@
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, `Executed 0 tests`는 PASS 아님)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, 0개 실행은 PASS 아님 — 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. 사용자가 제시한 이슈를 정리한다.
 3. 이슈 유형을 분류한다:
@@ -56,7 +56,7 @@
    - 네트워크는 `URLProtocol` 서브클래스 stub 또는 기존 fake 중 적합한 것 선택
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
    - refactor인 경우, 기존 동작을 캡처하는 characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주).
-3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
+3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다(전체 출력을 `xcodebuild-red.log`에 저장한 뒤 tail — 캡처 명령은 `commands/shared/tdd.md` Red 절):
    - bug 유형: FAIL 출력 (tail 30줄). 실패 이유가 "올바른 이유"인지 검증 (최대 3회 재작성).
    - refactor 유형: characterization test PASS 출력을 baseline으로 저장. 이 테스트는 리팩토링 전후 모두 PASS여야 한다.
    - performance 유형: 기준선(WebView 로드 시간, 콜드 스타트, 앱 크기, 메모리)을 기록.
@@ -241,7 +241,7 @@ xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Maint{Ident
 xcrun xccov view --report --only-targets .harness/artifacts/maintenance/{identifier}/regression-unit/{attempt}/test.xcresult
 
 결과를 다음 형식으로 보고하라:
-- 실행 수: Executed N tests (N ≥ 1이어야 함 — 0이면 식별자 불일치, PASS 아님)
+- 실행 수: N (XCTest `Executed N tests` 또는 Swift Testing `Test run with N tests` 줄을 인용. N ≥ 1이어야 함 — 0이면 식별자 불일치, PASS 아님)
 - 통과: {N}개
 - 실패: {N}개
 - 실패 목록: [{test_name}: {에러 요약}]
@@ -326,6 +326,8 @@ xcrun xccov view --report --only-targets .harness/artifacts/maintenance/{identif
   convention-check.md
   fix-plan.md
   tdd-green-log.txt          ← NEW
+  xcodebuild-red.log         ← Red 실행 전체 출력 (tdd-baseline-log.txt의 원본, 마지막 줄에 exit)
+  xcodebuild-green.log       ← Green 실행 전체 출력 (tdd-green-log.txt의 원본, 마지막 줄에 exit)
   tdd-refactor-notes.md      ← NEW
   regression-report.md       ← Team 병합본
   review-comments.md

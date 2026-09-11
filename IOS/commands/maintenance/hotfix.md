@@ -33,14 +33,14 @@
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
    - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, `Executed 0 tests`는 PASS 아님)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, 0개 실행은 PASS 아님 — 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md` 삭제 (hotfix는 Green→Red 재작성이 없으므로 `tdd-red-revisions.md`는 해당 없음)
 2. 메인의 현재 branch에서 직접 수행한다 — T0는 fork를 생략한다 (한 파일·한 라인 수정에 격리 이득이 없다).
 3. 사용자가 제시한 증상을 **FAIL로 입증하는 최소 테스트**를 작성한다.
    - 파일: `bucclapp/bucclappTests/{package}/{Module}Hotfix{Identifier}Tests.swift` (identifier는 CamelCase로 변환)
    - 가장 좁은 범위(단일 함수/클래스 — 브리지 함수 하나, 결정 로직 하나)로 한정
-4. `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Hotfix{Identifier}Tests`로 **FAIL**을 확인한다. 로그의 `Executed N tests`가 0이면 식별자 불일치다(`-enumerate-tests`로 대조).
-5. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (컴파일 에러나 import 에러로 fail하면 Red가 아님).
+4. `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Hotfix{Identifier}Tests`로 **FAIL**을 확인한다. 실행 수가 0이면(실행 수 판정 규칙은 `commands/shared/tdd.md`) 식별자 불일치다(`-enumerate-tests`로 대조).
+5. FAIL 전체 출력을 `xcodebuild-red.log`에 저장한 뒤 tail 30줄을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다(캡처 명령은 `commands/shared/tdd.md` Red 절, tail 파일명만 hotfix용). 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (컴파일 에러나 import 에러로 fail하면 Red가 아님).
 6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
 7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
    - **서두 약식 seed 3줄**: 목표 / 범위(수정할 한 곳) / 완료기준(단위 테스트 PASS) — T0 예외의 seed 갈음
@@ -55,7 +55,7 @@
    - **판정 기준**: 이 수정이 아래 "Refactor 금지" 정의의 **허용** 범주인가? "이 변경을 되돌렸을 때 H1 테스트가 다시 FAIL하는가?"의 답이 YES이면 허용, NO이면 Refactor이므로 금지.
    - 금지 범주에 해당하면 즉시 중단하고 `/hb-ios:maintenance:auto`로 에스컬레이션한다.
 2. 수정 즉시 H1 테스트가 **PASS**가 되는지 확인한다.
-3. PASS 확인 후 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-green-log.txt`에 저장한다.
+3. PASS 확인 후 전체 출력을 `xcodebuild-green.log`에 저장한 뒤 tail 30줄을 `.harness/artifacts/maintenance/{identifier}/hotfix-green-log.txt`에 저장한다(실행 수 ≥ 1 확인).
 4. PASS가 아니면 원인을 추정해 다시 시도한다. **2회 실패 시 중단하고 `:auto` 또는 `:deep`으로 전환 제안**.
 5. 수정 내용과 예상되는 side effect를 사용자에게 한 줄로 보고한다.
 
@@ -63,7 +63,7 @@
 
 `auto`와 달리 **전체 스위트를 돌리지 않는다**. 수정된 모듈의 단위 테스트만 실행한다.
 
-1. `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Hotfix{Identifier}Tests` + 해당 모듈의 기존 테스트 클래스(`-only-testing:` 반복). `Executed N tests`의 N ≥ 1 확인.
+1. `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Hotfix{Identifier}Tests` + 해당 모듈의 기존 테스트 클래스(`-only-testing:` 반복). 실행 수 ≥ 1 확인(실행 수 판정 규칙은 `commands/shared/tdd.md`).
 2. 필요 시 `xcodebuild -scheme bucclapp build`와 SwiftLint(설치·설정된 경우만 — `commands/shared/verify.md` 2. 린트)를 실행한다. lint 수정이 단순 포맷을 넘어가면 `:auto`로 전환한다.
 3. 결과 확인:
    - H1 재현 테스트: **PASS**여야 함
@@ -111,6 +111,8 @@
   hotfix-reproduction.md
   hotfix-red-log.txt      ← NEW
   hotfix-green-log.txt    ← NEW
+  xcodebuild-red.log      ← Red 실행 전체 출력 (hotfix-red-log.txt의 원본, 마지막 줄에 exit)
+  xcodebuild-green.log    ← Green 실행 전체 출력 (hotfix-green-log.txt의 원본, 마지막 줄에 exit)
   hotfix-summary.md
   tdd-test-design-result.json
   tdd-sensitivity-result.json
