@@ -53,17 +53,21 @@ jobs:
       - name: Run tooling tests (tests/tooling)
         run: python3 -m unittest discover -s tests/tooling -v
 
-      # Isolation tests are skipUnless(darwin + /usr/bin/sandbox-exec): 7 tests
-      # (test_process_isolation.py x6, test_process.py DescendantEnvelopeTests x1).
-      # They must really run on macOS and be the only darwin-only skips on Linux.
+      # darwin-only skips are counted by their exact reason strings so nothing is
+      # hidden: 'macOS sandbox required' = 7 (test_process_isolation.py x6,
+      # test_process.py DescendantEnvelopeTests x1); 'macOS filesystem semantics
+      # required' = 9 (test_run_provider.py MACOS_FS: chflags, nofollow chmod with
+      # dir_fd, inode identity after recreate). On macOS every one of them must run.
       - name: Audit macOS-only skips
         shell: bash
         run: |
-          skipped=$(grep -c "skipped 'macOS sandbox required'" eval_review.log || true)
-          expected=7
-          if [ "$RUNNER_OS" = "macOS" ]; then expected=0; fi
-          echo "darwin-only skips: $skipped (expected=$expected)"
-          test "$skipped" -eq "$expected"
+          sandbox=$(grep -c "skipped 'macOS sandbox required'" eval_review.log || true)
+          fs=$(grep -c "skipped 'macOS filesystem semantics required'" eval_review.log || true)
+          expected_sandbox=7
+          expected_fs=9
+          if [ "$RUNNER_OS" = "macOS" ]; then expected_sandbox=0; expected_fs=0; fi
+          echo "darwin-only skips: sandbox=$sandbox (expected_sandbox=$expected_sandbox) filesystem=$fs (expected_fs=$expected_fs)"
+          test "$sandbox" -eq "$expected_sandbox" && test "$fs" -eq "$expected_fs"
 
       - name: Verify vendored Evaluate/Review core is in sync
         run: python3 scripts/sync-eval-review-core.py --check

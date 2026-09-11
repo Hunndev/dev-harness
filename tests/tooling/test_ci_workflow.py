@@ -24,8 +24,10 @@ class CiWorkflowTests(unittest.TestCase):
 
     def test_darwin_only_skips_are_audited(self) -> None:
         self.assertIn("macOS sandbox required", self.text)
-        self.assertIn("expected=7", self.text)
-        self.assertIn("expected=0", self.text)
+        self.assertIn("macOS filesystem semantics required", self.text)
+        self.assertIn("expected_sandbox=7", self.text)
+        self.assertIn("expected_fs=9", self.text)
+        self.assertIn("expected_sandbox=0; expected_fs=0", self.text)
 
     def _audit_script(self) -> str:
         start = self.text.index("- name: Audit macOS-only skips")
@@ -38,23 +40,26 @@ class CiWorkflowTests(unittest.TestCase):
             lines.append(line[10:])
         return "\n".join(lines)
 
-    def _run_audit(self, runner_os: str, darwin_skips: int, other_skips: int = 1) -> int:
+    def _run_audit(self, runner_os: str, darwin_skips: int, fs_skips: int = 0, other_skips: int = 1) -> int:
         import os, subprocess, tempfile
         script = self._audit_script()
         self.assertIn("grep -c", script)
         with tempfile.TemporaryDirectory() as tmp:
             log = ["test_x (m.C) ... ok"] + ["test_y (m.C) ... skipped 'macOS sandbox required'"] * darwin_skips
+            log += ["test_w (m.C) ... skipped 'macOS filesystem semantics required'"] * fs_skips
             log += ["test_z (m.C) ... skipped 'root reads a 0o000 file'"] * other_skips
             (Path(tmp) / "eval_review.log").write_text("\n".join(log) + "\n", encoding="utf-8")
             return subprocess.run(["bash", "-c", script], cwd=tmp, env=dict(os.environ, RUNNER_OS=runner_os),
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode
 
     def test_audit_step_logic_with_sample_logs(self) -> None:
-        self.assertEqual(0, self._run_audit("macOS", 0))
-        self.assertNotEqual(0, self._run_audit("macOS", 7))
-        self.assertEqual(0, self._run_audit("Linux", 7))
-        self.assertNotEqual(0, self._run_audit("Linux", 6))
-        self.assertNotEqual(0, self._run_audit("Linux", 0))
+        self.assertEqual(0, self._run_audit("macOS", 0, 0))
+        self.assertNotEqual(0, self._run_audit("macOS", 7, 9))
+        self.assertNotEqual(0, self._run_audit("macOS", 0, 1))
+        self.assertEqual(0, self._run_audit("Linux", 7, 9))
+        self.assertNotEqual(0, self._run_audit("Linux", 7, 0))
+        self.assertNotEqual(0, self._run_audit("Linux", 6, 9))
+        self.assertNotEqual(0, self._run_audit("Linux", 0, 0))
 
     def test_lint_job_is_kept(self) -> None:
         self.assertIn("./scripts/lint-harness.sh", self.text)

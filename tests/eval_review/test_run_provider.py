@@ -69,6 +69,16 @@ def blocked_envelope(stage, engine, stdout, error_code, timed_out=False):
     return envelope
 
 
+
+# Nine tests below exercise mechanisms that only exist on macOS, where the runtime is
+# supported (non-darwin hosts are BLOCKED with ISOLATION_UNAVAILABLE before any
+# provider runs): BSD file flags (`os.chflags`), `chmod(..., dir_fd=, follow_symlinks=False)`
+# used to restore a stripped mode, and APFS not reusing an inode number for a directory
+# recreated in place (ext4/tmpfs on Linux reuse it, so the (st_dev, st_ino) identity
+# check cannot tell a recreated root apart). They are skipped on other platforms with
+# this exact reason so CI can count them; see .github/workflows/lint-harness.yml.
+MACOS_FS = unittest.skipUnless(sys.platform == "darwin", "macOS filesystem semantics required")
+
 class ProviderStageTestCase(unittest.TestCase):
     """Runs run_provider_stage with a stubbed child process.
 
@@ -656,6 +666,7 @@ class ProviderHomeRemovalHardeningTests(ProviderStageTestCase):
             return {"stdout": "", "stderr": "", "envelope": passing_envelope(stage, engine, "")}
         return execute
 
+    @MACOS_FS
     def test_a_mode_stripped_provider_home_is_still_removed(self):
         record = self.run_codex(execute=self.stripped_home())
         self.assertFalse((self.output / ".provider-home").exists())
@@ -680,6 +691,7 @@ class ProviderHomeRemovalHardeningTests(ProviderStageTestCase):
         self.assert_untouched(outside / "keep.txt", "keep\n")
         self.assertEqual([], self.refused_removals)
 
+    @MACOS_FS
     def test_home_cleanup_never_follows_a_component_swapped_mid_walk(self):
         outside = self.base / "outside-dir"
         outside.mkdir()
@@ -1025,6 +1037,7 @@ class OutputRootTamperTests(ProviderStageTestCase):
         record = self.run_codex(execute=execute)
         self.assertEqual("OUTPUT_ROOT_TAMPERED", record["envelope"]["error_code"])
 
+    @MACOS_FS
     def test_recreated_stage_root_is_blocked(self):
         def execute(command, packet_source, output_root, packet, stage, engine, *rest, **kwargs):
             root = Path(output_root)
@@ -1081,6 +1094,7 @@ class OutputRootTamperedAfterTheFirstCheckTests(ProviderStageTestCase):
             os.symlink(str(peer), str(self.output))
         return action
 
+    @MACOS_FS
     def test_a_root_recreated_after_the_first_check_still_blocks_the_stage(self):
         self.escaped_child(self.recreate_root())
         record = self.run_claude(json.dumps({"structured_output": semantic_payload()}))
@@ -1092,6 +1106,7 @@ class OutputRootTamperedAfterTheFirstCheckTests(ProviderStageTestCase):
         # deliberately not run: reporting a cleanup error here would be inventing one.
         self.assertEqual([], record["diagnostics"]["cleanup_errors"])
 
+    @MACOS_FS
     def test_a_codex_root_recreated_after_the_first_check_still_blocks_the_stage(self):
         self.escaped_child(self.recreate_root())
         record = self.run_codex(semantic_payload())
@@ -1366,6 +1381,7 @@ class CleanupPinningTests(ProviderStageTestCase):
                 sys.setrecursionlimit(limit)
         return remove
 
+    @MACOS_FS
     def test_an_immutable_auth_copy_is_unpinned_and_removed(self):
         def execute(command, packet_source, output_root, packet, stage, engine, *rest, **kwargs):
             root = Path(output_root)
@@ -1380,6 +1396,7 @@ class CleanupPinningTests(ProviderStageTestCase):
         self.assertIsNone(self.disk_contains(CODEX_AUTH_LITERAL))
         self.assertEqual("PASS", record["envelope"]["status"])
 
+    @MACOS_FS
     def test_an_immutable_stage_file_is_unpinned_only_inside_this_runs_home(self):
         outside = self.base / "outside.json"
         outside.write_text("victim " + CODEX_AUTH_LITERAL + "\n")
@@ -1398,6 +1415,7 @@ class CleanupPinningTests(ProviderStageTestCase):
         )
         self.assert_untouched(outside, "victim " + CODEX_AUTH_LITERAL + "\n")
 
+    @MACOS_FS
     def test_unpinning_never_reaches_through_a_component_swapped_mid_walk(self):
         # os.chflags takes no dir_fd, so the walk re-checks that the descriptor it holds
         # is still the directory the path names. Without that, a child that swaps the
@@ -1508,6 +1526,7 @@ class CleanupPinningTests(ProviderStageTestCase):
         self.assertIn("locked/leak.txt", record["diagnostics"]["purged_secret_files"])
         self.assertEqual("PASS", record["envelope"]["status"])
 
+    @MACOS_FS
     def test_a_mode_stripped_stage_directory_is_still_walked(self):
         def execute(command, packet_source, output_root, packet, stage, engine, *rest, **kwargs):
             root = Path(output_root)
