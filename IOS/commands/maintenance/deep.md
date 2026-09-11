@@ -29,8 +29,8 @@
 > **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
-   - `xcodebuild -scheme bucclapp test --dry-run` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild --version`으로 Xcode/JDK 버전 확인(정보용). target test는 `--tests` 와일드카드 패턴 사용
+   - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, `Executed 0 tests`는 PASS 아님)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. 사용자가 제시한 이슈를 정리한다.
 3. 이슈 유형을 분류한다:
@@ -53,7 +53,7 @@
 2. 재현 테스트 케이스를 작성한다:
    - 테스트 파일: `bucclapp/bucclappTests/{package}/{Module}Maint{Identifier}Tests.swift` (identifier는 CamelCase로 변환)
    - XCTest + target repo의 기존 fake/mock 패턴 활용 (iOS 프레임워크 의존은 인터페이스 fake로 격리)
-   - 네트워크는 OkHttp MockWebServer 또는 기존 fake 중 적합한 것 선택
+   - 네트워크는 `URLProtocol` 서브클래스 stub 또는 기존 fake 중 적합한 것 선택
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
    - refactor인 경우, 기존 동작을 캡처하는 characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주).
 3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
@@ -190,7 +190,7 @@
 2. 수정 원칙:
    - **최소 범위**: M2 재현 테스트가 **PASS**가 되는 '최소 수정'만 수행. fix-plan.md에 명시된 범위 이외 추가 리팩토링 금지 — 리팩토링은 M7.5에서 처리.
    - **convention 준수**: code-convention.yaml 규칙 따름
-   - **타입 안정성**: 불필요한 `!!`/`@Suppress` 남발 금지, `xcodebuild -scheme bucclapp build` 통과
+   - **타입 안정성**: 강제 언래핑 `!`·`try!`·`as!` 남발 금지, `// swiftlint:disable`로 경고 회피 금지, `xcodebuild -scheme bucclapp build` 통과
    - **브리지 계약/Info.plist 변경 분리**: 필요 시 별도 커밋
 3. M2 재현 테스트가 **PASS**되는 것을 확인한다. PASS 출력을 `.harness/artifacts/maintenance/{identifier}/tdd-green-log.txt`에 저장한다.
 4. 수정 내용과 side effect를 사용자에게 보고한다.
@@ -234,41 +234,46 @@ M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 gre
 
 #### Agent A: 단위 테스트
 ```
-수정된 모듈의 단위 테스트를 실행하라.
-xcodebuild -scheme bucclapp test --tests "*{Module}*"
+수정된 모듈의 단위 테스트를 실행하라. {attempt}는 이 회귀 실행의 회차(1, 2, 3…)다.
+-resultBundlePath는 이미 존재하는 경로를 거부하므로(exit 64) 회차마다 새 경로를 쓴다.
+xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Maint{Identifier}Tests -enableCodeCoverage YES -resultBundlePath .harness/artifacts/maintenance/{identifier}/regression-unit/{attempt}/test.xcresult
+(해당 모듈의 기존 테스트 클래스는 -only-testing: 을 반복해 함께 지정한다)
+xcrun xccov view --report --only-targets .harness/artifacts/maintenance/{identifier}/regression-unit/{attempt}/test.xcresult
 
 결과를 다음 형식으로 보고하라:
+- 실행 수: Executed N tests (N ≥ 1이어야 함 — 0이면 식별자 불일치, PASS 아님)
 - 통과: {N}개
 - 실패: {N}개
 - 실패 목록: [{test_name}: {에러 요약}]
 - M2에서 작성한 재현 테스트: PASS | FAIL
-- 커버리지(해당 모듈): jacoco 설정 시 branches/functions/lines/statements
+- 커버리지(타깃 bucclapp): xccov 리포트의 line coverage %
 ```
 
 #### Agent B: 전체 회귀
 ```
-전체 테스트 스위트를 실행하라.
-xcodebuild -scheme bucclapp test
+전체 테스트 스위트를 실행하라. {attempt}는 회차이며 -resultBundlePath는 회차마다 새 경로를 쓴다.
+xcodebuild -scheme bucclapp test -enableCodeCoverage YES -resultBundlePath .harness/artifacts/maintenance/{identifier}/regression-e2e/{attempt}/test.xcresult
+xcrun xccov view --report --only-targets .harness/artifacts/maintenance/{identifier}/regression-e2e/{attempt}/test.xcresult
 
 결과를 다음 형식으로 보고하라:
 - 통과: {N}개
 - 실패: {N}개
 - 실패 목록: [{test_name}: {에러 요약}]
 - 수정 전 대비 새로 실패한 테스트: [...]
-- 전체 커버리지: jacoco 설정 시 임계 통과 여부
+- 전체 커버리지: xccov 리포트의 line coverage %와 저장소 임계(정한 경우) 통과 여부
 ```
 
 #### Agent C: 빌드/린트/convention
 ```
 다음 검증을 수행하라:
 1. xcodebuild -scheme bucclapp build (빌드 검사)
-2. xcodebuild -scheme bucclapp build (iOS Lint)
+2. SwiftLint: swiftlint 실행 파일과 .swiftlint.yml이 모두 있으면 swiftlint lint --strict, 아니면 lint: N/A (미구성) — PASS로 적지 않는다
 3. Info.plist(권한·Universal Link·커스텀 스킴) 변경이 있으면 diff를 확인
 4. 수정된 파일에 대해 code-convention.yaml 위반 확인
 
 결과를 다음 형식으로 보고하라:
 - build: PASS | FAIL (에러 목록)
-- lint: PASS | FAIL (위반 목록)
+- lint: PASS | FAIL (위반 목록) | N/A (SwiftLint 미구성)
 - Info.plist 변경: 없음 | [변경 목록]
 - convention 위반: [{파일}: {위반 ID}: {위반 내용}]
 ```

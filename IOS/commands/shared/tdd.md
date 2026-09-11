@@ -13,16 +13,16 @@
 ### 1. 테스트 러너 사전 검증 (fail-fast)
 
 ```bash
-xcodebuild -scheme bucclapp test --dry-run
-xcodebuild --version
+xcodebuild -scheme bucclapp test -enumerate-tests
+xcodebuild -version
 ```
 
-- exit 0 → Xcode test task와 XCTest 사용 가능 → 사이클 진행
+- exit 0 → 테스트 타깃(`bucclappTests`)이 빌드되고 실행될 테스트가 `Plan / Target / Class / Test`로 열거됨 → 사이클 진행. 이 목록의 `Target/Class`가 아래 `-only-testing:` 식별자다.
 - exit ≠ 0 → 즉시 중단하고 사용자에게 보고:
-  - "`xcodebuild -scheme bucclapp test` 실행 불가 (Xcode sync/SDK 설정 문제)" OR
-  - "`bucclapp/bucclapp.xcodeproj`의 테스트 의존성 또는 JDK 설정 문제" OR
+  - "`xcodebuild -scheme bucclapp test` 실행 불가 (Xcode 프로젝트/SDK 설정 문제)" OR
+  - "`bucclapp/bucclapp.xcodeproj`의 테스트 타깃 의존성 또는 Xcode 툴체인(선택된 Xcode·SDK) 설정 문제" OR
   - 실제 에러 메시지 그대로 전달
-- target test 실행은 `--tests` 와일드카드 패턴(`xcodebuild -scheme bucclapp test --tests "*{Module}*"`)을 사용한다. `--tests` 필터는 클래스 FQCN 기준 매칭이므로 패키지 경로가 불확실하면 앞뒤에 `*`를 붙인다. 매칭되는 테스트가 0개면 Xcode이 실패하므로, 파일 생성 직후 패턴이 실제 클래스명과 일치하는지 확인한다.
+- target test 실행은 `-only-testing:bucclappTests/{TestClass}` 식별자(`Target/Class[/Method]`)로 지정한다. 와일드카드·부분 일치는 없다. 존재하지 않는 식별자를 주어도 xcodebuild는 실패하지 않고 `Executed 0 tests`로 조용히 통과하므로(exit 0), 파일 생성 직후 `-enumerate-tests` 목록에 클래스가 보이는지 확인하고, 실행 로그의 `Executed N tests` 줄에서 N ≥ 1을 확인한다(아래 "`-only-testing:` 타깃 실행" 참조).
 
 ### 2. 이전 TDD 아티팩트 정리 (stale counter 방지)
 
@@ -50,8 +50,11 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
    - 출력 tail 30줄
 
    ```bash
-   xcodebuild -scheme bucclapp test --tests "*{Module}*" 2>&1 | tail -30 > tdd-baseline-log.txt
+   xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass} > {artifacts-dir}/xcodebuild-red.log 2>&1; echo "xcodebuild exit=$?" >> {artifacts-dir}/xcodebuild-red.log
+   tail -30 {artifacts-dir}/xcodebuild-red.log > {artifacts-dir}/tdd-baseline-log.txt
    ```
+
+   `| tail`로 바로 받으면 xcodebuild의 exit code가 가려지므로 전체 출력을 먼저 파일에 저장하고 tail한다. `{TestClass}`는 트랙별 테스트 클래스명(`{Module}Feature{Slug}Tests` / `{Module}Maint{Identifier}Tests` / `{Module}Hotfix{Identifier}Tests`)이다.
 
 4. **실패 이유 검증 (bug/feature 유형)**:
    - 구현 부재 / assertion fail → **올바른 Red** → Green 단계로 진행
@@ -82,10 +85,13 @@ Red가 올바른 이유로 실패한 뒤, **구현 코드를 작성하기 전에
 4. PASS 로그를 `tdd-green-log.txt`에 캡처:
 
    ```bash
-   xcodebuild -scheme bucclapp test --tests "*{Module}*" 2>&1 | tail -30 > tdd-green-log.txt
+   xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass} > {artifacts-dir}/xcodebuild-green.log 2>&1; echo "xcodebuild exit=$?" >> {artifacts-dir}/xcodebuild-green.log
+   tail -30 {artifacts-dir}/xcodebuild-green.log > {artifacts-dir}/tdd-green-log.txt
    ```
 
-5. 추가 검증 (컴파일 및 lint 오류 없음 확인):
+   `** TEST SUCCEEDED **`만으로 PASS로 보지 않는다. `Executed N tests`의 N ≥ 1과 `xcodebuild exit=0`을 함께 확인한다(0개 실행은 식별자 불일치).
+
+5. 추가 검증 (컴파일 오류 없음 확인. 린트는 `commands/shared/verify.md`의 SwiftLint 정책을 따른다 — 설치·설정된 경우만, 미구성이면 N/A):
 
    ```bash
    xcodebuild -scheme bucclapp build
@@ -126,7 +132,7 @@ T0에는 routine mutation을 강제하지 않는다. 동일 테스트의 올바�
 4. 각 리팩토링 후 전체 테스트 재실행. 깨지면 즉시 revert.
 
    ```bash
-   xcodebuild -scheme bucclapp test --tests "*{Module}*"
+   xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}
    ```
 
 5. 변경 내용을 `tdd-refactor-notes.md`에 요약
@@ -157,6 +163,8 @@ Red/Green/Refactor가 적용되는 단계에서 다음 파일을 **반드시** �
 .harness/artifacts/{track}/{identifier}/
   tdd-baseline-log.txt     ← Red 단계 baseline (FAIL or PASS per issue type)
   tdd-green-log.txt        ← Green 단계 PASS 증거
+  xcodebuild-red.log       ← Red 실행 전체 출력 (tail의 원본, 마지막 줄에 xcodebuild exit)
+  xcodebuild-green.log     ← Green 실행 전체 출력 (tail의 원본, 마지막 줄에 xcodebuild exit)
   tdd-test-design-result.json ← Green 전 AC·assertion·mock·경계 검수
   tdd-sensitivity-result.json ← 동일 테스트 Red→Green·hash·회귀·mutation 증거
   tdd-refactor-notes.md    ← Refactor 내용 요약 (skip 시 "skipped: {reason}")
@@ -184,24 +192,26 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 - System Under Test를 mock으로 대체하고 실제 행동을 검증했다고 주장하는 것
 - 필수 sensitivity/mutation 증거를 사유 없이 생략하고 PASS로 처리하는 것
 - hotfix 트랙에서 Refactor 수행 (에스컬레이션 → `:auto` 또는 `:deep`으로 전환)
-- Swift 정적 검사 위반 (`!!` 남발, `@Suppress`로 경고 회피)
+- Swift 정적 검사 위반 (강제 언래핑 `!`·`try!`·`as!` 남발, `// swiftlint:disable`로 경고 회피)
 
 ---
 
-## Xcode `--tests` 타깃 실행 호환 (중요)
+## `-only-testing:` 타깃 실행 (중요)
 
-Xcode의 `--tests` 필터는 테스트 클래스의 **FQCN(패키지 포함 클래스명)** 기준으로 매칭한다:
+xcodebuild는 Gradle식 와일드카드 테스트 필터(옛 문서 형태)를 받지 않는다 — 주면 usage를 출력하고 exit 64로 끝난다. 대상 테스트는 `-only-testing:` 식별자로 지정한다:
 
-- 정확 매칭: `xcodebuild -scheme bucclapp test --tests "com.buccl.bucclapp.network.AuthCookieSyncDecisionTest"`
-- 와일드카드: `xcodebuild -scheme bucclapp test --tests "*{Module}*"` (패키지 경로가 불확실할 때)
-
-이 하네스는 패키지 경로 차이를 피하기 위해 기본적으로 앞뒤 `*` 와일드카드 패턴을 사용한다:
+- 형식: `-only-testing:{Target}/{Class}` 또는 `-only-testing:{Target}/{Class}/{Method}`. 이 하네스의 테스트 타깃은 `bucclappTests`다.
+- 예: `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/AuthCookieSyncDecisionTests`
+- 여러 클래스는 `-only-testing:`을 반복한다. 와일드카드·부분 일치는 없다.
+- 식별자 확인: `xcodebuild -scheme bucclapp test -enumerate-tests`가 실행 없이 `Plan / Target / Class / Test` 목록을 출력한다.
 
 ```bash
-xcodebuild -scheme bucclapp test --tests "*{Module}*"
+xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}
 ```
 
-매칭되는 테스트가 0개면 Xcode이 에러로 실패한다 — 이는 러너 문제가 아니라 패턴 불일치이므로, 테스트 클래스명을 확인 후 패턴을 수정한다.
+존재하지 않는 식별자를 주어도 xcodebuild는 에러를 내지 않는다 — `Executed 0 tests, with 0 failures`를 찍고 `** TEST SUCCEEDED **`(exit 0)로 끝난다. 따라서 0개 실행은 PASS가 아니다. 로그의 `Executed N tests` 줄에서 N ≥ 1을 확인하고, 0이면 식별자를 `-enumerate-tests` 목록과 대조해 고친다.
+
+테스트 타깃이 Swift Testing(`import Testing`)을 쓰면 실행 수는 `Test run with N tests in M suites passed` 줄에 나오고, XCTest 몫의 `Executed 0 tests` 줄이 함께 찍힌다. 이때는 `Test run with N tests` 줄의 N ≥ 1로 판정하고, 이 줄이 아예 없으면 0개 실행이다. `-enumerate-tests` 목록과 `-only-testing:{Target}/{Suite}` 형식은 두 프레임워크에서 같다.
 
 ---
 
@@ -212,8 +222,8 @@ feature/maintenance의 Red 단계에서 아래 패턴이 자주 필요하다. **
 | 영역 | 해결책 |
 |------|------|
 | 순수 결정 로직 | iOS 의존 없는 클래스로 분리 후 XCTest 직접 검증 (`WebViewContainer` 패턴) |
-| 네트워크/쿠키 | OkHttp MockWebServer, `CookieJar` 인터페이스 fake |
-| iOS 프레임워크 의존 | 인터페이스로 추상화 후 fake 주입 — 단위 테스트에서 `android.*` 직접 의존 금지 (필요 시 target repo의 Robolectric 채택 여부 먼저 확인) |
+| 네트워크/쿠키 | `URLProtocol` 서브클래스로 응답 stub(`URLSessionConfiguration.protocolClasses`에 주입), 쿠키 저장소(`HTTPCookieStorage`·`WKHTTPCookieStore`)는 프로토콜로 추상화해 fake 주입 |
+| iOS 프레임워크 의존 | 프로토콜로 추상화 후 fake 주입 — 단위 테스트에서 `UIKit`/`WebKit` 객체(뷰 컨트롤러·`WKWebView`) 직접 생성 금지 (호스트 앱이 필요한 테스트는 target repo의 테스트 타깃이 host application을 쓰는지 먼저 확인) |
 | 브리지 | `WebViewBridge` 메서드가 위임하는 파싱/결정 로직을 분리해 검증 (JSON 메시지 포맷 파싱 포함) |
 | 푸시 | FCM 페이로드 파싱·분기 로직을 분리해 XCTest로 검증 |
 | 딥링크 | URI 파싱·목적지 결정 로직을 분리해 검증 |

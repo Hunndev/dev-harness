@@ -22,7 +22,7 @@ npx jest --version
   - "Jest가 설치되지 않았습니다. `npm install --save-dev jest @types/jest ts-jest` 필요" OR
   - "`jest.config.js` 또는 `package.json`의 jest 설정 누락" OR
   - 실제 에러 메시지 그대로 전달
-- 버전 확인 결과에 따라 `--testPathPattern`(Jest 28-) vs `--testPathPatterns`(Jest 29+) 플래그를 선택한다. 또는 flag 없이 positional 인자(`npm test -- {module}`)를 사용 — Jest 27+ 버전 독립.
+- 버전 확인 결과에 따라 `--testPathPattern`(Jest 29 이하) vs `--testPathPatterns`(Jest 30 이상) 플래그를 선택한다. 또는 flag 없이 positional 인자(`npm test -- {module}`)를 사용 — Jest 27+ 버전 독립.
 
 ### 2. 이전 TDD 아티팩트 정리 (stale counter 방지)
 
@@ -192,10 +192,10 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 
 `npm test -- --testPathPattern={module}`의 플래그 이름은 **Jest 버전에 따라 다르다**:
 
-- **Jest 28 이하**: `--testPathPattern={module}` (단수)
-- **Jest 29 이상**: `--testPathPatterns={module}` (복수)
+- **Jest 29 이하**: `--testPathPattern={module}` (단수). 이 버전대는 복수형을 모르는 옵션으로 무시해 **필터 없이 전체 테스트를 실행**하므로(exit 0) 복수형을 쓰면 안 된다.
+- **Jest 30 이상**: `--testPathPatterns={module}` (복수). Jest 30은 단수형을 `Option "testPathPattern" was replaced by "--testPathPatterns"`로 거부한다(exit 1).
 
-Jest 29 미만이 지원 중단되었으므로 신규 프로젝트는 복수형을 사용한다. 기존 프로젝트는 `npx jest --version`으로 확인 후 맞는 플래그를 선택한다. 이 문서의 예시는 단수형(`--testPathPattern`)을 기본으로 표기하나, 실제 실행 시 target 레포의 Jest 버전에 맞춰 적절히 교체한다.
+플래그 이름이 바뀐 것은 Jest 30이다(공식 v29→v30 업그레이드 문서). 신규 프로젝트(Jest 30)는 복수형을, 기존 프로젝트는 `npx jest --version`으로 확인 후 맞는 플래그를 선택한다. 이 문서의 예시는 단수형(`--testPathPattern`)을 기본으로 표기하나, 실제 실행 시 target 레포의 Jest 버전에 맞춰 적절히 교체한다.
 
 대안: 패턴 인자를 flag 없이 positional로 전달 — `npm test -- {module}` (Jest 27+ 지원, 버전 독립적).
 

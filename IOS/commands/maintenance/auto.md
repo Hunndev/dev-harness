@@ -35,8 +35,8 @@
 > **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
-   - `xcodebuild -scheme bucclapp test --dry-run` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild --version`으로 Xcode/JDK 버전 확인(정보용). target test는 `--tests` 와일드카드 패턴 사용
+   - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, `Executed 0 tests`는 PASS 아님)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. 사용자가 제시한 이슈를 정리한다.
 3. 이슈 유형을 분류한다:
@@ -132,8 +132,8 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 `auto` tier는 3 스위트 병렬 Team 대신 **직렬 실행**으로 단순화한다.
 
-1. 린트: `xcodebuild -scheme bucclapp build`
-2. 단위 테스트: `xcodebuild -scheme bucclapp test --tests "*{Module}*"`
+1. 린트: SwiftLint (설치·설정된 경우만 `swiftlint lint --strict`, 미구성이면 N/A로 기록 — `commands/shared/verify.md` 2. 린트)
+2. 단위 테스트: `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Maint{Identifier}Tests` (해당 모듈의 기존 테스트 클래스는 `-only-testing:` 반복. `Executed N tests`의 N ≥ 1 확인 — 0이면 식별자 불일치)
    - M2 재현 테스트가 **PASS**가 되는지 확인 (M5 및 M5.5 이후에도 Green 상태 유지 확인)
    - PASS 확인 후 `tdd-green-log.txt`를 최종 상태로 갱신한다.
 3. 전체 테스트: `xcodebuild -scheme bucclapp test`
