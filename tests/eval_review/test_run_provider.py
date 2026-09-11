@@ -1562,14 +1562,20 @@ class DeepResultRecursionTests(ProviderStageTestCase):
     traceback. The stage envelope, the diagnostics and the sealed result went with it.
     """
 
-    def nested(self, depth):
+    def nested(self, depth=None):
+        # Depth relative to the interpreter limit. Verified on CPython 3.9.6 (RecursionError
+        # near the 1000-frame Python limit) and 3.12.13 (only past its separate, higher C
+        # recursion limit); 3.13+ unverified. A fixed 900 passed on 3.9 but parsed fine on
+        # 3.12, which would have turned the CI py3.12 leg red.
+        if depth is None:
+            depth = sys.getrecursionlimit() * 100
         return "[" * depth + "1" + "]" * depth
 
     def test_a_deeply_nested_codex_result_is_a_blocked_result_not_a_traceback(self):
         def execute(command, packet_source, output_root, packet, stage, engine, *rest, **kwargs):
             root = Path(output_root)
             (root / "semantic-result.json").write_text(
-                '{"deep": ' + self.nested(900) + "}"
+                '{"deep": ' + self.nested() + "}"
             )
             (root / "stray.txt").write_text("copied auth " + CODEX_AUTH_LITERAL + "\n")
             return {"stdout": "", "stderr": "", "envelope": passing_envelope(stage, engine, "")}
@@ -1585,7 +1591,7 @@ class DeepResultRecursionTests(ProviderStageTestCase):
         self.assertEqual([], record["diagnostics"]["unscanned_paths"])
 
     def test_a_deeply_nested_claude_result_is_a_blocked_result_not_a_traceback(self):
-        stdout = '{"structured_output": {"deep": ' + self.nested(900) + "}}"
+        stdout = '{"structured_output": {"deep": ' + self.nested() + "}}"
         record = self.run_claude(stdout)
         self.assertEqual("BLOCKED", record["envelope"]["status"])
         self.assertEqual("RESULT_MALFORMED", record["envelope"]["error_code"])

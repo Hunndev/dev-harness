@@ -437,6 +437,7 @@ enabled = true
 1. **Claude Code**: `/plugin`에서 marketplace를 업데이트하고, 설치된 플러그인 버전이 `marketplace.json`의 버전과 일치하는지 확인한다.
 2. **Codex**: 위 캐시 두 곳을 비우고 재시작한다 (git source 캐시는 자동 갱신되지 않는다).
 3. **동작 확인**: 새 세션에서 `/hb-shared:seed` 등 코어 명령이 자동완성 목록에 보이면 반영 완료다.
+4. **설치 진단(읽기 전용)**: `bash scripts/check-install.sh`가 플러그인 7개의 저장소 버전과 Claude Code 설치 등록(`~/.claude/plugins/installed_plugins.json`)·Codex 캐시(`~/.codex/plugins/cache`) 버전을 표로 비교한다. 현재 세션에 로드된 버전은 디스크에서 알 수 없어 `loaded`는 항상 UNKNOWN이다. 확정된 버전 불일치가 있으면 exit 1이고, `--require hb-be,hb-cm`처럼 두 CLI 모두에 있어야 하는 플러그인을 지정할 수 있다(목록에 없는 이름도 exit 1). 한 플러그인이 여러 scope로 등록돼 있으면 그중 하나라도 저장소 버전과 같을 때 MATCH다. `--json`으로 기계 판독 출력을 낸다(`loaded`·미확인 `enabled`는 null).
 
 ## 디렉토리 구조
 
@@ -488,7 +489,9 @@ harness/
 │   ├── CLAUDE.md
 │   ├── commands/                 (seed, evaluate, review, evolve + 공통 보조)
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
-├── scripts/lint-harness.sh       ← R1~R11 린터
+├── scripts/lint-harness.sh       ← R1~R13 린터
+├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
+├── tests/                        ← eval_review 297 · tdd_quality 12 · tooling (CI에서 실행)
 └── README.md
 ```
 

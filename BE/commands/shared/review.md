@@ -60,7 +60,7 @@ Fresh Claude Review ∥ Fresh Codex Review
 
 - 각각 새 process/session이다.
 - blind-first로 독립 실행한다.
-- reviewer는 content-verified packet copy만 보며, source는 macOS `sandbox-exec` 또는 read-only container로 OS 수준 쓰기 차단하고 실행 전후 digest도 비교한다.
+- reviewer는 content-verified packet copy만 보며, source는 macOS `sandbox-exec`로 OS 수준 쓰기 차단하고 실행 전후 digest도 비교한다. 그 외 환경은 현재 런타임이 격리를 제공하지 않으므로 provider를 실행하지 않고 `ISOLATION_UNAVAILABLE`로 BLOCKED한다(컨테이너 격리는 미구현).
 - provider별 내부 Team은 T2·대형·고위험에 선택적으로 사용할 수 있다.
 - provider는 finding·근거만 담은 semantic result를 낸다. 부모 runner가 fresh process, timeout, packet binding, isolation, 실행 전후 digest를 별도 execution envelope로 기록한다.
 - 부모는 정상 종료·timeout·예외 모든 경로에서 자식 process group을 bounded reap한다. 살아남은 자손은 `PROVIDER_DESCENDANTS_ALIVE`로 BLOCKED다. 단 `setsid`로 group을 벗어난 자손은 포획할 수 없으므로 격리 범위는 diagnostics `descendant_containment: "process-group-only"`로 그대로 공개한다.
