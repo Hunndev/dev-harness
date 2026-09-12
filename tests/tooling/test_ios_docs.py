@@ -63,8 +63,9 @@ FORBIDDEN = [
     ("build command repeated on one line", re.compile(
         r"xcodebuild -scheme bucclapp build[^\n]*xcodebuild -scheme bucclapp build")),
     ("pipe to tail hides the xcodebuild exit code", re.compile(
-        r"xcodebuild[^\n]*\|\s*tail\s+(?:-n\s*)?\d+\s*>")),
+        r"xcodebuild[^\n]*\|\s*tail\s+(?:-\d+|-n\s*\d+)\s*>")),
 ]
+PIPE_TO_TAIL = FORBIDDEN[-1][1]
 
 # XCTest-only executed-count wording must not come back into the track documents; the
 # framework-neutral rule lives in shared/tdd.md (Swift Testing prints "Executed 0 tests" too).
@@ -107,6 +108,18 @@ class ForbiddenFormsTests(unittest.TestCase):
                         offenders.append("%s:%d [%s] %s" % (
                             path.relative_to(REPO), number, label, line.strip()))
         self.assertEqual(offenders, [], "\n" + "\n".join(offenders))
+
+    def test_pipe_to_tail_pattern_catches_every_tail_spelling(self):
+        # Codex v3 review: the v2 pattern lost the plain `tail -30` spelling.
+        for bad in ('xcodebuild -scheme bucclapp test | tail -30 > out.txt',
+                    'xcodebuild -scheme bucclapp test 2>&1 | tail -n 30 > out.txt',
+                    'xcodebuild -scheme bucclapp test 2>&1 |tail -n30 > out.txt'):
+            with self.subTest(line=bad):
+                self.assertIsNotNone(PIPE_TO_TAIL.search(bad))
+        for good in ('tail -30 {artifacts-dir}/xcodebuild-red.log > {artifacts-dir}/tdd-baseline-log.txt',
+                     'xcodebuild -scheme bucclapp test > {artifacts-dir}/xcodebuild-red.log 2>&1; echo "xcodebuild exit=$?" >> {artifacts-dir}/xcodebuild-red.log'):
+            with self.subTest(line=good):
+                self.assertIsNone(PIPE_TO_TAIL.search(good))
 
     def test_track_docs_do_not_restate_the_xctest_only_criterion(self):
         offenders = []

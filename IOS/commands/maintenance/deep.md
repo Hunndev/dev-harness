@@ -267,13 +267,13 @@ xcrun xccov view --report --only-targets .harness/artifacts/maintenance/{identif
 ```
 다음 검증을 수행하라:
 1. xcodebuild -scheme bucclapp build (빌드 검사)
-2. SwiftLint: swiftlint 실행 파일과 .swiftlint.yml이 모두 있으면 swiftlint lint --strict, 아니면 lint: N/A (미구성) — PASS로 적지 않는다
+2. SwiftLint: commands/shared/verify.md의 "2. 린트" 정책을 그대로 실행한다 — 설정(.swiftlint.yml, 루트 또는 bucclapp/)이 없으면 lint: N/A (미구성), 설정은 있는데 swiftlint 실행 파일이 없으면 환경 오류로 보고, 둘 다 있으면 swiftlint lint --strict --config <설정> bucclapp. 어느 경우도 PASS로 적지 않는다
 3. Info.plist(권한·Universal Link·커스텀 스킴) 변경이 있으면 diff를 확인
 4. 수정된 파일에 대해 code-convention.yaml 위반 확인
 
 결과를 다음 형식으로 보고하라:
 - build: PASS | FAIL (에러 목록)
-- lint: PASS | FAIL (위반 목록) | N/A (SwiftLint 미구성)
+- lint: PASS | FAIL (위반 목록) | N/A (SwiftLint 미구성) | 환경 오류 (설정 있음·실행 파일 없음)
 - Info.plist 변경: 없음 | [변경 목록]
 - convention 위반: [{파일}: {위반 ID}: {위반 내용}]
 ```
