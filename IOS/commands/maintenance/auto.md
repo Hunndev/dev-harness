@@ -35,8 +35,8 @@
 > **이 스텝 = `/hb-shared:seed` 주문서 겸직**: 아티팩트 디렉토리(.harness/artifacts/maintenance/{issue-id}/)에 `seed.md`가 이미 있으면 그것을 이슈 정의·완료기준으로 읽고 재질문하지 않는다. 없으면 이 스텝의 이슈 정의(증상·기대 동작·범위)가 약식 seed를 겸한다 — 별도 seed 실행 불필요.
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
-   - `xcodebuild -scheme bucclapp test --dry-run` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild --version`으로 Xcode/JDK 버전 확인(정보용). target test는 `--tests` 와일드카드 패턴 사용
+   - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, 0개 실행은 PASS 아님 — 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. 사용자가 제시한 이슈를 정리한다.
 3. 이슈 유형을 분류한다:
@@ -60,7 +60,7 @@
    - 테스트 파일: `bucclapp/bucclappTests/{package}/{Module}Maint{Identifier}Tests.swift` (identifier는 CamelCase로 변환)
    - 현재 상태에서 테스트가 **FAIL** 하는 것을 확인한다. (bug인 경우)
    - refactor인 경우, characterization test를 작성한다 (characterization test는 **Green baseline**으로 간주 — 리팩토링 후에도 PASS해야 함).
-3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다:
+3. Baseline 로그를 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 저장한다(전체 출력을 `xcodebuild-red.log`에 저장한 뒤 tail — 캡처 명령은 `commands/shared/tdd.md` Red 절):
    - bug 유형: FAIL 출력 (tail 30줄). 실패 이유가 "올바른 이유"인지 검증 (최대 3회 재작성).
    - refactor 유형: characterization test PASS 출력을 baseline으로 저장. 이 테스트는 리팩토링 전후 모두 PASS여야 한다.
    - performance 유형: 기준선(WebView 로드 시간, 콜드 스타트, 앱 크기, 메모리)을 기록.
@@ -132,8 +132,8 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 `auto` tier는 3 스위트 병렬 Team 대신 **직렬 실행**으로 단순화한다.
 
-1. 린트: `xcodebuild -scheme bucclapp build`
-2. 단위 테스트: `xcodebuild -scheme bucclapp test --tests "*{Module}*"`
+1. 린트: SwiftLint (설치·설정된 경우만 `swiftlint lint --strict`, 미구성이면 N/A로 기록 — `commands/shared/verify.md` 2. 린트)
+2. 단위 테스트: `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Maint{Identifier}Tests` (해당 모듈의 기존 테스트 클래스는 `-only-testing:` 반복. 실행 수 ≥ 1 확인(실행 수 판정 규칙은 `commands/shared/tdd.md`) — 0이면 식별자 불일치)
    - M2 재현 테스트가 **PASS**가 되는지 확인 (M5 및 M5.5 이후에도 Green 상태 유지 확인)
    - PASS 확인 후 `tdd-green-log.txt`를 최종 상태로 갱신한다.
 3. 전체 테스트: `xcodebuild -scheme bucclapp test`
@@ -178,6 +178,8 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
   root-cause.md
   fix-plan.md
   tdd-green-log.txt             ← NEW
+  xcodebuild-red.log            ← Red 실행 전체 출력 (tdd-baseline-log.txt의 원본, 마지막 줄에 exit)
+  xcodebuild-green.log          ← Green 실행 전체 출력 (tdd-green-log.txt의 원본, 마지막 줄에 exit)
   tdd-refactor-notes.md         ← NEW
   device-regression.md          ← device/푸시/딥링크/권한 이슈일 때
   parity-proposal.md            ← 브리지·푸시·딥링크 계약을 바꿨을 때

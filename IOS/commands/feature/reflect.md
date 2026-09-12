@@ -20,8 +20,8 @@
 4. 사용자 확인 후 코드를 수정한다.
 5. QA를 수행한다:
    - `xcodebuild -scheme bucclapp build` (빌드 검사)
-   - `xcodebuild -scheme bucclapp build` (iOS Lint)
-   - `xcodebuild -scheme bucclapp test --tests "*{Module}*"` (관련 모듈 테스트)
+   - SwiftLint (설치·설정된 경우만 `swiftlint lint --strict`, 미구성이면 N/A — `commands/shared/verify.md` 2. 린트)
+   - `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{TestClass}` (관련 테스트 클래스 — 실행 수 ≥ 1 확인, 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - `xcodebuild -scheme bucclapp test` (전체 회귀, 필요 시)
 6. 실패 시 수정 루프 (수정 → QA → 재확인, 최대 3회).
 7. 핵심 변경사항을 사용자에게 보고한다.

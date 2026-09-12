@@ -192,8 +192,8 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 
 Jest의 test path flag 이름은 버전에 따라 다르다:
 
-- **React Testing Library + Jest 28 이하**: `--testPathPattern={module}` (단수)
-- **React Testing Library + Jest 29 이상**: `--testPathPatterns={module}` (복수)
+- **React Testing Library + Jest 29 이하**: `--testPathPattern={module}` (단수). 이 버전대는 복수형을 모르는 옵션으로 무시해 필터 없이 전체를 실행한다(exit 0).
+- **React Testing Library + Jest 30 이상**: `--testPathPatterns={module}` (복수). Jest 30은 단수형을 거부한다(exit 1).
 
 이 하네스는 버전 차이를 피하기 위해 패턴 인자를 flag 없이 positional로 전달한다:
 

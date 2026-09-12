@@ -15,9 +15,9 @@
 2. 버그를 재현하는 XCTest 테스트를 작성한다:
    - 파일: `bucclapp/bucclappTests/{package}/{Module}Maint{Identifier}Tests.swift` (identifier는 CamelCase로 변환)
    - 외부 의존성은 target repo의 기존 fake/mock 패턴을 우선 사용
-   - 네트워크는 OkHttp MockWebServer, 인터페이스 fake 중 적합한 것 선택 (iOS 프레임워크 의존은 인터페이스로 격리)
-   - 현재 상태에서 **FAIL** 확인 (`xcodebuild -scheme bucclapp test --tests "*{Module}Maint{Identifier}*"`)
-3. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 캡처한다. 실패 이유가 **'올바른 이유'(버그 때문)**인지 확인한다. Swift 컴파일/import/mock 오류이면 Red 재작성 (최대 3회, 자세한 규칙은 `commands/shared/tdd.md` 참조).
+   - 네트워크는 `URLProtocol` 서브클래스 stub, 프로토콜 fake 중 적합한 것 선택 (iOS 프레임워크 의존은 프로토콜로 격리)
+   - 현재 상태에서 **FAIL** 확인 (`xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Maint{Identifier}Tests` — 실행 수 ≥ 1 확인, 실행 수 판정 규칙은 `commands/shared/tdd.md`)
+3. FAIL 전체 출력을 `xcodebuild-red.log`에 저장한 뒤 tail 30줄을 `.harness/artifacts/maintenance/{identifier}/tdd-baseline-log.txt`에 캡처한다(캡처 명령은 `commands/shared/tdd.md` Red 절). 실패 이유가 **'올바른 이유'(버그 때문)**인지 확인한다. Swift 컴파일/import/mock 오류이면 Red 재작성 (최대 3회, 자세한 규칙은 `commands/shared/tdd.md` 참조).
 4. 재현 불가 시 가능한 원인과 추가 필요 정보를 보고한다.
 
 ### refactor 유형

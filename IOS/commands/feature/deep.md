@@ -17,7 +17,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 
 - Agent Team 없음: 설계의도가 한 줄기로 모이는 순차 작업이라 병렬 관점이 오히려 발산을 만든다.
 - 새 ADR이 필요하면 planning 트랙으로 넘겨서 결정 후 돌아온다.
-- `xcodebuild -scheme bucclapp build`와 `xcodebuild -scheme bucclapp build`를 항상 통과시킨다.
+- `xcodebuild -scheme bucclapp build`를 항상 통과시킨다. SwiftLint는 설치·설정된 경우에만 실행하고 미구성이면 N/A로 기록한다(`commands/shared/verify.md` 2. 린트).
 - webview/bridge/network/푸시(FCM)/utils 경계를 유지한다.
 - shell·브리지 작업은 설계의도(design-intent)와 두 모드 산출물(device/permission/release/bridge-check)을 함께 남긴다.
 
@@ -28,8 +28,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 > **신선도 보고**: `.harness/docs/module-registry.yaml`의 모듈 목록과 실제 소스를 가볍게 대조해 **미등재 모듈 수를 한 줄 보고**한다 — 차단하지 않는다 (CLAUDE.md 신선도 훅의 상태 점검 항목).
 
 1. **Pre-flight 점검**: `commands/shared/tdd.md`의 "Pre-flight 점검" 섹션을 수행한다:
-   - `xcodebuild -scheme bucclapp test --dry-run` → exit 0 확인 (아니면 중단 + 사용자 보고)
-   - `xcodebuild --version`으로 Xcode/JDK 버전 확인(정보용). target test는 `--tests` 와일드카드 패턴 사용
+   - `xcodebuild -scheme bucclapp test -enumerate-tests` → exit 0 확인 (아니면 중단 + 사용자 보고)
+   - `xcodebuild -version`으로 Xcode 버전 확인(정보용). target test는 `-only-testing:bucclappTests/{TestClass}` 식별자로 지정 (와일드카드 없음, 0개 실행은 PASS 아님 — 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - 아티팩트 디렉토리의 stale `tdd-red-debug.md`, `tdd-red-revisions.md` 삭제
 2. `git branch --show-current`로 현재 branch를 확인한다.
 3. `git diff main...HEAD --stat`으로 변경 파일 목록을 확인한다 (기존 코드가 있으면).
@@ -102,8 +102,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 2. `requirements.md`의 MUST 수용기준을 실행 가능한 XCTest 테스트로 변환한다.
    - 테스트 파일: `bucclapp/bucclappTests/{package}/{Module}Feature{Slug}Tests.swift` (slug는 CamelCase로 변환, fake/fixture 사용)
    - 하나의 수용기준(AC) = 하나의 테스트 케이스
-3. `xcodebuild -scheme bucclapp test --tests "*{Module}Feature{Slug}*"`으로 실행하여 FAIL을 확인한다.
-4. FAIL 출력 tail 30줄을 `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다.
+3. `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Feature{Slug}Tests`로 실행하여 FAIL을 확인한다. 실행 수가 0이면(실행 수 판정 규칙은 `commands/shared/tdd.md` "-only-testing: 타깃 실행" 절) 식별자 불일치이므로 `-enumerate-tests`로 클래스명을 대조한다.
+4. FAIL 전체 출력을 파일에 저장한 뒤 tail 30줄을 `.harness/artifacts/feature/{branch-name}/tdd-baseline-log.txt`에 저장한다 (캡처 명령은 `commands/shared/tdd.md` Red 절).
 5. 실패 이유가 "올바른 이유"인지 검증한다. 자세한 검증 규칙과 재작성 루프(최대 3회)는 `commands/shared/tdd.md` 참조:
    - 구현 부재로 인한 FAIL → 올바른 Red → F7로 진행
    - Swift 컴파일 / import / mock 오류 → Red 아님. 테스트를 수정 후 재실행 (최대 3회). 3회 후에도 올바르지 않으면 `tdd-red-debug.md`에 기록하고 사용자에게 보고.
@@ -115,7 +115,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 2. F6에서 작성한 테스트가 PASS되도록 **최소한의 코드만** 작성한다.
    - 범위 폭주 금지: Red 테스트가 요구하지 않는 코드 추가 금지
 3. 기존 테스트 회귀를 확인한다: `xcodebuild -scheme bucclapp test` (전체 스위트)
-4. 추가 검증: `xcodebuild -scheme bucclapp build` + `xcodebuild -scheme bucclapp build`
+4. 추가 검증: `xcodebuild -scheme bucclapp build` + SwiftLint (설치·설정된 경우만 `swiftlint lint --strict`, 미구성이면 N/A — `commands/shared/verify.md` 2. 린트)
 5. PASS 로그를 `.harness/artifacts/feature/{branch-name}/tdd-green-log.txt`에 저장한다.
 6. **Red이 틀렸음을 발견한 경우**: Green 구현 중 수용기준 자체가 잘못되었다는 증거가 나오면 구현을 즉시 중단하고 사용자에게 Red 재작성을 제안. 승인 시 F6으로 복귀. 테스트를 임의로 수정 금지. 자세한 프로토콜은 `commands/shared/tdd.md` 참조.
 7. worktree를 정리한다.
@@ -196,8 +196,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 3. 사용자 확인 후 코드를 수정한다.
 4. QA 수행:
    - `xcodebuild -scheme bucclapp build` (빌드 검사)
-   - `xcodebuild -scheme bucclapp build` (iOS Lint)
-   - `xcodebuild -scheme bucclapp test --tests "*{Module}*"` (관련 모듈 테스트)
+   - SwiftLint (설치·설정된 경우만 `swiftlint lint --strict`, 미구성이면 N/A — `commands/shared/verify.md` 2. 린트)
+   - `xcodebuild -scheme bucclapp test -only-testing:bucclappTests/{Module}Feature{Slug}Tests` (관련 테스트 클래스 — 실행 수 ≥ 1 확인, 실행 수 판정 규칙은 `commands/shared/tdd.md`)
    - `xcodebuild -scheme bucclapp test` (전체 회귀, 필요 시)
    - `tdd-green-log.txt`가 여전히 PASS 상태인지 재확인한다.
    - 기기/권한/릴리즈 산출물이 최신인지 재확인하고, 브리지 계약 작업이면 `bridge-check.md`와 `bridge-contract.yaml` 갱신도 최신인지 재확인한다.
@@ -224,6 +224,8 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
   code-quality-guide.md
   tdd-baseline-log.txt
   tdd-green-log.txt
+  xcodebuild-red.log       (Red 실행 전체 출력 — tdd-baseline-log.txt의 원본, 마지막 줄에 exit)
+  xcodebuild-green.log     (Green 실행 전체 출력 — tdd-green-log.txt의 원본, 마지막 줄에 exit)
   tdd-refactor-notes.md
   tdd-red-revisions.md     (선택: Green→Red 복귀가 발생했을 때만 생성)
   tdd-red-debug.md         (선택: Red 재시도가 발생했을 때만 생성)
