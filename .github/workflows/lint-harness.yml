@@ -21,3 +21,53 @@ jobs:
 
       - name: Run harness linter
         run: ./scripts/lint-harness.sh
+
+  tests:
+    name: runtime tests (${{ matrix.os }}, py${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        python: ['3.9', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # `-s tests` collects 0 tests (no __init__.py); the two suites must be named explicitly.
+      - name: Run hb-eval-review runtime tests (tests/eval_review)
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m unittest discover -s tests/eval_review -v 2>&1 | tee eval_review.log
+
+      - name: Run TDD quality tests (tests/tdd_quality)
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m unittest discover -s tests/tdd_quality -v 2>&1 | tee tdd_quality.log
+
+      - name: Run tooling tests (tests/tooling)
+        run: python3 -m unittest discover -s tests/tooling -v
+
+      # darwin-only skips are counted by their exact reason strings so nothing is
+      # hidden: 'macOS sandbox required' = 7 (test_process_isolation.py x6,
+      # test_process.py DescendantEnvelopeTests x1); 'macOS filesystem semantics
+      # required' = 9 (test_run_provider.py MACOS_FS: chflags, nofollow chmod with
+      # dir_fd, inode identity after recreate). On macOS every one of them must run.
+      - name: Audit macOS-only skips
+        shell: bash
+        run: |
+          sandbox=$(grep -c "skipped 'macOS sandbox required'" eval_review.log || true)
+          fs=$(grep -c "skipped 'macOS filesystem semantics required'" eval_review.log || true)
+          expected_sandbox=7
+          expected_fs=9
+          if [ "$RUNNER_OS" = "macOS" ]; then expected_sandbox=0; expected_fs=0; fi
+          echo "darwin-only skips: sandbox=$sandbox (expected_sandbox=$expected_sandbox) filesystem=$fs (expected_fs=$expected_fs)"
+          test "$sandbox" -eq "$expected_sandbox" && test "$fs" -eq "$expected_fs"
+
+      - name: Verify vendored Evaluate/Review core is in sync
+        run: python3 scripts/sync-eval-review-core.py --check

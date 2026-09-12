@@ -90,7 +90,7 @@ Fresh Claude Evaluate ∥ Fresh Codex Evaluate
 ```
 
 - 각각 새 process/session이며 resume/continue를 사용하지 않는다.
-- live checkout을 직접 검사하지 않고 content-verified packet copy를 사용한다. repository source는 macOS `sandbox-exec` 또는 read-only container로 OS 수준 쓰기 차단한다.
+- live checkout을 직접 검사하지 않고 content-verified packet copy를 사용한다. repository source는 macOS `sandbox-exec`로 OS 수준 쓰기 차단한다. 그 외 환경(Linux 등)은 현재 런타임이 격리를 제공하지 않으므로 provider를 실행하지 않고 `ISOLATION_UNAVAILABLE`로 BLOCKED한다(컨테이너 격리는 미구현).
 - provider 내부 Sub-agent/Team은 규모·위험도에 따른 선택 사항이다.
 - provider 내부 agent 수는 Claude/Codex 교차 독립성을 대체하지 않는다.
 - 각 provider는 AC 판정·finding·근거만 담은 model-owned semantic result를 낸다. 모델은 `fresh`, `read_only`, `repository_mutated`를 자기증명할 수 없다.
