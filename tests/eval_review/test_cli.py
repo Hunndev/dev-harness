@@ -525,7 +525,7 @@ class OutputContractTests(unittest.TestCase):
         self.assertTrue(evaluate_doc)
         self.assertEqual(evaluate_doc, review_doc)
 
-    def test_full_run_creates_exactly_the_documented_files(self):
+    def test_documented_outputs_match_mocked_run(self):
         documented = self.documented(self.DOCS[0])
         observed = self.run_mocked(self.packet())
         self.assertEqual(0, observed["code"], observed["stdout"])

@@ -174,7 +174,7 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 
 자동검사(테스트·lint·build·stack QA)를 다시 돌리지 않고 이전 실행의 로그로 대신하는 것을 **재사용**이라 한다. 트랙 문서의 QA·회귀·코드리뷰 관문이 "재사용"을 말할 때는 항상 이 절을 따른다.
 
-1. **기본은 금지.** 아래 조건을 전부 증명하지 못하면 검사를 다시 실행한다. 커밋 HEAD가 같다는 것은 근거가 아니다 — HEAD는 커밋하지 않은 변경과 untracked 파일을 모른다.
+1. **기본 재사용 금지.** 아래 조건을 전부 증명하지 못하면 검사를 다시 실행한다. 커밋 HEAD가 같다는 것은 근거가 아니다 — HEAD는 커밋하지 않은 변경과 untracked 파일을 모른다. lockfile은 추적 파일이라 snapshot에 포함되지만 설치 상태·환경변수는 포함되지 않으므로, 판정할 수 없으면 재실행한다.
 2. **후보는 저장소가 표시한 결정적 검사뿐.** 저장소의 `.harness/docs/check-reuse.yaml`에 `reuse: allowed`로 표시된 검사만 후보다. 파일이 없거나 `checks`가 비어 있으면 후보가 없다(기본 상태). 외부 데이터·현재 시각·공유 DB·네트워크·기기 상태에 의존하는 검사는 `allowed`로 표시하지 않는다.
 
    ```yaml
@@ -188,7 +188,7 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
 
 3. **재사용 키.** 다음 다섯 값이 모두 같을 때만 같은 검사로 본다.
    - `source_snapshot_id`: `bin/hb-eval-review snapshot <작업 트리>`의 출력. 이 플러그인의 vendored 실행 파일이며 PATH에 없다. HEAD·index·tracked/untracked 파일 내용을 함께 묶는다.
-   - 검사 argv 전체, cwd(작업 트리 기준), 선택 범위(테스트 파일·클래스·패턴; 전체 실행이면 빈 값), toolchain 버전(검사 실행 파일의 버전 출력 한 줄).
+   - 검사 argv 전체, cwd(작업 트리 기준), 선택 범위(selection: 테스트 파일·클래스·패턴; 전체 실행이면 빈 값), toolchain 버전(검사 실행 파일의 버전 출력 한 줄).
 4. **기록 위치.** 키·로그 경로·결과는 아티팩트 디렉터리의 `eval-review/qa-snapshot.json`에만 기록한다. `.harness/artifacts/**/eval-review/**`는 snapshot 계산에서 제외되므로 이 기록이 자기 snapshot을 바꾸지 않는다. `INDEX.md`나 아티팩트 디렉터리 직하의 다른 파일에 적으면 snapshot이 바뀌어 다음 비교가 항상 어긋난다. `INDEX.md`에는 완료 절에서 1회만 옮겨 적는다.
 
    ```json
@@ -196,7 +196,7 @@ hotfix 트랙은 별도 파일명을 사용: `hotfix-red-log.txt`, `hotfix-green
      "schema_version": "1.0",
      "recorded_by": "[R1]",
      "check": "unit",
-     "reuse_key": {"source_snapshot_id": "<64 hex>", "argv": ["..."], "cwd": ".", "scope": "", "toolchain": "..."},
+     "reuse_key": {"source_snapshot_id": "<64 hex>", "argv": ["..."], "cwd": ".", "selection": "", "toolchain": "..."},
      "log": "tdd-green-log.txt",
      "outcome": "PASS"
    }

@@ -70,7 +70,7 @@ class ReuseRuleWordingTests(unittest.TestCase):
 
     def test_each_track_document_states_the_reuse_rule_once(self):
         required = (
-            "기본 금지",
+            "기본 재사용 금지",
             "`reuse: allowed`",
             "`bin/hb-eval-review snapshot <작업 트리>`",
             "`source_snapshot_id`",
@@ -104,7 +104,7 @@ class ReuseRuleWordingTests(unittest.TestCase):
 
 
 class ReusePolicySectionTests(unittest.TestCase):
-    def test_six_tdd_documents_share_one_reuse_policy_section(self):
+    def test_tdd_reuse_policy_section_identical_across_six(self):
         sections = {}
         for path in TDD_DOCS:
             body = section(read(path), POLICY_HEADING)
@@ -114,7 +114,9 @@ class ReusePolicySectionTests(unittest.TestCase):
         self.assertEqual(1, len(distinct), "the reuse policy must be byte-identical in all six tdd.md")
         body = distinct.pop()
         for phrase in (
-            "기본은 금지",
+            "기본 재사용 금지",
+            "selection",
+            "설치 상태·환경변수",
             "`.harness/docs/check-reuse.yaml`",
             "`reuse: allowed`",
             "`bin/hb-eval-review snapshot <작업 트리>`",
@@ -181,19 +183,16 @@ class SnapshotRecordLocationTests(unittest.TestCase):
     def identity(self, repo):
         return self.snapshot(repo)["source_snapshot_id"]
 
-    def test_recording_under_eval_review_keeps_the_snapshot(self):
+    def test_recording_snapshot_into_excluded_path_keeps_snapshot_stable(self):
         repo = self.make_repo()
         before = self.identity(repo)
         record = repo / ".harness" / "artifacts" / "feature" / "x" / "eval-review" / "qa-snapshot.json"
         record.parent.mkdir(parents=True)
         record.write_text('{"reuse_key": {"source_snapshot_id": "%s"}}\n' % before)
         self.assertEqual(before, self.identity(repo))
-
-    def test_recording_in_index_md_changes_the_snapshot(self):
-        repo = self.make_repo()
-        before = self.identity(repo)
-        index = repo / ".harness" / "artifacts" / "feature" / "x" / "INDEX.md"
-        index.parent.mkdir(parents=True)
+        # Control group (Codex v2 reproduction): the same value written to INDEX.md,
+        # one level up, changes the snapshot and would make every later comparison fail.
+        index = record.parents[1] / "INDEX.md"
         index.write_text("source_snapshot_id: %s\n" % before)
         self.assertNotEqual(before, self.identity(repo))
 
@@ -204,6 +203,15 @@ class SnapshotRecordLocationTests(unittest.TestCase):
         log.parent.mkdir(parents=True)
         log.write_text("PASS\n")
         self.assertNotEqual(before, self.identity(repo))
+
+
+class AllowlistTests(unittest.TestCase):
+    def test_reuse_is_off_when_allowlist_empty(self):
+        body = section(read(TDD_DOCS[0]), POLICY_HEADING)
+        self.assertIn("파일이 없거나 `checks`가 비어 있으면 후보가 없다", body)
+        self.assertIn("`reuse: allowed`로 표시된 검사만 후보", body)
+        # The harness ships no allowlist and no repository has declared one: reuse is off.
+        self.assertEqual([], [path for path in REPO.rglob("check-reuse.yaml") if ".git" not in path.parts])
 
 
 class ArtifactNameTests(unittest.TestCase):

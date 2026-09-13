@@ -173,7 +173,7 @@ branch가 없으면 `feature/{issue}-{short-desc}` 형식으로 생성한다.
 
 ### [F11] 리뷰 반영 + QA (Fork)
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조한다. 직전 코드리뷰 관문 [R1] 자동검사 로그의 재사용은 기본 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다(HEAD는 커밋하지 않은 변경을 모른다). 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 산출물을 하나도 쓰기 전에 `bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`와 검사 argv·cwd·선택 범위·toolchain 버전을 구하고, [R1]이 아티팩트 디렉터리의 `eval-review/qa-snapshot.json`에 남긴 재사용 키와 다섯 값이 모두 같을 때만 그 로그를 재사용한다. 이 스텝의 기록도 같은 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 남기고, `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조한다. 직전 코드리뷰 관문 [R1] 자동검사 로그는 기본 재사용 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다(HEAD는 커밋하지 않은 변경을 모른다). 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 산출물을 하나도 쓰기 전에 `bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`와 검사 argv·cwd·선택 범위·toolchain 버전을 구하고, [R1]이 아티팩트 디렉터리의 `eval-review/qa-snapshot.json`에 남긴 재사용 키와 다섯 값이 모두 같을 때만 그 로그를 재사용한다. 이 스텝의 기록도 같은 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 남기고, `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
 
 1. **worktree(fork)를 생성**하여 리뷰를 반영한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:
