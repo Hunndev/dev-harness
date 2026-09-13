@@ -128,7 +128,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M6] 회귀 테스트 (Sub-agent 직렬) _(deep의 M8 경량화)_
 
-> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조하고, 결과 요약과 검사 시점 HEAD를 `INDEX.md`에 남긴다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 이 로그는 다음 코드리뷰 관문의 Gate(저장소 자동검사)에서 기본 재사용 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다. 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 로그를 모두 쓴 뒤 마지막에 `<플러그인 설치 경로>/bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`·argv·cwd·selection·toolchain 다섯 값을 재사용 키로 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 기록하고, 그 Gate는 코드 수정이 끝난 뒤 검사 산출물을 쓰기 전에 같은 다섯 값을 다시 구해 모두 같을 때만 재사용한다. `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문·순서·작업 트리 조건은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
 
 `auto` tier는 3 스위트 병렬 Team 대신 **직렬 실행**으로 단순화한다.
 
@@ -145,7 +145,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M7] 리뷰 + 반영 (Sub-agent + Fork) _(deep의 M9에 해당)_
 
-> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다.
+> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다. Gate 자동검사(저장소 QA)는 `commands/shared/tdd.md`의 "검사 로그 재사용 정책"을 따른다: 재사용 후보가 있으면 코드 수정이 끝난 뒤 산출물을 쓰기 전에 재사용 키를 비교하고, 검사를 돌렸으면 로그를 다 쓴 뒤 마지막에 키를 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`에 기록한다. 기록·비교의 주체는 부모(Gate)이며 blind provider([E2]·[R1])가 아니다.
 
 1. sub-agent를 호출하여 코드리뷰:
    - `fix-plan.md` (의도)
@@ -164,6 +164,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 - 수정된 파일 목록
 - 회귀 테스트 결과 요약
 - 커밋 메시지 제안
+- 검사 시점 `source_snapshot_id`와 검사 로그 재사용 여부 (`eval-review/qa-snapshot.json`에서 옮겨 적는다 — `INDEX.md`에는 여기서 1회만)
 - tier 정보 (`tier: auto`)
 - planning 에스컬레이션 여부
 

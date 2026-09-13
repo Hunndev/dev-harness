@@ -404,5 +404,182 @@ class SealedResultPathTests(unittest.TestCase):
         self.assertEqual(["unknown-0.json", "unknown-1.json"], sealed)
 
 
+class OutputContractTests(unittest.TestCase):
+    """The shared Evaluate/Review documents list exactly the files ``run`` creates (dev-10a).
+
+    Real: ``cli.command_run`` — its early-return checks, the output-root rules, the execution
+    manifest, the materialized copy's location, the provider directories, the pre-Review
+    cleanup, final-result.json and sealed-results/. Faked, to drive each scenario
+    deterministically: packet-binding validation, materialization, the provider processes and
+    the orchestration (``run_dual_stages`` is replaced by a fake that calls the real runner
+    closure sequentially). This is a file-layout contract, not an integration test of parallel
+    provider execution.
+    """
+
+    DOC_ROOT = ".harness/artifacts/{track}/{identifier}/eval-review/run-{n}/"
+    DOCS = (ROOT / "SHARED" / "commands" / "evaluate.md", ROOT / "SHARED" / "commands" / "review.md")
+
+    @classmethod
+    def documented(cls, path):
+        """Parse the ``## 산출물`` fenced block into ``{relative path: annotation}``."""
+        text = path.read_text(encoding="utf-8")
+        block = text.split("\n## 산출물\n", 1)[1].split("```text\n", 1)[1].split("\n```", 1)[0]
+        lines = block.splitlines()
+        assert lines[0].split()[0] == cls.DOC_ROOT, lines[0]
+        entries = {}
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            token, _, note = line.strip().partition("←")
+            entries[token.strip()] = note.strip()
+        return entries
+
+    def setUp(self):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        self.base = Path(holder.name)
+        self.source = self.base / "source"
+        self.source.mkdir()
+        (self.source / "a.txt").write_text("a\n")
+        self.prompts = {}
+        for stage in ("evaluate", "review"):
+            path = self.base / (stage + ".md")
+            path.write_text(stage + " prompt")
+            self.prompts[stage] = path
+        self.prompt_sha256 = {
+            stage: hashlib.sha256(path.read_bytes()).hexdigest() for stage, path in self.prompts.items()
+        }
+        self.model_ids = {"claude": "sonnet", "codex": "gpt-5.6-sol"}
+        self.output = self.base / "output"
+
+    def packet(self, **request_overrides):
+        data = {
+            "packet_id": "p" * 64, "source_snapshot_id": "s" * 64, "evidence_bundle_id": "e" * 64,
+            "request": {"prompt_sha256": self.prompt_sha256, "model_ids": self.model_ids},
+            "evidence_entries": [],
+        }
+        data["request"].update(request_overrides)
+        path = self.base / "packet.json"
+        path.write_text(json.dumps(data))
+        return path
+
+    def argv(self, packet):
+        return [
+            "run", "--packet", str(packet), "--packet-source", str(self.source),
+            "--evaluate-prompt", str(self.prompts["evaluate"]),
+            "--review-prompt", str(self.prompts["review"]),
+            "--output-root", str(self.output),
+            "--claude-model", "sonnet", "--codex-model", "gpt-5.6-sol",
+        ]
+
+    @staticmethod
+    def listing(root):
+        """Top-level names (directories end with ``/``) plus the sealed-results entries."""
+        if not root.exists():
+            return set()
+        names = set()
+        for path in root.iterdir():
+            names.add(path.name + ("/" if path.is_dir() else ""))
+            if path.name == "sealed-results" and path.is_dir():
+                names.update("sealed-results/" + child.name for child in path.iterdir())
+        return names
+
+    def run_mocked(self, packet, review=True, materialized_ok=True, binding_errors=()):
+        observed = {}
+
+        def fake_materialize(source_path, packet_path):
+            (Path(packet_path) / "source").mkdir(parents=True)
+            (Path(packet_path) / "manifest.json").write_text("{}\n")
+            return {"materialized": {"entries": []}}
+
+        def fake_provider(engine, stage, packet, packet_source, output_root, prompt,
+                          timeout_seconds=240, peer_output_root=None, model=None):
+            Path(output_root).mkdir(parents=True, exist_ok=True)
+            (Path(output_root) / "provider-output.txt").write_text(stage + " " + engine + "\n")
+            return {
+                "semantic": {"status": "PASS", "findings": [], "blocking": []},
+                "envelope": {"stage": stage, "engine": engine, "status": "PASS"},
+            }
+
+        def fake_dual(runner, packet_data):
+            evaluate = [runner("evaluate", engine) for engine in ("claude", "codex")]
+            observed["after_evaluate"] = self.listing(self.output)
+            if not review:
+                return {"status": "BLOCKED", "stage": "evaluate",
+                        "errors": {"codex": ["STAGE_EXECUTION_BLOCKER"]}, "results": evaluate}
+            reviews = [runner("review", engine) for engine in ("claude", "codex")]
+            return {"status": "PASS", "stage": "final", "final": {"status": "PASS"},
+                    "results": evaluate + reviews}
+
+        stdout = io.StringIO()
+        with patch.object(cli, "validate_packet_bindings", return_value=list(binding_errors)), \
+                patch.object(cli, "materialize_source_packet", fake_materialize), \
+                patch.object(cli, "verify_materialized_packet", return_value=materialized_ok), \
+                patch.object(cli, "run_provider_stage", fake_provider), \
+                patch.object(cli, "run_dual_stages", fake_dual), \
+                patch("sys.stdout", stdout):
+            observed["code"] = cli.main(self.argv(packet))
+        observed["final"] = self.listing(self.output)
+        observed["stdout"] = stdout.getvalue()
+        return observed
+
+    def test_documented_artifact_block_is_identical_in_both_shared_documents(self):
+        evaluate_doc, review_doc = (self.documented(path) for path in self.DOCS)
+        self.assertTrue(evaluate_doc)
+        self.assertEqual(evaluate_doc, review_doc)
+
+    def test_documented_outputs_match_mocked_run(self):
+        documented = self.documented(self.DOCS[0])
+        observed = self.run_mocked(self.packet())
+        self.assertEqual(0, observed["code"], observed["stdout"])
+        self.assertEqual(set(documented), observed["after_evaluate"] | observed["final"])
+        deleted_before_review = {path for path, note in documented.items() if "Review 시작 전 삭제" in note}
+        self.assertEqual({"evaluate-claude/", "evaluate-codex/"}, deleted_before_review)
+        self.assertEqual(deleted_before_review, observed["after_evaluate"] - observed["final"])
+        self.assertIn("materialized-packet/", observed["final"])
+        self.assertIn("run이 지우지 않", documented["materialized-packet/"])
+
+    def test_evaluate_blocked_run_keeps_evaluate_directories_and_writes_no_review_artifacts(self):
+        documented = self.documented(self.DOCS[0])
+        review_only = {path for path, note in documented.items() if "Review가 실행됐을 때만" in note}
+        self.assertEqual(
+            {"review-claude/", "review-codex/", "sealed-results/review-claude.json",
+             "sealed-results/review-codex.json"},
+            review_only,
+        )
+        observed = self.run_mocked(self.packet(), review=False)
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(set(documented) - review_only, observed["final"])
+        final = json.loads((self.output / "final-result.json").read_text())
+        self.assertEqual("BLOCKED", final["status"])
+
+    def test_early_validation_failure_writes_no_final_result(self):
+        documented = self.documented(self.DOCS[0])
+        # Both files are written after the four early-return checks, so both rows name the same four.
+        for entry in ("final-result.json", "execution-manifest.json"):
+            self.assertIn("packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
+        # The three checks before mkdir (cli.command_run) leave no output root at all.
+        before_mkdir = (
+            ("packet", lambda: dict(packet=self.packet(), binding_errors=("SOURCE_SNAPSHOT_MISMATCH",)),
+             "SOURCE_SNAPSHOT_MISMATCH"),
+            ("prompt", lambda: dict(packet=self.packet(prompt_sha256={"evaluate": "0" * 64, "review": "0" * 64})),
+             "PROMPT_DIGEST_MISMATCH"),
+            ("model", lambda: dict(packet=self.packet(model_ids={"claude": "other", "codex": "gpt-5.6-sol"})),
+             "MODEL_ID_MISMATCH"),
+        )
+        for name, arguments, error in before_mkdir:
+            with self.subTest(check=name):
+                observed = self.run_mocked(**arguments())
+                self.assertEqual(2, observed["code"])
+                self.assertIn(error, observed["stdout"])
+                self.assertFalse(self.output.exists())
+        # The materialized-packet check runs after mkdir and the copy: only that directory remains.
+        with self.subTest(check="materialized"):
+            observed = self.run_mocked(self.packet(), materialized_ok=False)
+            self.assertEqual(2, observed["code"])
+            self.assertIn("MATERIALIZED_PACKET_MISMATCH", observed["stdout"])
+            self.assertEqual({"materialized-packet/"}, observed["final"])
+
+
 if __name__ == "__main__":
     unittest.main()

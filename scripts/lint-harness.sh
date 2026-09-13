@@ -15,6 +15,7 @@
 #   R11. 슬래시 명령 참조 실재성 — /hb-<plugin>:<track>:<cmd> 가 실제 <PLUGIN>/commands/<track>/<cmd>.md 에 대응해야 함
 #   R12. Evaluate/Review canonical core와 standalone plugin vendored copy 일치
 #   R13. Evaluate/Review 역할 분리·fresh dual·fail-closed 계약 존재
+#   R14. 문서 산출물 블록 ↔ hb-eval-review run 출력 계약 + 검사 로그 재사용 규칙 문서 계약 (mocked run 테스트 호출)
 #
 # 로컬 실행: bash scripts/lint-harness.sh
 # CI: .github/workflows/lint-harness.yml에서 호출
@@ -239,8 +240,8 @@ r6_violations=0
 R6_TARGETS=(BE/commands BE/CLAUDE.md BE/skills CM/commands CM/CLAUDE.md CM/skills FE/commands FE/CLAUDE.md FE/skills CHAT/commands CHAT/CLAUDE.md CHAT/skills SHARED/commands SHARED/CLAUDE.md SHARED/skills AOS/commands AOS/CLAUDE.md AOS/skills IOS/commands IOS/CLAUDE.md IOS/skills README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
-# 화이트리스트는 CHAT 1급 문서 6종 + 모바일 bridge-contract까지 포함한 전체 11종.
-R6_YAMLS='code-convention|adr|architecture|module-registry|websocket-events|api-contract|database-schema|integration-boundary|operations|review-policy|bridge-contract'
+# 화이트리스트는 CHAT 1급 문서 6종 + 모바일 bridge-contract까지 포함한 전체 11종 + 검사 로그 재사용 허용 목록 check-reuse.
+R6_YAMLS='code-convention|adr|architecture|module-registry|websocket-events|api-contract|database-schema|integration-boundary|operations|review-policy|bridge-contract|check-reuse'
 docs_wrong=$(grep -rnE "(^|[^./])docs/(${R6_YAMLS})\.yaml" \
   "${R6_TARGETS[@]}" 2>/dev/null || true)
 if [ -n "$docs_wrong" ]; then
@@ -536,11 +537,26 @@ for phrase in "테스트 코드 품질" "Fresh Claude Review" "Fresh Codex Revie
 done
 [ $r13_violations -eq 0 ] && pass "Evaluate/Review 역할·fresh dual·fail-closed 계약 OK"
 
+# ── R14: 문서 산출물 블록 ↔ hb-eval-review run 출력 계약 ─────────────
+echo
+echo "R14. 문서 산출물 블록 == hb-eval-review run 출력 파일 집합 · 검사 로그 재사용 규칙 문서 계약"
+# 파일명이 f-string(cli.py `f"{stage}-{engine}.json"`)이라 리터럴 grep으로는 검사할 수 없다.
+# mocked run이 실제로 만든 파일 집합을 SHARED/commands/{evaluate,review}.md의 산출물 블록과 대조하는
+# 테스트와, 24개 트랙 문서·tdd.md·CLAUDE.md·README의 재사용 규칙 문구 테스트를 호출한다.
+r14_output=$(python3 -m unittest discover -s tests/eval_review -p 'test_cli.py' -k OutputContract 2>&1); r14_output_rc=$?
+r14_docs=$(python3 -m unittest discover -s tests/tooling -p 'test_track_docs.py' 2>&1); r14_docs_rc=$?
+if [ $r14_output_rc -eq 0 ] && [ $r14_docs_rc -eq 0 ]; then
+  pass "산출물 블록 == mocked run 파일 집합, 재사용 규칙·산출물명 문서 계약 OK"
+else
+  fail "출력 계약 테스트 실패 — 상세: python3 -m unittest discover -s tests/eval_review -p 'test_cli.py' -k OutputContract -v / python3 -m unittest discover -s tests/tooling -p 'test_track_docs.py' -v"
+  printf '%s\n' "$r14_output" "$r14_docs" | tail -n 30 | sed 's/^/    /'
+fi
+
 # ── 요약 ──────────────────────────────────────────────────────────
 echo
 if [ $FAIL -eq 0 ]; then
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo "${GREEN}  모든 규칙 통과 (R1~R13)${RESET}"
+  echo "${GREEN}  모든 규칙 통과 (R1~R14)${RESET}"
   echo "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
   echo "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

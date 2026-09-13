@@ -214,7 +214,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M8] 회귀 테스트 리포트 — 병렬 실행 (Agent Team) ★
 
-> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조하고, 결과 요약과 검사 시점 HEAD를 `INDEX.md`에 남긴다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 이 로그는 다음 코드리뷰 관문의 Gate(저장소 자동검사)에서 기본 재사용 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다. 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 로그를 모두 쓴 뒤 마지막에 `<플러그인 설치 경로>/bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`·argv·cwd·selection·toolchain 다섯 값을 재사용 키로 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 기록하고, 그 Gate는 코드 수정이 끝난 뒤 검사 산출물을 쓰기 전에 같은 다섯 값을 다시 구해 모두 같을 때만 재사용한다. `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문·순서·작업 트리 조건은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
 
 M7(Green) 및 M7.5(Refactor, 선택적) 이후 전체 테스트가 여전히 green인지 확인한다.
 
@@ -283,7 +283,7 @@ npm test
 
 ### [M9] 리뷰 + 반영 (Sub-agent + Fork)
 
-> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다.
+> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다. Gate 자동검사(저장소 QA)는 `commands/shared/tdd.md`의 "검사 로그 재사용 정책"을 따른다: 재사용 후보가 있으면 코드 수정이 끝난 뒤 산출물을 쓰기 전에 재사용 키를 비교하고, 검사를 돌렸으면 로그를 다 쓴 뒤 마지막에 키를 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`에 기록한다. 기록·비교의 주체는 부모(Gate)이며 blind provider([E2]·[R1])가 아니다.
 
 1. **sub-agent를 호출**하여 코드리뷰를 수행한다:
    - `fix-plan.md` (의도)
@@ -306,6 +306,7 @@ npm test
 - 회귀 테스트 결과 요약
 - dual review gate 통과 여부 (Codex/Claude blocking 0)
 - 커밋 메시지 제안
+- 검사 시점 `source_snapshot_id`와 검사 로그 재사용 여부 (`eval-review/qa-snapshot.json`에서 옮겨 적는다 — `INDEX.md`에는 여기서 1회만)
 - planning 에스컬레이션 여부
 
 ## 산출물

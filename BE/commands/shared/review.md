@@ -62,9 +62,9 @@ Fresh Claude Review ∥ Fresh Codex Review
 - blind-first로 독립 실행한다.
 - reviewer는 content-verified packet copy만 보며, source는 macOS `sandbox-exec`로 OS 수준 쓰기 차단하고 실행 전후 digest도 비교한다. 그 외 환경은 현재 런타임이 격리를 제공하지 않으므로 provider를 실행하지 않고 `ISOLATION_UNAVAILABLE`로 BLOCKED한다(컨테이너 격리는 미구현).
 - provider별 내부 Team은 T2·대형·고위험에 선택적으로 사용할 수 있다.
-- provider는 finding·근거만 담은 semantic result를 낸다. 부모 runner가 fresh process, timeout, packet binding, isolation, 실행 전후 digest를 별도 execution envelope로 기록한다.
+- provider는 finding·근거만 담은 semantic result를 낸다. 부모 runner가 fresh process, timeout, packet binding, isolation, 실행 전후 digest를 parent-owned execution envelope로 기록한다 — 별도 파일이 아니라 `sealed-results/{stage}-{engine}.json`의 `envelope` 필드다.
 - 부모는 정상 종료·timeout·예외 모든 경로에서 자식 process group을 bounded reap한다. 살아남은 자손은 `PROVIDER_DESCENDANTS_ALIVE`로 BLOCKED다. 단 `setsid`로 group을 벗어난 자손은 포획할 수 없으므로 격리 범위는 diagnostics `descendant_containment: "process-group-only"`로 그대로 공개한다.
-- 모델의 `fresh/read_only/repository_mutated` 자기주장은 금지하며 semantic+envelope 두 파일이 모두 있어야 sealed result가 된다.
+- 모델의 `fresh/read_only/repository_mutated` 자기주장은 금지하며 `semantic`과 `envelope` 두 필드가 모두 있어야 sealed result가 된다.
 
 ### [R2] 구현 품질 렌즈
 
@@ -147,15 +147,22 @@ Codex 또는 Claude 실패를 `생략`으로 기록하고 PASS하는 것은 금�
 
 ## 산출물
 
+`hb-eval-review run`이 `--output-root`(README 실행 예시와 같은 위치, `.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/`) 아래에 만드는 파일은 다음이 전부다. `gate-result.json`(사전조건 2가 확인), packet JSON(`--packet`), packet source 디렉토리(`--packet-source`), stage별 prompt 파일(`--evaluate-prompt`·`--review-prompt`)은 부모가 run 전에 준비하는 입력이며 run이 만들지 않는다. envelope의 stage/engine이 두 enum 밖이면 sealed 파일명은 `unknown-{index}.json`이다. provider 작업 디렉토리의 내용은 provider별로 다르며 봉인 결과의 정본은 `sealed-results/`다.
+
 ```text
-.harness/artifacts/{track}/{identifier}/eval-review/
-  review-packet.json
-  review-result.claude.json
-  review-result.codex.json
-  execution-envelope.review.claude.json
-  execution-envelope.review.codex.json
-  review-join-result.json
-  final-result.json
+.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/    ← `--output-root`. run마다 새 빈 디렉토리(`eval-review/` 자체는 `qa-snapshot.json` 등 기록이 있어 쓸 수 없다), packet source 밖
+  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
+  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). run이 지우지 않지만 보관 대상이 아니다
+  evaluate-claude/             ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
+  evaluate-codex/              ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
+  review-claude/               ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
+  review-codex/                ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
+  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
+  sealed-results/              ← 영속: stage·engine별 sealed result. 한 파일에 semantic + envelope
+  sealed-results/evaluate-claude.json
+  sealed-results/evaluate-codex.json
+  sealed-results/review-claude.json    ← Review가 실행됐을 때만
+  sealed-results/review-codex.json     ← Review가 실행됐을 때만
 ```
 
 최종 상태는 `PASS`, `BLOCKED`, `NEEDS_HUMAN_REVIEW` 중 하나다. commit/push/PR/merge/install/deploy 승인은 이 결과와 별도다.

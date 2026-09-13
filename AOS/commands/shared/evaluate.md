@@ -94,7 +94,7 @@ Fresh Claude Evaluate ∥ Fresh Codex Evaluate
 - provider 내부 Sub-agent/Team은 규모·위험도에 따른 선택 사항이다.
 - provider 내부 agent 수는 Claude/Codex 교차 독립성을 대체하지 않는다.
 - 각 provider는 AC 판정·finding·근거만 담은 model-owned semantic result를 낸다. 모델은 `fresh`, `read_only`, `repository_mutated`를 자기증명할 수 없다.
-- 부모 runner가 process/run ID, timeout, exit code, packet binding, 실행 전후 digest, isolation mode를 `execution-envelope.<engine>.json`에 직접 기록한다.
+- 부모 runner가 process/run ID, timeout, exit code, packet binding, 실행 전후 digest, isolation mode를 parent-owned execution envelope에 직접 기록한다. envelope는 별도 파일이 아니라 `sealed-results/{stage}-{engine}.json`의 `envelope` 필드이며, 같은 파일의 `semantic` 필드가 model-owned 결과다.
 - provider 자식은 자기 process group에서 시작하며, 정상 종료·timeout·예외 모든 경로에서 부모가 그 group을 bounded reap(SIGTERM→SIGKILL)한다. 살아남은 자손이 있으면 `PROVIDER_DESCENDANTS_ALIVE`로 BLOCKED다.
 - 자식 출력은 bytes로 수집한다. 유효하지 않은 UTF-8은 예외가 아니라 `PROCESS_OUTPUT_UNDECODABLE`(BLOCKED)이고, 진단용 사본만 replacement 문자로 보여준다. 파이프 자체가 실패하면 예외 클래스 이름만 남기고 `PROCESS_OUTPUT_UNAVAILABLE`(BLOCKED)이다.
 - timeout 경로에서 커널이 group signal을 거부해도(EPERM·ESRCH) 그것은 진단 사실로 기록될 뿐 예외가 아니며, 마지막 출력 수집에도 상한이 있어 group을 벗어난 자손이 pipe를 쥐고 있어도 부모는 유계 시간에 `PROCESS_TIMEOUT` envelope을 낸다.
@@ -150,15 +150,22 @@ snapshot mismatch/repository mutation  → 이전 결과 무효, Gate부터 재�
 
 ## 산출물
 
+`hb-eval-review run`이 `--output-root`(README 실행 예시와 같은 위치, `.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/`) 아래에 만드는 파일은 다음이 전부다. `gate-result.json`([E0]이 확인), packet JSON(`--packet`), packet source 디렉토리(`--packet-source`), stage별 prompt 파일(`--evaluate-prompt`·`--review-prompt`)은 부모가 run 전에 준비하는 입력이며 run이 만들지 않는다. envelope의 stage/engine이 두 enum 밖이면 sealed 파일명은 `unknown-{index}.json`이다. provider 작업 디렉토리의 내용은 provider별로 다르며 봉인 결과의 정본은 `sealed-results/`다.
+
 ```text
-.harness/artifacts/{track}/{identifier}/eval-review/
-  gate-result.json
-  evaluate-packet.json
-  evaluate-result.claude.json
-  evaluate-result.codex.json
-  execution-envelope.evaluate.claude.json
-  execution-envelope.evaluate.codex.json
-  evaluate-join-result.json
+.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/    ← `--output-root`. run마다 새 빈 디렉토리(`eval-review/` 자체는 `qa-snapshot.json` 등 기록이 있어 쓸 수 없다), packet source 밖
+  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
+  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). run이 지우지 않지만 보관 대상이 아니다
+  evaluate-claude/             ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
+  evaluate-codex/              ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
+  review-claude/               ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
+  review-codex/                ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
+  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
+  sealed-results/              ← 영속: stage·engine별 sealed result. 한 파일에 semantic + envelope
+  sealed-results/evaluate-claude.json
+  sealed-results/evaluate-codex.json
+  sealed-results/review-claude.json    ← Review가 실행됐을 때만
+  sealed-results/review-codex.json     ← Review가 실행됐을 때만
 ```
 
 Raw provider 결과는 봉인 후 수정하지 않는다. finding disposition이나 사람 판정은 별도 reconciliation artifact에 기록한다.

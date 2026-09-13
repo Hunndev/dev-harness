@@ -182,6 +182,43 @@ hotfix 트랙은 tail 파일에 별도 파일명을 사용: `hotfix-red-log.txt`
 
 ---
 
+## 검사 로그 재사용 정책
+
+자동검사(테스트·lint·build·stack QA)를 다시 돌리지 않고 이전 실행의 로그로 대신하는 것을 **재사용**이라 한다. 트랙 문서의 QA·회귀·코드리뷰 관문이 "재사용"을 말할 때는 항상 이 절을 따른다. 기록·비교의 주체는 검사를 실제로 돌리는 부모 스텝(Gate·회귀 스텝)이며, blind provider(Evaluate [E2]·Review [R1])는 아무것도 쓰지 않는다.
+
+1. **기본 재사용 금지.** 아래 조건을 전부 증명하지 못하면 검사를 다시 실행한다. 커밋 HEAD가 같다는 것은 근거가 아니다 — HEAD는 커밋하지 않은 변경과 untracked 파일을 모른다. lockfile은 추적 파일이라 snapshot에 포함되지만 설치 상태·환경변수는 포함되지 않으므로, 판정할 수 없으면 재실행한다.
+2. **후보는 저장소가 표시한 결정적 검사뿐.** 저장소의 `.harness/docs/check-reuse.yaml`에 `reuse: allowed`로 표시된 검사만 후보다. 파일이 없거나 `checks`가 비어 있으면 후보가 없다(기본 상태). 외부 데이터·현재 시각·공유 DB·네트워크·기기 상태에 의존하는 검사는 `allowed`로 표시하지 않는다.
+
+   ```yaml
+   # .harness/docs/check-reuse.yaml — 없으면 재사용 후보 없음
+   checks:
+     - name: unit
+       argv: ["<검사 실행 파일>", "<인자>"]   # 실제 실행과 같은 argv 전체
+       cwd: "."                             # 작업 트리 기준
+       reuse: allowed                       # never(기본) | allowed
+   ```
+
+3. **재사용 키.** 다음 다섯 값이 모두 같을 때만 같은 검사로 본다.
+   - `source_snapshot_id`: `<플러그인 설치 경로>/bin/hb-eval-review snapshot <작업 트리>`의 출력. 플러그인에 vendored된 실행 파일이며 PATH에 없다. HEAD·index·tracked/untracked 파일 내용을 함께 묶는다.
+   - argv(검사 실행 argv 전체), cwd(작업 트리 기준 상대 경로), selection(선택 범위: 테스트 파일·클래스·패턴, 전체 실행이면 빈 값), toolchain(검사 실행 파일의 버전 명령 stdout 첫 줄, 예: `xcodebuild -version` → `Xcode 26.5`).
+4. **기록 위치.** 키·로그 경로·결과는 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`에만 기록한다. `.harness/artifacts/**/eval-review/**`는 snapshot 계산에서 제외되므로 이 기록이 자기 snapshot을 바꾸지 않는다. `INDEX.md`나 아티팩트 디렉토리 직하의 다른 파일에 적으면 snapshot이 바뀌어 다음 비교가 항상 어긋난다(`.harness/artifacts/`를 통째로 ignore한 저장소에서는 `INDEX.md`도 snapshot 밖이지만 규칙은 같게 적용한다). `INDEX.md`에는 완료 절에서 1회만 옮겨 적는다. `eval-review/`는 `hb-eval-review run`의 output root가 아니다 — run의 output root는 비어 있어야 하므로 run마다 `eval-review/run-<n>/` 같은 새 하위 디렉토리를 쓴다.
+
+   ```json
+   {
+     "schema_version": "1.0",
+     "recorded_by": "F7 Gate",
+     "check": "unit",
+     "reuse_key": {"source_snapshot_id": "<64 hex>", "argv": ["..."], "cwd": ".", "selection": "", "toolchain": "..."},
+     "log": "tdd-green-log.txt",
+     "outcome": "PASS"
+   }
+   ```
+
+5. **순서와 작업 트리.** 기록하는 스텝은 자기 산출물(로그·리뷰 코멘트)을 모두 쓴 뒤 마지막에 snapshot을 계산해 기록한다. 재사용하려는 스텝은 그 검사를 실행·재사용하기 직전 — 그 스텝의 코드 수정(리뷰 반영 등)이 모두 끝난 뒤, 검사 산출물을 쓰기 전 — 에 snapshot을 계산해 비교한다. 이 순서를 어기면 재사용은 영구히 0회다. 계산·기록·비교는 검사를 실제로 돌리는 작업 트리(worktree)에서 한다. 기록한 트리와 비교하는 트리가 다르면(예: 메인 트리에서 기록, fork worktree에서 비교) 재사용하지 않고 재실행한다 — 정상 동작이다. 보통은 아티팩트 유무만으로도 ID가 달라지며, `.harness/artifacts/`를 ignore해 그렇지 않은 저장소에서도 규칙은 같다.
+6. **판정 기록.** 재사용 여부와 근거(다섯 값의 비교 결과)는 재사용하려던 스텝이 같은 `qa-snapshot.json`에 `reuse_decision`으로 남긴다. 재사용하지 않았으면 검사를 다시 돌리고 새 키를 기록한다.
+
+---
+
 ## 금지 사항
 
 - 테스트 없이 구현 먼저 작성하는 것 (test-after)
@@ -195,6 +232,7 @@ hotfix 트랙은 tail 파일에 별도 파일명을 사용: `hotfix-red-log.txt`
 - 필수 sensitivity/mutation 증거를 사유 없이 생략하고 PASS로 처리하는 것
 - hotfix 트랙에서 Refactor 수행 (에스컬레이션 → `:auto` 또는 `:deep`으로 전환)
 - Swift 정적 검사 위반 (강제 언래핑 `!`·`try!`·`as!` 남발, `// swiftlint:disable`로 경고 회피)
+- 재사용 키(`source_snapshot_id`·argv·cwd·선택 범위·toolchain)가 같다는 증거 없이 이전 검사 로그를 재사용하는 것 ("검사 로그 재사용 정책" 참조)
 
 ---
 
