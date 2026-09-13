@@ -150,11 +150,11 @@ snapshot mismatch/repository mutation  → 이전 결과 무효, Gate부터 재�
 
 ## 산출물
 
-`hb-eval-review run`이 `--output-root`(README 예시는 `.harness/artifacts/{track}/{identifier}/eval-review/`) 아래에 만드는 파일은 다음이 전부다. `gate-result.json`([E0]이 확인), packet JSON(`--packet`), packet source 디렉터리(`--packet-source`), stage별 prompt 파일(`--evaluate-prompt`·`--review-prompt`)은 부모가 run 전에 준비하는 입력이며 run이 만들지 않는다. envelope의 stage/engine이 두 enum 밖이면 sealed 파일명은 `unknown-{index}.json`이다. provider 작업 디렉터리의 내용은 provider별로 다르며 봉인 결과의 정본은 `sealed-results/`다.
+`hb-eval-review run`이 `--output-root`(README 실행 예시와 같은 위치, `.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/`) 아래에 만드는 파일은 다음이 전부다. `gate-result.json`([E0]이 확인), packet JSON(`--packet`), packet source 디렉터리(`--packet-source`), stage별 prompt 파일(`--evaluate-prompt`·`--review-prompt`)은 부모가 run 전에 준비하는 입력이며 run이 만들지 않는다. envelope의 stage/engine이 두 enum 밖이면 sealed 파일명은 `unknown-{index}.json`이다. provider 작업 디렉터리의 내용은 provider별로 다르며 봉인 결과의 정본은 `sealed-results/`다.
 
 ```text
-.harness/artifacts/{track}/{identifier}/eval-review/    ← `--output-root`. 비어 있어야 하고 packet source 밖이어야 한다
-  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy
+.harness/artifacts/{track}/{identifier}/eval-review/run-{n}/    ← `--output-root`. run마다 새 빈 디렉토리(`eval-review/` 자체는 `qa-snapshot.json` 등 기록이 있어 쓸 수 없다), packet source 밖
+  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. materialized 검증 실패로 조기 BLOCKED되면 없다
   materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). run이 지우지 않지만 보관 대상이 아니다
   evaluate-claude/             ← 임시: Evaluate provider 작업 디렉터리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
   evaluate-codex/              ← 임시: Evaluate provider 작업 디렉터리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)

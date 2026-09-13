@@ -413,7 +413,7 @@ class OutputContractTests(unittest.TestCase):
     documented block is compared with files an actual run produces.
     """
 
-    DOC_ROOT = ".harness/artifacts/{track}/{identifier}/eval-review/"
+    DOC_ROOT = ".harness/artifacts/{track}/{identifier}/eval-review/run-{n}/"
     DOCS = (ROOT / "SHARED" / "commands" / "evaluate.md", ROOT / "SHARED" / "commands" / "review.md")
 
     @classmethod
@@ -554,6 +554,7 @@ class OutputContractTests(unittest.TestCase):
         documented = self.documented(self.DOCS[0])
         self.assertIn("조기 BLOCKED", documented["final-result.json"])
         self.assertIn("없다", documented["final-result.json"])
+        self.assertIn("materialized 검증 실패", documented["execution-manifest.json"])
         mismatched = self.packet(model_ids={"claude": "other", "codex": "gpt-5.6-sol"})
         observed = self.run_mocked(mismatched)
         self.assertEqual(2, observed["code"])

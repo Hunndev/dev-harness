@@ -35,6 +35,7 @@ LINT = REPO / "scripts" / "lint-harness.sh"
 POLICY_TITLE = "검사 로그 재사용 정책"
 POLICY_HEADING = "## " + POLICY_TITLE
 REUSE_RECORD = "`eval-review/qa-snapshot.json`"
+BIN = "`<플러그인 설치 경로>/bin/hb-eval-review snapshot <작업 트리>`"
 RETIRED_ARTIFACT_NAMES = (
     "execution-envelope.<",
     "execution-envelope.evaluate.",
@@ -72,12 +73,14 @@ class ReuseRuleWordingTests(unittest.TestCase):
         required = (
             "기본 재사용 금지",
             "`reuse: allowed`",
-            "`bin/hb-eval-review snapshot <작업 트리>`",
+            BIN,
             "`source_snapshot_id`",
             "argv",
             "cwd",
-            "선택 범위",
+            "selection",
             "toolchain",
+            "Gate",
+            "쓰기 전에",
             REUSE_RECORD,
             "snapshot 제외 경로",
             "`INDEX.md`에는 완료 절에서 1회만",
@@ -85,12 +88,26 @@ class ReuseRuleWordingTests(unittest.TestCase):
             POLICY_TITLE,
         )
         for path in TRACK_DOCS:
-            lines = [line for line in read(path).splitlines() if POLICY_TITLE in line]
+            line = self.reuse_sentence(path)
+            for phrase in required:
+                self.assertIn(phrase, line, (path, phrase))
+            # The blind provider stage never writes the record; the parent Gate does.
+            self.assertNotIn("[R1]", line, path)
+
+    @staticmethod
+    def reuse_sentence(path):
+        lead = "> **이 QA = " if path.parent.name == "feature" else "> **이 회귀 = "
+        lines = [line for line in read(path).splitlines() if line.startswith(lead)]
+        assert len(lines) == 1, (path, len(lines))
+        return lines[0]
+
+    def test_review_step_compares_or_records_the_reuse_key(self):
+        """The review step (where the Gate runs) says when to compare and when to record, and who does it."""
+        for path in TRACK_DOCS:
+            lines = [line for line in read(path).splitlines() if line.startswith("> **이 리뷰 = mandatory dual Review의 stack lens**")]
             self.assertEqual(1, len(lines), (path, len(lines)))
             line = lines[0]
-            expected_lead = "> **이 QA = " if path.parent.name == "feature" else "> **이 회귀 = "
-            self.assertTrue(line.startswith(expected_lead), (path, line[:40]))
-            for phrase in required:
+            for phrase in ("코드 수정이 끝난 뒤 산출물을 쓰기 전에 재사용 키를 비교", "로그를 다 쓴 뒤 마지막에", REUSE_RECORD, POLICY_TITLE, "blind provider"):
                 self.assertIn(phrase, line, (path, phrase))
 
     def test_completion_section_records_the_snapshot_id_once(self):
@@ -101,6 +118,11 @@ class ReuseRuleWordingTests(unittest.TestCase):
             self.assertIn("`source_snapshot_id`", completion, path)
             self.assertIn(REUSE_RECORD, completion, path)
             self.assertIn("1회만", completion, path)
+            # Before the completion section, INDEX.md is named only by the reuse sentence
+            # (which says "완료 절에서 1회"); no step writes it mid-track any more.
+            before = text.split("\n### 완료\n", 1)[0]
+            mentions = [line for line in before.splitlines() if "INDEX.md" in line]
+            self.assertEqual([self.reuse_sentence(path)], mentions, path)
 
 
 class ReusePolicySectionTests(unittest.TestCase):
@@ -119,18 +141,27 @@ class ReusePolicySectionTests(unittest.TestCase):
             "설치 상태·환경변수",
             "`.harness/docs/check-reuse.yaml`",
             "`reuse: allowed`",
-            "`bin/hb-eval-review snapshot <작업 트리>`",
+            BIN,
             "`source_snapshot_id`",
             "argv",
             "cwd",
+            "selection",
             "선택 범위",
             "toolchain",
+            "stdout 첫 줄",
             REUSE_RECORD,
             "snapshot 계산에서 제외",
             "`INDEX.md`",
             "완료 절에서 1회",
             "영구히 0회",
             "reuse_decision",
+            "output root",
+            "run-<n>",
+            "worktree",
+            "fork",
+            "blind provider",
+            "코드 수정",
+            "통째로 ignore",
         ):
             self.assertIn(phrase, body, phrase)
         self.assertNotIn("같은 HEAD", body)
@@ -207,6 +238,8 @@ class SnapshotRecordLocationTests(unittest.TestCase):
 
 class AllowlistTests(unittest.TestCase):
     def test_reuse_is_off_when_allowlist_empty(self):
+        """Documentation contract: the runtime does not read the allowlist. This pins the rule text
+        ("no file / empty checks → no candidates") and that no allowlist ships with the harness."""
         body = section(read(TDD_DOCS[0]), POLICY_HEADING)
         self.assertIn("파일이 없거나 `checks`가 비어 있으면 후보가 없다", body)
         self.assertIn("`reuse: allowed`로 표시된 검사만 후보", body)
@@ -222,6 +255,20 @@ class ArtifactNameTests(unittest.TestCase):
                 self.assertNotIn(name, text, (path, name))
             for name in ("execution-manifest.json", "materialized-packet/", "final-result.json", "sealed-results/"):
                 self.assertIn(name, text, (path, name))
+            self.assertNotIn("README 예시는", text, path)
+
+    def test_readme_run_example_uses_a_fresh_run_directory_under_eval_review(self):
+        """`eval-review/` holds qa-snapshot.json, and `run` refuses a non-empty output root (cli.py)."""
+        lines = [line for line in read(README).splitlines() if "--output-root" in line]
+        self.assertEqual(1, len(lines))
+        self.assertIn("/eval-review/run-1", lines[0])
+        self.assertIn("run-<n>", read(README))
+
+    def test_readme_tree_reports_the_current_test_counts(self):
+        lines = [line for line in read(README).splitlines() if "tests/" in line and "eval_review" in line]
+        self.assertEqual(1, len(lines))
+        self.assertIn("eval_review 301", lines[0])
+        self.assertIn("tooling 5", lines[0])
 
     def test_shared_documents_describe_the_envelope_as_a_field_of_the_sealed_file(self):
         for path in SHARED_DOCS:
@@ -244,6 +291,11 @@ class LintRuleTests(unittest.TestCase):
         readme = read(README)
         self.assertIn("R1~R14", readme)
         self.assertNotIn("R1~R13", readme)
+
+    def test_lint_r6_knows_the_reuse_allowlist_file(self):
+        r6 = [line for line in read(LINT).splitlines() if line.startswith("R6_YAMLS=")]
+        self.assertEqual(1, len(r6))
+        self.assertIn("check-reuse", r6[0])
 
 
 if __name__ == "__main__":

@@ -52,13 +52,13 @@ SHARED/bin/hb-eval-review run \
   --packet-source .harness/artifacts/<track>/<id>/packet \
   --evaluate-prompt .harness/artifacts/<track>/<id>/evaluate-prompt.md \
   --review-prompt .harness/artifacts/<track>/<id>/review-prompt.md \
-  --output-root .harness/artifacts/<track>/<id>/eval-review \
+  --output-root .harness/artifacts/<track>/<id>/eval-review/run-1 \
   --claude-model claude-fable-5-1 \
   --codex-model gpt-5.6-sol \
   --timeout 480
 ```
 
-standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. output 디렉토리는 비어 있어야 하며 packet source 밖에 둔다. 부모 runner가 Evaluate 두 결과를 확인한 뒤에만 Review를 시작하고 `final-result.json`을 저장한다.
+standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. output 디렉토리는 비어 있어야 하며 packet source 밖에 둔다. run마다 `eval-review/run-<n>/` 같은 새 하위 디렉토리를 쓴다 — `eval-review/`에는 검사 로그 재사용 기록(`qa-snapshot.json`)이 함께 있으므로 그 디렉토리 자체를 output root로 쓰면 비어 있지 않아 BLOCKED다. 부모 runner가 Evaluate 두 결과를 확인한 뒤에만 Review를 시작하고 `final-result.json`을 저장한다.
 
 #### 실행 전 보안 조건
 
@@ -491,7 +491,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 297 · tdd_quality 12 · tooling (CI에서 실행)
+├── tests/                        ← eval_review 301 · tdd_quality 12 · tooling 57 (CI에서 실행)
 └── README.md
 ```
 

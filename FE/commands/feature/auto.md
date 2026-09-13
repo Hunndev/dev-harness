@@ -125,7 +125,7 @@
 
 ### [F8] 코드리뷰 (Sub-agent) _(deep의 F11에 해당)_
 
-> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다.
+> **이 리뷰 = mandatory dual Review의 stack lens**: repository QA와 Gate → 동일 packet의 blind fresh Claude+Codex Evaluate → blind fresh Claude+Codex Review → deterministic Finalize 순서다. 아래 절차는 각 reviewer가 적용할 stack별 세부 관점이며, 한 provider의 누락·실패를 생략하고 PASS할 수 없다. Gate 자동검사(저장소 QA)는 `commands/shared/tdd.md`의 "검사 로그 재사용 정책"을 따른다: 재사용 후보가 있으면 코드 수정이 끝난 뒤 산출물을 쓰기 전에 재사용 키를 비교하고, 검사를 돌렸으면 로그를 다 쓴 뒤 마지막에 키를 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`에 기록한다. 기록·비교의 주체는 부모(Gate)이며 blind provider([E2]·[R1])가 아니다.
 
 1. sub-agent를 호출하여 코드리뷰를 수행한다.
 2. 입력:
@@ -151,7 +151,7 @@
 
 ### [F9] 리뷰 반영 + QA (Fork) _(deep의 F12에 해당)_
 
-> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조한다. 직전 코드리뷰 관문 [R1] 자동검사 로그는 기본 재사용 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다(HEAD는 커밋하지 않은 변경을 모른다). 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 산출물을 하나도 쓰기 전에 `bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`와 검사 argv·cwd·선택 범위·toolchain 버전을 구하고, [R1]이 아티팩트 디렉터리의 `eval-review/qa-snapshot.json`에 남긴 재사용 키와 다섯 값이 모두 같을 때만 그 로그를 재사용한다. 이 스텝의 기록도 같은 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 남기고, `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
+> **이 QA = `/hb-shared:evaluate` 검사 겸직**: requirements/seed의 완료기준(MUST)이 증거로 충족되는지 대조한다. 직전 코드리뷰 관문의 Gate(저장소 자동검사) 로그는 기본 재사용 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다. 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 리뷰 반영(코드 수정)이 끝난 뒤 QA 산출물을 쓰기 전에 `<플러그인 설치 경로>/bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`·argv·cwd·selection·toolchain 다섯 값을 구해, 그 Gate가 아티팩트 디렉토리의 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에 남긴 재사용 키와 모두 같을 때만 그 로그를 재사용한다. 이 스텝의 기록도 같은 파일에만 남기고, `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문·순서·작업 트리 조건은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
 
 1. worktree(fork)를 생성한다.
 2. 각 코멘트의 수용/거부 판단을 사용자에게 제시:

@@ -240,8 +240,8 @@ r6_violations=0
 R6_TARGETS=(BE/commands BE/CLAUDE.md BE/skills CM/commands CM/CLAUDE.md CM/skills FE/commands FE/CLAUDE.md FE/skills CHAT/commands CHAT/CLAUDE.md CHAT/skills SHARED/commands SHARED/CLAUDE.md SHARED/skills AOS/commands AOS/CLAUDE.md AOS/skills IOS/commands IOS/CLAUDE.md IOS/skills README.md)
 # 백틱 내부의 `docs/<yaml>` 또는 공백/줄시작 뒤 단독으로 쓰인 docs/<yaml> 검색.
 # .harness/docs/<yaml>은 `/`가 선행하므로 (^|[^./]) 조건에서 제외됨.
-# 화이트리스트는 CHAT 1급 문서 6종 + 모바일 bridge-contract까지 포함한 전체 11종.
-R6_YAMLS='code-convention|adr|architecture|module-registry|websocket-events|api-contract|database-schema|integration-boundary|operations|review-policy|bridge-contract'
+# 화이트리스트는 CHAT 1급 문서 6종 + 모바일 bridge-contract까지 포함한 전체 11종 + 검사 로그 재사용 허용 목록 check-reuse.
+R6_YAMLS='code-convention|adr|architecture|module-registry|websocket-events|api-contract|database-schema|integration-boundary|operations|review-policy|bridge-contract|check-reuse'
 docs_wrong=$(grep -rnE "(^|[^./])docs/(${R6_YAMLS})\.yaml" \
   "${R6_TARGETS[@]}" 2>/dev/null || true)
 if [ -n "$docs_wrong" ]; then
