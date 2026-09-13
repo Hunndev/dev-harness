@@ -128,7 +128,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 
 ### [M6] 회귀 테스트 (Sub-agent 직렬) _(deep의 M8 경량화)_
 
-> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조하고, 결과 요약과 검사 시점 HEAD를 `INDEX.md`에 남긴다. 같은 HEAD면 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용한다 — 같은 검사를 두 번 돌리지 않는다.
+> **이 회귀 = `/hb-shared:evaluate` 검사 겸직**: 재현(Red)→수정(Green) 전환과 회귀 무결성을 seed/이슈 정의의 완료기준과 대조한다. 다음 리뷰 관문 [R1] 자동검사가 이 로그를 재사용하는 것은 기본 금지다 — 커밋 HEAD가 같다는 것은 근거가 아니다(HEAD는 커밋하지 않은 변경을 모른다). 저장소가 `reuse: allowed`로 표시한 결정적 검사에 한해, 이 스텝은 로그를 모두 쓴 뒤 마지막에 `bin/hb-eval-review snapshot <작업 트리>`의 `source_snapshot_id`와 검사 argv·cwd·선택 범위·toolchain 버전을 재사용 키로 아티팩트 디렉터리의 `eval-review/qa-snapshot.json`(snapshot 제외 경로)에만 기록하고, [R1]은 산출물을 하나도 쓰기 전에 같은 다섯 값을 다시 구해 모두 같을 때만 재사용한다. `INDEX.md`에는 완료 절에서 1회만 적는다. 규칙 전문은 `commands/shared/tdd.md`의 "검사 로그 재사용 정책".
 
 `auto` tier는 3 스위트 병렬 Team 대신 **직렬 실행**으로 단순화한다.
 
@@ -165,6 +165,7 @@ Green 상태(M2 재현 테스트 PASS)에서만 시작한다.
 - 회귀 테스트 결과 요약
 - **형제 플랫폼(AOS) 반영 필요 여부** (브리지·푸시·딥링크 계약을 바꿨으면 `parity-proposal.md` 경로 명시)
 - 커밋 메시지 제안
+- 검사 시점 `source_snapshot_id`와 검사 로그 재사용 여부 (`eval-review/qa-snapshot.json`에서 옮겨 적는다 — `INDEX.md`에는 여기서 1회만)
 - tier 정보 (`tier: auto`)
 - planning 에스컬레이션 여부
 

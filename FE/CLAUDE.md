@@ -127,7 +127,7 @@ feature·maintenance 작업은 hb-shared 공통 순서표를 따른다. `feature
 
 1. **시작 — 주문서**: `/hb-shared:seed` 방법으로 목표·범위·완료기준을 먼저 고정한다. (작은 일은 약식 3줄, 큰 일은 한 장)
 2. **구현**: 아래 트랙 명령(feature/maintenance)으로 만든다.
-3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다. (feature 트랙은 QA 스텝이 검사를 겸해 리뷰 스텝 뒤에 올 수 있다 — 관문 기준은 동일)
+3. **검사**: `/hb-shared:evaluate` 방법으로 주문서 완료기준 충족을 증거로 확인한다. (feature 트랙의 QA 스텝은 이 검사를 겸하며 리뷰 반영 후의 재검증이다. 반영이 없으면 `commands/shared/tdd.md`의 "검사 로그 재사용 정책"에 따라서만 이전 검사 로그를 재사용한다 — 관문 기준은 동일)
 4. **평가(Review)**: 동일 packet의 blind fresh Claude+Codex Evaluate가 모두 통과한 뒤 `/hb-shared:review`의 blind fresh Claude+Codex Review를 실행한다. 기존 코드리뷰 스텝은 stack별 Review lens로 사용하며, provider 누락·실패·snapshot 변경은 생략하지 않고 `BLOCKED`한다.
 5. **개선(선택)**: `/hb-shared:evolve`로 반복 문제를 제안으로 남긴다(제안만, 자동 수정 X).
 

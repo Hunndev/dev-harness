@@ -40,7 +40,7 @@ BUCCL의 여섯 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅
 
 ## 개발·검사(Evaluate)·평가(Review) 목표 흐름
 
-> **상태: 보안 경계 후보 구현·고장 주입 완료, Shadow 및 설치 전.** 아래 세 그래프는 기존 제품·stack 개발 절차와 운영 안전 경계를 유지하면서 Evaluate와 Review를 fresh·same-snapshot·blind dual-provider 관문으로 개선한 후보 구조다. model semantic result와 parent execution envelope를 분리하고, macOS source write 차단·packet tamper·standalone plugin 시험까지 통과했지만 설치된 operational path의 blocking gate로는 아직 승격하지 않았다.
+> **상태: 보안 경계 후보 구현·고장 주입 완료, Shadow 및 설치 전.** 아래 세 그래프는 기존 제품·stack 개발 절차와 운영 안전 경계를 유지하면서 Evaluate와 Review를 fresh·same-snapshot·blind dual-provider 관문으로 개선한 후보 구조다. model semantic result와 parent execution envelope를 분리하고, macOS source write 차단·packet tamper·standalone plugin 시험까지 통과했지만 설치된 operational path의 blocking gate로는 아직 승격하지 않았다. 관문(Gate → blind fresh dual Evaluate → Review)은 어느 tier에서도 생략 불가이며, 여기서 'Shadow'는 이 관문이 설치된 운영 경로의 blocking gate로 승격되기 전이라는 뜻이지 관문을 건너뛴다는 뜻이 아니다.
 
 ### 전체 Dual workflow 실행
 
@@ -489,7 +489,7 @@ harness/
 │   ├── CLAUDE.md
 │   ├── commands/                 (seed, evaluate, review, evolve + 공통 보조)
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
-├── scripts/lint-harness.sh       ← R1~R13 린터
+├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
 ├── tests/                        ← eval_review 297 · tdd_quality 12 · tooling (CI에서 실행)
 └── README.md
