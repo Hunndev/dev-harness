@@ -407,10 +407,13 @@ class SealedResultPathTests(unittest.TestCase):
 class OutputContractTests(unittest.TestCase):
     """The shared Evaluate/Review documents list exactly the files ``run`` creates (dev-10a).
 
-    Providers and packet materialization are replaced by fakes; the layout code in
-    ``cli.command_run`` (execution manifest, materialized copy, provider directories,
-    the pre-Review cleanup, final-result and sealed-results) runs for real, so the
-    documented block is compared with files an actual run produces.
+    Real: ``cli.command_run`` — its early-return checks, the output-root rules, the execution
+    manifest, the materialized copy's location, the provider directories, the pre-Review
+    cleanup, final-result.json and sealed-results/. Faked, to drive each scenario
+    deterministically: packet-binding validation, materialization, the provider processes and
+    the orchestration (``run_dual_stages`` is replaced by a fake that calls the real runner
+    closure sequentially). This is a file-layout contract, not an integration test of parallel
+    provider execution.
     """
 
     DOC_ROOT = ".harness/artifacts/{track}/{identifier}/eval-review/run-{n}/"
@@ -481,7 +484,7 @@ class OutputContractTests(unittest.TestCase):
                 names.update("sealed-results/" + child.name for child in path.iterdir())
         return names
 
-    def run_mocked(self, packet, review=True, materialized_ok=True):
+    def run_mocked(self, packet, review=True, materialized_ok=True, binding_errors=()):
         observed = {}
 
         def fake_materialize(source_path, packet_path):
@@ -509,7 +512,7 @@ class OutputContractTests(unittest.TestCase):
                     "results": evaluate + reviews}
 
         stdout = io.StringIO()
-        with patch.object(cli, "validate_packet_bindings", return_value=[]), \
+        with patch.object(cli, "validate_packet_bindings", return_value=list(binding_errors)), \
                 patch.object(cli, "materialize_source_packet", fake_materialize), \
                 patch.object(cli, "verify_materialized_packet", return_value=materialized_ok), \
                 patch.object(cli, "run_provider_stage", fake_provider), \
@@ -555,15 +558,27 @@ class OutputContractTests(unittest.TestCase):
         # Both files are written after the four early-return checks, so both rows name the same four.
         for entry in ("final-result.json", "execution-manifest.json"):
             self.assertIn("packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
-        mismatched = self.packet(model_ids={"claude": "other", "codex": "gpt-5.6-sol"})
-        observed = self.run_mocked(mismatched)
-        self.assertEqual(2, observed["code"])
-        self.assertIn("MODEL_ID_MISMATCH", observed["stdout"])
-        self.assertFalse(self.output.exists())
-        observed = self.run_mocked(self.packet(), materialized_ok=False)
-        self.assertEqual(2, observed["code"])
-        self.assertIn("MATERIALIZED_PACKET_MISMATCH", observed["stdout"])
-        self.assertEqual({"materialized-packet/"}, observed["final"])
+        # The three checks before mkdir (cli.command_run) leave no output root at all.
+        before_mkdir = (
+            ("packet", lambda: dict(packet=self.packet(), binding_errors=("SOURCE_SNAPSHOT_MISMATCH",)),
+             "SOURCE_SNAPSHOT_MISMATCH"),
+            ("prompt", lambda: dict(packet=self.packet(prompt_sha256={"evaluate": "0" * 64, "review": "0" * 64})),
+             "PROMPT_DIGEST_MISMATCH"),
+            ("model", lambda: dict(packet=self.packet(model_ids={"claude": "other", "codex": "gpt-5.6-sol"})),
+             "MODEL_ID_MISMATCH"),
+        )
+        for name, arguments, error in before_mkdir:
+            with self.subTest(check=name):
+                observed = self.run_mocked(**arguments())
+                self.assertEqual(2, observed["code"])
+                self.assertIn(error, observed["stdout"])
+                self.assertFalse(self.output.exists())
+        # The materialized-packet check runs after mkdir and the copy: only that directory remains.
+        with self.subTest(check="materialized"):
+            observed = self.run_mocked(self.packet(), materialized_ok=False)
+            self.assertEqual(2, observed["code"])
+            self.assertIn("MATERIALIZED_PACKET_MISMATCH", observed["stdout"])
+            self.assertEqual({"materialized-packet/"}, observed["final"])
 
 
 if __name__ == "__main__":
