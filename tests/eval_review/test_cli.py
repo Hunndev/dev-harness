@@ -552,9 +552,9 @@ class OutputContractTests(unittest.TestCase):
 
     def test_early_validation_failure_writes_no_final_result(self):
         documented = self.documented(self.DOCS[0])
-        self.assertIn("조기 BLOCKED", documented["final-result.json"])
-        self.assertIn("없다", documented["final-result.json"])
-        self.assertIn("materialized 검증 실패", documented["execution-manifest.json"])
+        # Both files are written after the four early-return checks, so both rows name the same four.
+        for entry in ("final-result.json", "execution-manifest.json"):
+            self.assertIn("packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
         mismatched = self.packet(model_ids={"claude": "other", "codex": "gpt-5.6-sol"})
         observed = self.run_mocked(mismatched)
         self.assertEqual(2, observed["code"])
