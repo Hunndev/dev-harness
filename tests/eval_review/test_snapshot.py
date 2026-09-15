@@ -10,12 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "SHARED" / "runtime"))
 
-from hb_eval_review.materialize import materialize_source_packet
+from hb_eval_review.materialize import materialize_source_packet, remove_materialized_packet
 from hb_eval_review.snapshot import (
     PacketPolicyError,
     compute_evidence_bundle_id,
     compute_packet_id,
     compute_source_snapshot,
+    compute_tree_sha256,
     iter_packet_entries,
     validate_packet_bindings,
 )
@@ -356,6 +357,20 @@ class SnapshotTests(unittest.TestCase):
         self.assertIn("src/keyboard/index.js", paths)
         self.assertIn("certificates/readme.md", paths)
         self.assertIn("app/secretsmanager/client.py", paths)
+
+    def test_compute_tree_sha256_is_the_hash_materialize_binds_the_copy_to(self):
+        # One public helper; materialize's `source_tree_sha256` and a snapshot's file list
+        # must hash to the same value, or the post-copy recheck in `run` cannot compare them.
+        td, repo = self.make_repo()
+        self.addCleanup(td.cleanup)
+        packet = Path(tempfile.mkdtemp()) / "packet"
+        self.addCleanup(lambda: remove_materialized_packet(packet))
+        manifest = materialize_source_packet(repo, packet)
+        files = compute_source_snapshot(repo)["manifest"]["files"]
+        self.assertEqual(manifest["source_tree_sha256"], compute_tree_sha256(files))
+        (repo / "tracked.txt").write_text("two\n")
+        changed = compute_source_snapshot(repo)["manifest"]["files"]
+        self.assertNotEqual(manifest["source_tree_sha256"], compute_tree_sha256(changed))
 
     def test_evidence_and_packet_ids_change_with_inputs(self):
         e1 = compute_evidence_bundle_id([{"command": "pytest", "exit_code": 0, "sha256": "a" * 64}])

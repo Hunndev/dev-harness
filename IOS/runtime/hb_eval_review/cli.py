@@ -1,6 +1,7 @@
 """Command-line interface for deterministic Evaluate/Review contracts."""
 
 import argparse
+import contextlib
 import hashlib
 import json
 import shutil
@@ -10,11 +11,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .finalize import finalize
-from .materialize import materialize_source_packet, verify_materialized_packet
+from .materialize import (
+    materialize_source_packet,
+    remove_materialized_packet,
+    verify_materialized_packet,
+)
 from .orchestrate import run_dual_stages
 from .result_validation import validate_provider_result
 from .run_provider import run_provider_stage
-from .snapshot import PacketPolicyError, compute_source_snapshot, validate_packet_bindings
+from .snapshot import (
+    PacketPolicyError,
+    compute_source_snapshot,
+    compute_tree_sha256,
+    validate_packet_bindings,
+)
 
 
 _STAGES = ("evaluate", "review")
@@ -106,6 +116,27 @@ def command_run(args: argparse.Namespace) -> int:
     materialized_manifest = materialize_source_packet(packet_source, materialized_root)
     if not verify_materialized_packet(materialized_root, materialized_manifest):
         _emit({"status": "BLOCKED", "errors": ["MATERIALIZED_PACKET_MISMATCH"]})
+        return 2
+    # The packet was bound to the live tree before the copy, and the tree may have changed
+    # in between. Snapshot it again now and compare both ways: the packet identity against
+    # the tree as it is, and the tree as it is against the bytes that were actually copied.
+    # The first alone misses a change reverted after the copy; the second alone never ties
+    # the copy to the packet.
+    try:
+        recomputed = compute_source_snapshot(packet_source)
+    except Exception:
+        # The tree became something the enumerator refuses. The verdict keeps that cause,
+        # but a locked copy of a tree that is no longer bound to anything must not stay.
+        with contextlib.suppress(Exception):
+            remove_materialized_packet(materialized_root)
+        raise
+    if (
+        recomputed["source_snapshot_id"] != packet["source_snapshot_id"]
+        or compute_tree_sha256(recomputed["manifest"]["files"])
+        != materialized_manifest.get("source_tree_sha256")
+    ):
+        remove_materialized_packet(materialized_root)
+        _emit({"status": "BLOCKED", "errors": ["SOURCE_CHANGED_BEFORE_MATERIALIZE"]})
         return 2
     provider_source = materialized_root / "source"
     (output_root / "execution-manifest.json").write_text(json.dumps({

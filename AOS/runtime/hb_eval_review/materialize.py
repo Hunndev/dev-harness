@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .snapshot import PacketPolicyError, iter_packet_entries
+from .snapshot import PacketPolicyError, compute_tree_sha256, iter_packet_entries
 
 
 def _entry(root: Path, path: Path) -> Dict[str, Any]:
@@ -31,8 +31,7 @@ def _entry(root: Path, path: Path) -> Dict[str, Any]:
 
 
 def _wrap(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
-    payload = json.dumps(entries, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return {"schema_version": "1.0", "tree_sha256": hashlib.sha256(payload).hexdigest(), "entries": entries}
+    return {"schema_version": "1.0", "tree_sha256": compute_tree_sha256(entries), "entries": entries}
 
 
 def _manifest(source: Path) -> Dict[str, Any]:

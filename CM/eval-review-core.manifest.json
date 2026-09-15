@@ -1,8 +1,8 @@
 {
   "files": {
     "bin/hb-eval-review": "9e70f0ac4fcf5192b0a8b945c4b32ac646d063fa9ccdc4ec47e2a630f4c8a805",
-    "commands/shared/evaluate.md": "b70bc030489d54fb3ea639d8193e609b6d2fbf760708c78c160fa1d6a6488eed",
-    "commands/shared/review.md": "59a1171abc9478a220bbac75bef52b4faae29f46f00917e147698858e1577352",
+    "commands/shared/evaluate.md": "5ff28fcbc269a1c8ffde54e32fe09ef97eaf2b32ead7dc6345d71e6b61aef91b",
+    "commands/shared/review.md": "fe55c7b6f937e117ee2fe82d21fa152ba147fd0d526c4a919c787337236d371b",
     "contracts/evaluate-result.schema.json": "6cac8e31915cea5ed0c76238e3ee9134dead039d98cf58ffddf023d9ea0238b0",
     "contracts/execution-envelope.schema.json": "eadf39b30d063c286b2092adce12a4924796c8bb2f49173a2969a79cfbadb832",
     "contracts/final-result.schema.json": "d7b0970f9155b765c4cb289ef461226fb8408002cc8017670904be4cfff48ea7",
@@ -17,15 +17,15 @@
     "runtime/hb_eval_review/adapters/__init__.py": "99d81eff550df355f6456ba8e9dce7bf7b5a72cbb821bb6097268d3c403dc079",
     "runtime/hb_eval_review/adapters/claude.py": "b3f72b86302bad4e1ae6eb0eb4c839fdd03c93ab41c199517bd03dc8b2fbfb4e",
     "runtime/hb_eval_review/adapters/codex.py": "5740da830455d9104c5c5318bd3e7b320cc882ff381477d9a867eb6d9cc5ab70",
-    "runtime/hb_eval_review/cli.py": "b3321a79917530c252bc7c8e82d87ce02c1243e550ae10a4015fb4a34ad2bb52",
+    "runtime/hb_eval_review/cli.py": "caf7847ec2de421779b7dc73c2f6cd6508a125a4b4d3d7e6c795f24650a5eee5",
     "runtime/hb_eval_review/finalize.py": "4d1a559305b2b44f0acf8a5489e8914ccc91973fe3fb9c1105484fee5b5c9812",
-    "runtime/hb_eval_review/materialize.py": "6a9955dc338473c9c0d1402a8ce85b575581e5e1622bc519c5b42e787e80656d",
+    "runtime/hb_eval_review/materialize.py": "10b2ee56c64f8dff93f885123a9bdec4f7fb596f67212cf8aa216b71b27c70df",
     "runtime/hb_eval_review/orchestrate.py": "3e9079c5563c1f934f2d9c551e60cd5cf5459efa3837fe4b716b18cad1f3a44a",
     "runtime/hb_eval_review/process.py": "072b8cc057e72e855972a2e2f338b3f00bf881b8c52287a7162feb3b9562b9bb",
     "runtime/hb_eval_review/redaction.py": "9070b09953c45ac0bc00b02ed2825b85c461b8d8a825bb27507f5b1d69c5c8f7",
     "runtime/hb_eval_review/result_validation.py": "eda73314c225fcbfea7ebbb2ba6cde92cedc6cb18c4335538be9c80e7c0bb5ff",
     "runtime/hb_eval_review/run_provider.py": "ce882dea58572838e456e3d9d1bb18e7c5cc7934b0753b52407f1de3c618e34e",
-    "runtime/hb_eval_review/snapshot.py": "b5fe7f217df4d07e04bf9a53b6de968c1091d47b0c146db7bdb0a81c27fbd256",
+    "runtime/hb_eval_review/snapshot.py": "756399dcbc04d911027e96425de6218e4c0cf82668e01868e7e6dae49a6385e7",
     "runtime/hb_eval_review/tdd_quality.py": "3816adf50605ece5db16e71d872b8959d678b607cbdcb97090621bcb767d71ef"
   },
   "schema_version": "1.0"

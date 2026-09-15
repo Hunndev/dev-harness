@@ -42,6 +42,16 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def compute_tree_sha256(entries: Iterable[Dict[str, Any]]) -> str:
+    """Hash a packet entry list the way a materialized copy is bound to its source.
+
+    ``materialize_source_packet`` records this over the entries it copied as
+    ``source_tree_sha256``; ``run`` recomputes it over a fresh snapshot's ``files`` right
+    after the copy. One helper on purpose: the two sides must never hash differently.
+    """
+    return _digest(list(entries))
+
+
 def _git(repo: Path, *args: str) -> bytes:
     return subprocess.run(
         ["git", *args], cwd=str(repo), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
