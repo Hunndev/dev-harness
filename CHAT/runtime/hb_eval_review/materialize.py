@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .snapshot import PacketPolicyError, iter_packet_entries
+from .snapshot import PacketPolicyError, compute_tree_sha256, iter_packet_entries
 
 
 def _entry(root: Path, path: Path) -> Dict[str, Any]:
@@ -31,8 +31,7 @@ def _entry(root: Path, path: Path) -> Dict[str, Any]:
 
 
 def _wrap(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
-    payload = json.dumps(entries, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return {"schema_version": "1.0", "tree_sha256": hashlib.sha256(payload).hexdigest(), "entries": entries}
+    return {"schema_version": "1.0", "tree_sha256": compute_tree_sha256(entries), "entries": entries}
 
 
 def _manifest(source: Path) -> Dict[str, Any]:
@@ -94,8 +93,21 @@ def verify_materialized_packet(packet: Path, manifest: Dict[str, Any]) -> bool:
 
 
 def remove_materialized_packet(packet: Path) -> None:
-    """Restore owner write bits only for controlled cleanup, then remove the packet."""
-    packet = Path(packet).resolve()
+    """Restore owner write bits only for controlled cleanup, then remove the packet.
+
+    Safe against links that are already there: a symlinked root is refused before any chmod, a
+    stable symlinked path component is resolved once, and a link inside the copy is unlinked
+    rather than walked. It assumes the output tree and its parents are the parent process's own
+    and are not replaced while it runs — a privileged process that swaps a path component
+    between the check and the chmod, or between the walk and the chmod, is outside what these
+    checks cover; closing that would take directory descriptors and no-follow operations.
+    """
+    packet = Path(packet)
+    if packet.is_symlink():
+        # shutil.rmtree refuses a symlink root; resolving the path first would have followed
+        # it and emptied whatever the link points at. Refuse the same way, before any chmod.
+        raise PacketPolicyError("PACKET_PATH_UNSAFE", [str(packet)])
+    packet = packet.resolve()
     if not packet.exists():
         return
     for path in sorted(packet.rglob("*"), key=lambda item: len(item.parts), reverse=True):

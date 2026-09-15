@@ -14,6 +14,15 @@ CLI = ROOT / "scripts" / "hb-eval-review"
 sys.path.insert(0, str(ROOT / "SHARED" / "runtime"))
 
 from hb_eval_review import cli
+from hb_eval_review.snapshot import (
+    compute_evidence_bundle_id,
+    compute_packet_id,
+    compute_source_snapshot,
+    compute_tree_sha256,
+)
+
+# What a fake materialize must report so an empty fake snapshot passes the post-copy recheck.
+EMPTY_TREE_SHA256 = compute_tree_sha256([])
 
 
 class CliTests(unittest.TestCase):
@@ -359,11 +368,13 @@ class SealedResultPathTests(unittest.TestCase):
 
         def fake_materialize(source_path, packet_path):
             (Path(packet_path) / "source").mkdir(parents=True)
-            return {"materialized": {"entries": []}}
+            return {"materialized": {"entries": []}, "source_tree_sha256": EMPTY_TREE_SHA256}
 
+        recomputed = {"source_snapshot_id": "s" * 64, "manifest": {"files": []}}
         with patch.object(self.cli, "validate_packet_bindings", return_value=[]), \
                 patch.object(self.cli, "materialize_source_packet", fake_materialize), \
                 patch.object(self.cli, "verify_materialized_packet", return_value=True), \
+                patch.object(self.cli, "compute_source_snapshot", return_value=recomputed), \
                 patch.object(
                     self.cli, "run_dual_stages",
                     return_value={"status": "BLOCKED", "stage": "evaluate", "results": records},
@@ -484,13 +495,18 @@ class OutputContractTests(unittest.TestCase):
                 names.update("sealed-results/" + child.name for child in path.iterdir())
         return names
 
-    def run_mocked(self, packet, review=True, materialized_ok=True, binding_errors=()):
+    def run_mocked(self, packet, review=True, materialized_ok=True, binding_errors=(),
+                   source_changed=False):
         observed = {}
 
         def fake_materialize(source_path, packet_path):
             (Path(packet_path) / "source").mkdir(parents=True)
             (Path(packet_path) / "manifest.json").write_text("{}\n")
-            return {"materialized": {"entries": []}}
+            return {"materialized": {"entries": []}, "source_tree_sha256": EMPTY_TREE_SHA256}
+
+        # What the post-copy recheck sees: the packet's own snapshot, or a different tree.
+        recomputed = {"source_snapshot_id": ("t" if source_changed else "s") * 64,
+                      "manifest": {"files": []}}
 
         def fake_provider(engine, stage, packet, packet_source, output_root, prompt,
                           timeout_seconds=240, peer_output_root=None, model=None):
@@ -515,6 +531,7 @@ class OutputContractTests(unittest.TestCase):
         with patch.object(cli, "validate_packet_bindings", return_value=list(binding_errors)), \
                 patch.object(cli, "materialize_source_packet", fake_materialize), \
                 patch.object(cli, "verify_materialized_packet", return_value=materialized_ok), \
+                patch.object(cli, "compute_source_snapshot", return_value=recomputed), \
                 patch.object(cli, "run_provider_stage", fake_provider), \
                 patch.object(cli, "run_dual_stages", fake_dual), \
                 patch("sys.stdout", stdout):
@@ -555,9 +572,9 @@ class OutputContractTests(unittest.TestCase):
 
     def test_early_validation_failure_writes_no_final_result(self):
         documented = self.documented(self.DOCS[0])
-        # Both files are written after the four early-return checks, so both rows name the same four.
+        # Both files are written after the five early-return checks, so both rows name the same five.
         for entry in ("final-result.json", "execution-manifest.json"):
-            self.assertIn("packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
+            self.assertIn("packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
         # The three checks before mkdir (cli.command_run) leave no output root at all.
         before_mkdir = (
             ("packet", lambda: dict(packet=self.packet(), binding_errors=("SOURCE_SNAPSHOT_MISMATCH",)),
@@ -573,12 +590,281 @@ class OutputContractTests(unittest.TestCase):
                 self.assertEqual(2, observed["code"])
                 self.assertIn(error, observed["stdout"])
                 self.assertFalse(self.output.exists())
+        # The source recheck runs after mkdir and the copy and removes the copy: the output root
+        # stays behind, empty (so the next scenario may still use it).
+        with self.subTest(check="source-changed"):
+            observed = self.run_mocked(self.packet(), source_changed=True)
+            self.assertEqual(2, observed["code"])
+            self.assertIn("SOURCE_CHANGED_BEFORE_MATERIALIZE", observed["stdout"])
+            self.assertTrue(self.output.is_dir())
+            self.assertEqual(set(), observed["final"])
+            self.assertIn("run이 지우고", documented["materialized-packet/"])
+            self.assertIn("MATERIALIZED_PACKET_REMOVE_FAILED", documented["materialized-packet/"])
         # The materialized-packet check runs after mkdir and the copy: only that directory remains.
         with self.subTest(check="materialized"):
             observed = self.run_mocked(self.packet(), materialized_ok=False)
             self.assertEqual(2, observed["code"])
             self.assertIn("MATERIALIZED_PACKET_MISMATCH", observed["stdout"])
             self.assertEqual({"materialized-packet/"}, observed["final"])
+
+
+def git(repo, *args):
+    subprocess.run(["git", *args], cwd=str(repo), check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+class SourceChangeBeforeMaterializeTests(unittest.TestCase):
+    """dev-27: ``run`` re-snapshots the live tree right after the copy and binds it twice.
+
+    Real: a git repository, ``validate_packet_bindings``, ``materialize_source_packet``,
+    ``verify_materialized_packet``, ``compute_source_snapshot`` and every check in
+    ``cli.command_run``. Faked: the provider processes and the orchestration (the real runner
+    closure is still called, so the providers see the path ``run`` hands them). The concurrent
+    writer is simulated at the exact seam by wrappers that call the real function first and
+    then edit the tree: after packet validation returns and, for the restore case, after the
+    copy returns.
+    """
+
+    def setUp(self):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        self.base = Path(holder.name).resolve()
+        self.source = self.base / "source"
+        self.source.mkdir()
+        git(self.source, "init", "-q")
+        git(self.source, "config", "user.email", "test@example.invalid")
+        git(self.source, "config", "user.name", "Test")
+        self.tracked = self.source / "a.txt"
+        self.tracked.write_text("A\n")
+        git(self.source, "add", "-A")
+        git(self.source, "commit", "-qm", "fixture")
+        self.prompts = {}
+        for stage in ("evaluate", "review"):
+            path = self.base / (stage + ".md")
+            path.write_text(stage + " prompt")
+            self.prompts[stage] = path
+        self.request = {
+            "prompt_sha256": {
+                stage: hashlib.sha256(path.read_bytes()).hexdigest()
+                for stage, path in self.prompts.items()
+            },
+            "model_ids": {"claude": "sonnet", "codex": "gpt-5.6-sol"},
+        }
+        self.output = self.base / "output"
+
+    def bound_packet(self):
+        """A packet whose three identities really are recomputed from this tree."""
+        source_id = compute_source_snapshot(self.source)["source_snapshot_id"]
+        evidence_id = compute_evidence_bundle_id([])
+        data = {
+            "packet_id": compute_packet_id(self.request, source_id, evidence_id),
+            "source_snapshot_id": source_id, "evidence_bundle_id": evidence_id,
+            "request": self.request, "evidence_entries": [],
+        }
+        path = self.base / "packet.json"
+        path.write_text(json.dumps(data))
+        return path, data
+
+    def run_with(self, after_validate=None, after_copy=None, recheck_error=None, remove_error=None):
+        packet_path, packet_data = self.bound_packet()
+        events = []
+        providers = []
+        recheck_ids = []
+        real_validate = cli.validate_packet_bindings
+        real_materialize = cli.materialize_source_packet
+        real_snapshot = cli.compute_source_snapshot
+        real_remove = cli.remove_materialized_packet
+
+        def validate(packet, repository):
+            errors = real_validate(packet, repository)
+            events.append("validate")
+            if after_validate is not None:
+                after_validate()
+            return errors
+
+        def materialize(source, packet):
+            manifest = real_materialize(source, packet)
+            events.append("materialize")
+            if after_copy is not None:
+                after_copy()
+            return manifest
+
+        def snapshot(repository):
+            events.append("snapshot")
+            if recheck_error is not None:
+                raise recheck_error
+            result = real_snapshot(repository)
+            recheck_ids.append(result["source_snapshot_id"])
+            return result
+
+        def remove(root):
+            if remove_error is not None:
+                raise remove_error
+            real_remove(root)
+
+        def provider(engine, stage, packet, packet_source, output_root, prompt,
+                     timeout_seconds=240, peer_output_root=None, model=None):
+            providers.append((stage, engine, Path(packet_source)))
+            Path(output_root).mkdir(parents=True, exist_ok=True)
+            return {
+                "semantic": {"status": "PASS", "findings": [], "blocking": []},
+                "envelope": {"stage": stage, "engine": engine, "status": "PASS"},
+            }
+
+        def dual(runner, packet):
+            results = [
+                runner(stage, engine)
+                for stage in ("evaluate", "review") for engine in ("claude", "codex")
+            ]
+            return {"status": "PASS", "stage": "final", "final": {"status": "PASS"},
+                    "results": results}
+
+        argv = [
+            "run", "--packet", str(packet_path), "--packet-source", str(self.source),
+            "--evaluate-prompt", str(self.prompts["evaluate"]),
+            "--review-prompt", str(self.prompts["review"]),
+            "--output-root", str(self.output),
+            "--claude-model", "sonnet", "--codex-model", "gpt-5.6-sol",
+        ]
+        stdout = io.StringIO()
+        with patch.object(cli, "validate_packet_bindings", validate), \
+                patch.object(cli, "materialize_source_packet", materialize), \
+                patch.object(cli, "compute_source_snapshot", snapshot), \
+                patch.object(cli, "remove_materialized_packet", remove), \
+                patch.object(cli, "run_provider_stage", provider), \
+                patch.object(cli, "run_dual_stages", dual), \
+                patch("sys.stdout", stdout):
+            code = cli.main(argv)
+        return {
+            "code": code, "verdict": json.loads(stdout.getvalue()), "events": events,
+            "providers": providers, "packet": packet_data, "recheck_ids": recheck_ids,
+        }
+
+    def test_unchanged_source_passes_both_checks(self):
+        observed = self.run_with()
+        self.assertEqual(0, observed["code"], observed["verdict"])
+        self.assertEqual("PASS", observed["verdict"]["status"])
+        # The recheck happens exactly once, after the copy, and lets an unchanged tree through.
+        self.assertEqual(["validate", "materialize", "snapshot"], observed["events"])
+        self.assertNotIn("SOURCE_CHANGED_BEFORE_MATERIALIZE", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "execution-manifest.json").is_file())
+        self.assertEqual(4, len(observed["providers"]))
+        self.assertEqual(
+            {self.output / "materialized-packet" / "source"},
+            {source for _, _, source in observed["providers"]},
+        )
+
+    def test_change_between_validate_and_copy_blocks(self):
+        observed = self.run_with(after_validate=lambda: self.tracked.write_text("B\n"))
+        # Control: what the recheck itself computed is not the packet's snapshot, so the id
+        # check is the one that catches this case.
+        self.assertEqual(1, len(observed["recheck_ids"]))
+        self.assertNotEqual(observed["packet"]["source_snapshot_id"], observed["recheck_ids"][0])
+        self.assertEqual(2, observed["code"])
+        self.assertEqual("BLOCKED", observed["verdict"]["status"])
+        self.assertEqual(["SOURCE_CHANGED_BEFORE_MATERIALIZE"], observed["verdict"]["errors"])
+        self.assertEqual([], observed["providers"])
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+        self.assertFalse((self.output / "final-result.json").exists())
+
+    def test_change_then_restore_after_copy_blocks(self):
+        observed = self.run_with(
+            after_validate=lambda: self.tracked.write_text("B\n"),
+            after_copy=lambda: self.tracked.write_text("A\n"),
+        )
+        # Control: what the recheck itself computed IS the packet's snapshot, so the id check
+        # alone would have passed; only the tree hash of what was actually copied disagrees.
+        self.assertEqual([observed["packet"]["source_snapshot_id"]], observed["recheck_ids"])
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(["SOURCE_CHANGED_BEFORE_MATERIALIZE"], observed["verdict"]["errors"])
+        self.assertEqual([], observed["providers"])
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+        self.assertFalse((self.output / "final-result.json").exists())
+
+    def test_blocked_copy_is_removed_with_permissions_restored(self):
+        mode_before = self.tracked.stat().st_mode
+        observed = self.run_with(after_validate=lambda: self.tracked.write_text("B\n"))
+        self.assertEqual(["SOURCE_CHANGED_BEFORE_MATERIALIZE"], observed["verdict"]["errors"])
+        # materialize locked the copy 0o444/0o555: a plain rmtree cannot remove it, and a
+        # PermissionError would have replaced the verdict. Only the copy goes away; the
+        # output root stays behind empty and the live tree is not touched.
+        self.assertFalse((self.output / "materialized-packet").exists())
+        self.assertEqual([], list(self.output.iterdir()))
+        self.assertEqual("B\n", self.tracked.read_text())
+        self.assertEqual(mode_before, self.tracked.stat().st_mode)
+
+    def test_remove_failure_after_a_mismatch_keeps_the_cause_and_reports_the_leftover(self):
+        # Double fault: the tree changed and the locked copy cannot be removed. The verdict
+        # keeps the source-change code and adds the cleanup code; neither masks the other,
+        # the exception text stays out of stdout, and the leftover is what the code says.
+        observed = self.run_with(after_validate=lambda: self.tracked.write_text("B\n"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["SOURCE_CHANGED_BEFORE_MATERIALIZE", "MATERIALIZED_PACKET_REMOVE_FAILED"],
+            observed["verdict"]["errors"],
+        )
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("locked detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+
+    def test_recheck_fault_maps_to_the_same_code_as_packet_validation(self):
+        # A git or filesystem fault while re-snapshotting is the fault validate_packet_bindings
+        # reports as SOURCE_SNAPSHOT_UNAVAILABLE; the recheck says the same, and the copy goes.
+        faults = (subprocess.CalledProcessError(128, ["git", "rev-parse", "HEAD"]), OSError("io detail"))
+        for error in faults:
+            with self.subTest(fault=type(error).__name__):
+                observed = self.run_with(recheck_error=error)
+                self.assertEqual(2, observed["code"])
+                self.assertEqual(["SOURCE_SNAPSHOT_UNAVAILABLE"], observed["verdict"]["errors"])
+                self.assertEqual([], observed["providers"])
+                self.assertNotIn("detail", json.dumps(observed["verdict"]))
+                self.assertFalse((self.output / "materialized-packet").exists())
+
+    def test_recheck_failure_after_copy_still_removes_the_copy_and_keeps_its_cause(self):
+        # Near miss: after the copy the tree changes in a way the enumerator refuses outright.
+        # The verdict keeps that code and the refused path; the locked copy still does not
+        # stay behind; no provider runs.
+        observed = self.run_with(after_copy=lambda: (self.source / ".env").write_text("TOKEN=x\n"))
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(["PACKET_SECRET_MATERIAL_PRESENT"], observed["verdict"]["errors"])
+        self.assertEqual([".env"], observed["verdict"]["paths"])
+        self.assertEqual([], observed["providers"])
+        self.assertFalse((self.output / "materialized-packet").exists())
+
+    def test_policy_refusal_and_a_failed_removal_are_both_reported(self):
+        # Codex v2 should-fix 1: the two faults meet — the enumerator refuses the tree after the
+        # copy AND the locked copy cannot be removed. The refusal owns the verdict and keeps its
+        # paths; the cleanup code is appended after it instead of being dropped.
+        observed = self.run_with(after_copy=lambda: (self.source / ".env").write_text("TOKEN=x\n"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["PACKET_SECRET_MATERIAL_PRESENT", "MATERIALIZED_PACKET_REMOVE_FAILED"],
+            observed["verdict"]["errors"],
+        )
+        self.assertEqual([".env"], observed["verdict"]["paths"], "the cause keeps its paths")
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("locked detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+
+    def test_unexpected_recheck_fault_and_a_failed_removal_are_both_reported(self):
+        # The same double fault on the generic path: a fault the recheck does not map keeps its
+        # type name as the verdict, and the cleanup code follows it.
+        observed = self.run_with(recheck_error=RuntimeError("fault detail"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["RuntimeError", "MATERIALIZED_PACKET_REMOVE_FAILED"], observed["verdict"]["errors"],
+        )
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
 
 
 if __name__ == "__main__":

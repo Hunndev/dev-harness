@@ -77,6 +77,63 @@ class MaterializeContractTests(MaterializeTestCase):
         remove_materialized_packet(packet)
         self.assertFalse(packet.exists())
 
+    def test_cleanup_refuses_a_symlinked_packet_root_and_leaves_the_target_alone(self):
+        # shutil.rmtree refuses a symlink root; resolving the path first would have followed
+        # it and emptied whatever the link points at (blind review, dev-27 v2). The cleanup is
+        # now on a runtime path, so it refuses the same way, before any chmod.
+        base, _ = self.make_repo()
+        victim = base / "victim"
+        victim.mkdir()
+        (victim / "keep.txt").write_text("keep\n")
+        (victim / "keep.txt").chmod(0o444)
+        link = base / "materialized-packet"
+        link.symlink_to("victim")
+        with self.assertRaises(PacketPolicyError) as caught:
+            remove_materialized_packet(link)
+        self.assertEqual("PACKET_PATH_UNSAFE", caught.exception.code)
+        self.assertTrue(link.is_symlink())
+        self.assertEqual("keep\n", (victim / "keep.txt").read_text())
+        self.assertEqual(0o444, (victim / "keep.txt").stat().st_mode & 0o777)
+
+    def test_cleanup_removes_only_the_named_packet_under_a_stable_parent_symlink(self):
+        # Codex v2 should-fix 2, protection that holds: a symlinked path component that is not
+        # replaced during the cleanup is resolved once and only the packet itself goes.
+        base, source = self.make_repo()
+        real_parent = base / "runs"
+        real_parent.mkdir()
+        (real_parent / "sibling.txt").write_text("sibling\n")
+        linked_parent = base / "out"
+        linked_parent.symlink_to("runs")
+        (source / "a.txt").write_text("a")
+        self.commit(source)
+        packet = linked_parent / "materialized-packet"
+        materialize_source_packet(source, packet)
+        remove_materialized_packet(packet)
+        self.assertFalse((real_parent / "materialized-packet").exists())
+        self.assertTrue(linked_parent.is_symlink(), "the parent link itself is not removed")
+        self.assertEqual("sibling\n", (real_parent / "sibling.txt").read_text())
+
+    def test_cleanup_does_not_walk_into_a_directory_symlink_inside_the_packet(self):
+        # Codex v2 should-fix 2, protection that holds: a link planted inside the copy is
+        # unlinked, never followed, so the target keeps its contents and its 0444 modes.
+        base, source = self.make_repo()
+        outside = base / "outside"
+        outside.mkdir()
+        (outside / "keep.txt").write_text("keep\n")
+        (outside / "keep.txt").chmod(0o444)
+        (source / "a.txt").write_text("a")
+        self.commit(source)
+        packet = base / "materialized-packet"
+        materialize_source_packet(source, packet)
+        packet.chmod(0o700)
+        planted = packet / "planted"
+        planted.symlink_to(outside)
+        remove_materialized_packet(packet)
+        self.assertFalse(packet.exists())
+        self.assertTrue(outside.is_dir())
+        self.assertEqual("keep\n", (outside / "keep.txt").read_text())
+        self.assertEqual(0o444, (outside / "keep.txt").stat().st_mode & 0o777)
+
 
 class PacketPathSafetyTests(MaterializeTestCase):
     """A stale index entry under a symlinked directory must never reach the copier."""

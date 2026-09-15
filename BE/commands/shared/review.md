@@ -151,13 +151,13 @@ Codex 또는 Claude 실패를 `생략`으로 기록하고 PASS하는 것은 금�
 
 ```text
 .harness/artifacts/{track}/{identifier}/eval-review/run-{n}/    ← `--output-root`. run마다 새 빈 디렉토리(`eval-review/` 자체는 `qa-snapshot.json` 등 기록이 있어 쓸 수 없다), packet source 밖
-  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
-  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). run이 지우지 않지만 보관 대상이 아니다
+  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다
+  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). 복사 직후 source 재검증이 실패하거나(`SOURCE_CHANGED_BEFORE_MATERIALIZE`·`SOURCE_SNAPSHOT_UNAVAILABLE`) 재계산 자체가 거부되면 run이 지우고(제거 실패는 `MATERIALIZED_PACKET_REMOVE_FAILED`로 원인 코드 뒤에 함께 보고하며, 일부만 지워졌거나 권한이 바뀐 잔여물이 남을 수 있다 — 보관·재사용 대상이 아니다), 그 밖에는 run이 지우지 않지만 보관 대상이 아니다
   evaluate-claude/             ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
   evaluate-codex/              ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
   review-claude/               ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
   review-codex/                ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
-  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized 검증 실패로 조기 BLOCKED되면 없다
+  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다
   sealed-results/              ← 영속: stage·engine별 sealed result. 한 파일에 semantic + envelope
   sealed-results/evaluate-claude.json
   sealed-results/evaluate-codex.json
