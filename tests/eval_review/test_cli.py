@@ -834,6 +834,38 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
         self.assertEqual([], observed["providers"])
         self.assertFalse((self.output / "materialized-packet").exists())
 
+    def test_policy_refusal_and_a_failed_removal_are_both_reported(self):
+        # Codex v2 should-fix 1: the two faults meet — the enumerator refuses the tree after the
+        # copy AND the locked copy cannot be removed. The refusal owns the verdict and keeps its
+        # paths; the cleanup code is appended after it instead of being dropped.
+        observed = self.run_with(after_copy=lambda: (self.source / ".env").write_text("TOKEN=x\n"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["PACKET_SECRET_MATERIAL_PRESENT", "MATERIALIZED_PACKET_REMOVE_FAILED"],
+            observed["verdict"]["errors"],
+        )
+        self.assertEqual([".env"], observed["verdict"]["paths"], "the cause keeps its paths")
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("locked detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+
+    def test_unexpected_recheck_fault_and_a_failed_removal_are_both_reported(self):
+        # The same double fault on the generic path: a fault the recheck does not map keeps its
+        # type name as the verdict, and the cleanup code follows it.
+        observed = self.run_with(recheck_error=RuntimeError("fault detail"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["RuntimeError", "MATERIALIZED_PACKET_REMOVE_FAILED"], observed["verdict"]["errors"],
+        )
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()

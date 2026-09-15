@@ -1,8 +1,8 @@
 {
   "files": {
     "bin/hb-eval-review": "9e70f0ac4fcf5192b0a8b945c4b32ac646d063fa9ccdc4ec47e2a630f4c8a805",
-    "commands/shared/evaluate.md": "25975e06f5623870f08bedcf75f3a6e7cf321cbcaff54de1d89ad9e1cc304719",
-    "commands/shared/review.md": "94fa1997ac94c630dae868a0cdcd3c13340e1520f047aee824f1080337a93e9b",
+    "commands/shared/evaluate.md": "9de8410dbe6964d8f6cc6a6ee74ac1eb4dd4aa5d5e1841320aa794df615b51a2",
+    "commands/shared/review.md": "7ff2ba373d3c0684a8dc952f99bb1a1b6ea764676d926f2ebb311f67f7e3df68",
     "contracts/evaluate-result.schema.json": "6cac8e31915cea5ed0c76238e3ee9134dead039d98cf58ffddf023d9ea0238b0",
     "contracts/execution-envelope.schema.json": "eadf39b30d063c286b2092adce12a4924796c8bb2f49173a2969a79cfbadb832",
     "contracts/final-result.schema.json": "d7b0970f9155b765c4cb289ef461226fb8408002cc8017670904be4cfff48ea7",
@@ -17,9 +17,9 @@
     "runtime/hb_eval_review/adapters/__init__.py": "99d81eff550df355f6456ba8e9dce7bf7b5a72cbb821bb6097268d3c403dc079",
     "runtime/hb_eval_review/adapters/claude.py": "b3f72b86302bad4e1ae6eb0eb4c839fdd03c93ab41c199517bd03dc8b2fbfb4e",
     "runtime/hb_eval_review/adapters/codex.py": "5740da830455d9104c5c5318bd3e7b320cc882ff381477d9a867eb6d9cc5ab70",
-    "runtime/hb_eval_review/cli.py": "a1a4cb49adb9f7605791eae1c73f73ba8afb1d7791cb5171c2836b85fdfa53d7",
+    "runtime/hb_eval_review/cli.py": "77dffd5aaaec037d6d03b5fe00cce4c6ff092ae51b02c924b981813da80a0156",
     "runtime/hb_eval_review/finalize.py": "4d1a559305b2b44f0acf8a5489e8914ccc91973fe3fb9c1105484fee5b5c9812",
-    "runtime/hb_eval_review/materialize.py": "fc5aceb671e462b7c6fc5c74fe4c09595d941446e0cb9efab7d92642eed40b1b",
+    "runtime/hb_eval_review/materialize.py": "6b674b6caad82fa176d0aaf4f56f3cd1d02538e7d1fb96416576b502d5f3d04a",
     "runtime/hb_eval_review/orchestrate.py": "3e9079c5563c1f934f2d9c551e60cd5cf5459efa3837fe4b716b18cad1f3a44a",
     "runtime/hb_eval_review/process.py": "072b8cc057e72e855972a2e2f338b3f00bf881b8c52287a7162feb3b9562b9bb",
     "runtime/hb_eval_review/redaction.py": "9070b09953c45ac0bc00b02ed2825b85c461b8d8a825bb27507f5b1d69c5c8f7",

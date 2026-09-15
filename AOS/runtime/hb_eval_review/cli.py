@@ -57,6 +57,26 @@ def _discard_materialized_packet(root: Path) -> List[str]:
     return []
 
 
+def _attach_cleanup_errors(error: BaseException, codes: List[str]) -> None:
+    """Carry cleanup codes on an exception the caller re-raises, for ``main`` to append.
+
+    The cause owns the verdict, so a failed removal travels with it instead of replacing it or
+    being dropped. An exception type that refuses the attribute simply carries nothing; the
+    cause is still reported.
+    """
+    if not codes:
+        return
+    try:
+        error.cleanup_errors = [*getattr(error, "cleanup_errors", ()), *codes]
+    except AttributeError:
+        pass
+
+
+def _cleanup_errors(error: BaseException) -> List[str]:
+    """Cleanup codes attached on the way up, reported after the cause."""
+    return list(getattr(error, "cleanup_errors", ()))
+
+
 def command_snapshot(args: argparse.Namespace) -> int:
     snapshot = compute_source_snapshot(Path(args.repository))
     _emit({"source_snapshot_id": snapshot["source_snapshot_id"]})
@@ -145,11 +165,12 @@ def command_run(args: argparse.Namespace) -> int:
             "SOURCE_SNAPSHOT_UNAVAILABLE", *_discard_materialized_packet(materialized_root),
         ]})
         return 2
-    except Exception:
+    except Exception as error:
         # The tree became something the enumerator refuses (PacketPolicyError keeps its code
         # and paths through main). A locked copy of a tree no longer bound to anything must
-        # not stay; here the removal is best effort, because the cause owns the verdict.
-        _discard_materialized_packet(materialized_root)
+        # not stay, and a removal that fails is a second fact next to that cause: the cause
+        # keeps the verdict and main appends the cleanup code after it.
+        _attach_cleanup_errors(error, _discard_materialized_packet(materialized_root))
         raise
     if (
         recomputed["source_snapshot_id"] != packet["source_snapshot_id"]
@@ -265,15 +286,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         args = build_parser().parse_args(argv)
         return args.func(args)
     except PacketPolicyError as error:
-        # Paths only. The refused bytes never reach stdout.
-        _emit({"status": "BLOCKED", "errors": [error.code], "paths": error.paths})
+        # Paths only. The refused bytes never reach stdout. A cleanup that failed on the way
+        # here is reported after the cause, never instead of it.
+        _emit({
+            "status": "BLOCKED", "errors": [error.code, *_cleanup_errors(error)],
+            "paths": error.paths,
+        })
         return 2
     except Exception as error:
         # Untrusted provider output and a resource fault must both leave a JSON verdict
         # rather than a traceback, so every ordinary exception is mapped to BLOCKED and
         # only its type is published. KeyboardInterrupt and SystemExit derive from
         # BaseException and are deliberately left to propagate.
-        _emit({"status": "BLOCKED", "errors": [type(error).__name__]})
+        _emit({"status": "BLOCKED", "errors": [type(error).__name__, *_cleanup_errors(error)]})
         return 2
 
 

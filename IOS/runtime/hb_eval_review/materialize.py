@@ -93,7 +93,15 @@ def verify_materialized_packet(packet: Path, manifest: Dict[str, Any]) -> bool:
 
 
 def remove_materialized_packet(packet: Path) -> None:
-    """Restore owner write bits only for controlled cleanup, then remove the packet."""
+    """Restore owner write bits only for controlled cleanup, then remove the packet.
+
+    Safe against links that are already there: a symlinked root is refused before any chmod, a
+    stable symlinked path component is resolved once, and a link inside the copy is unlinked
+    rather than walked. It assumes the output tree and its parents are the parent process's own
+    and are not replaced while it runs — a privileged process that swaps a path component
+    between the check and the chmod, or between the walk and the chmod, is outside what these
+    checks cover; closing that would take directory descriptors and no-follow operations.
+    """
     packet = Path(packet)
     if packet.is_symlink():
         # shutil.rmtree refuses a symlink root; resolving the path first would have followed
