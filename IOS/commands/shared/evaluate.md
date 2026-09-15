@@ -52,7 +52,7 @@ evidence_bundle_id
 packet_id
 ```
 
-Gate 실패, 필수 TDD 증거 누락, 검사 전후 source snapshot 변경은 모델 판단 전에 `BLOCKED`다. packet 검증과 source 복사 사이의 변경도 같다: `hb-eval-review run`은 복사 직후 snapshot을 다시 계산해 packet의 `source_snapshot_id`와 복사본의 tree 해시(`source_tree_sha256`) 둘 다 대조하고(검증→복사 사이 재검증), 하나라도 다르면 provider를 띄우지 않고 `SOURCE_CHANGED_BEFORE_MATERIALIZE`로 `BLOCKED`하며 잠긴 복사본을 제거한다.
+Gate 실패, 필수 TDD 증거 누락, 검사 전후 source snapshot 변경은 모델 판단 전에 `BLOCKED`다. packet 검증과 source 복사 사이의 변경도 같다: `hb-eval-review run`은 복사 직후 snapshot을 다시 계산해 packet의 `source_snapshot_id`와 복사본의 tree 해시(`source_tree_sha256`) 둘 다 대조하고(검증→복사 사이 재검증), 하나라도 다르면 provider를 띄우지 않고 `SOURCE_CHANGED_BEFORE_MATERIALIZE`로 `BLOCKED`하며 잠긴 복사본을 제거한다. 재계산이 git·파일시스템 오류로 끝나면 `SOURCE_SNAPSHOT_UNAVAILABLE`, 열거기가 tree를 거부하면 그 코드로 같은 방식으로 `BLOCKED`하고, 복사본 제거가 실패하면 `MATERIALIZED_PACKET_REMOVE_FAILED`를 판정에 함께 적는다.
 
 ## 절차
 
@@ -154,13 +154,13 @@ snapshot mismatch/repository mutation  → 이전 결과 무효, Gate부터 재�
 
 ```text
 .harness/artifacts/{track}/{identifier}/eval-review/run-{n}/    ← `--output-root`. run마다 새 빈 디렉토리(`eval-review/` 자체는 `qa-snapshot.json` 등 기록이 있어 쓸 수 없다), packet source 밖
-  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized·source 재검증 실패로 조기 BLOCKED되면 없다
-  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). 복사 직후 source 재검증에 실패하면(`SOURCE_CHANGED_BEFORE_MATERIALIZE`) run이 지우고, 그 밖에는 run이 지우지 않지만 보관 대상이 아니다
+  execution-manifest.json      ← 영속: packet·source·evidence ID, prompt/effective prompt digest, model ID, isolation policy. packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다
+  materialized-packet/         ← 임시: content-verified packet copy(manifest.json + source/). 복사 직후 source 재검증이 실패하거나(`SOURCE_CHANGED_BEFORE_MATERIALIZE`·`SOURCE_SNAPSHOT_UNAVAILABLE`) 재계산 자체가 거부되면 run이 지우고(제거 실패는 `MATERIALIZED_PACKET_REMOVE_FAILED`로 함께 보고하며 복사본은 남는다), 그 밖에는 run이 지우지 않지만 보관 대상이 아니다
   evaluate-claude/             ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
   evaluate-codex/              ← 임시: Evaluate provider 작업 디렉토리. Review 시작 전 삭제(Evaluate가 BLOCKED면 남는다)
   review-claude/               ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
   review-codex/                ← 임시: Review provider 작업 디렉토리. Review가 실행됐을 때만
-  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized·source 재검증 실패로 조기 BLOCKED되면 없다
+  final-result.json            ← 영속: run 결과(PASS/BLOCKED). packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다
   sealed-results/              ← 영속: stage·engine별 sealed result. 한 파일에 semantic + envelope
   sealed-results/evaluate-claude.json
   sealed-results/evaluate-codex.json

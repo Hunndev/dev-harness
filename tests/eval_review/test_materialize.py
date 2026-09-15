@@ -77,6 +77,24 @@ class MaterializeContractTests(MaterializeTestCase):
         remove_materialized_packet(packet)
         self.assertFalse(packet.exists())
 
+    def test_cleanup_refuses_a_symlinked_packet_root_and_leaves_the_target_alone(self):
+        # shutil.rmtree refuses a symlink root; resolving the path first would have followed
+        # it and emptied whatever the link points at (blind review, dev-27 v2). The cleanup is
+        # now on a runtime path, so it refuses the same way, before any chmod.
+        base, _ = self.make_repo()
+        victim = base / "victim"
+        victim.mkdir()
+        (victim / "keep.txt").write_text("keep\n")
+        (victim / "keep.txt").chmod(0o444)
+        link = base / "materialized-packet"
+        link.symlink_to("victim")
+        with self.assertRaises(PacketPolicyError) as caught:
+            remove_materialized_packet(link)
+        self.assertEqual("PACKET_PATH_UNSAFE", caught.exception.code)
+        self.assertTrue(link.is_symlink())
+        self.assertEqual("keep\n", (victim / "keep.txt").read_text())
+        self.assertEqual(0o444, (victim / "keep.txt").stat().st_mode & 0o777)
+
 
 class PacketPathSafetyTests(MaterializeTestCase):
     """A stale index entry under a symlinked directory must never reach the copier."""

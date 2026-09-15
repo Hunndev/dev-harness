@@ -94,7 +94,12 @@ def verify_materialized_packet(packet: Path, manifest: Dict[str, Any]) -> bool:
 
 def remove_materialized_packet(packet: Path) -> None:
     """Restore owner write bits only for controlled cleanup, then remove the packet."""
-    packet = Path(packet).resolve()
+    packet = Path(packet)
+    if packet.is_symlink():
+        # shutil.rmtree refuses a symlink root; resolving the path first would have followed
+        # it and emptied whatever the link points at. Refuse the same way, before any chmod.
+        raise PacketPolicyError("PACKET_PATH_UNSAFE", [str(packet)])
+    packet = packet.resolve()
     if not packet.exists():
         return
     for path in sorted(packet.rglob("*"), key=lambda item: len(item.parts), reverse=True):

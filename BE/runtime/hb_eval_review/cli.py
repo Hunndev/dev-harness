@@ -1,10 +1,10 @@
 """Command-line interface for deterministic Evaluate/Review contracts."""
 
 import argparse
-import contextlib
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -41,6 +41,20 @@ def _load(path: str) -> Dict[str, Any]:
 
 def _emit(value: Dict[str, Any]) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _discard_materialized_packet(root: Path) -> List[str]:
+    """Remove a copy the run can no longer use; report a failure to do so, never mask it.
+
+    The copy is locked 0o444/0o555, so removal can fail on its own. That failure is a second
+    fact next to the cause that made the copy unusable, not a replacement for it: the caller
+    appends the returned code to its own verdict, and only the code is published.
+    """
+    try:
+        remove_materialized_packet(root)
+    except Exception:
+        return ["MATERIALIZED_PACKET_REMOVE_FAILED"]
+    return []
 
 
 def command_snapshot(args: argparse.Namespace) -> int:
@@ -124,19 +138,27 @@ def command_run(args: argparse.Namespace) -> int:
     # the copy to the packet.
     try:
         recomputed = compute_source_snapshot(packet_source)
+    except (OSError, subprocess.CalledProcessError):
+        # The same git or filesystem fault validate_packet_bindings reports under this code;
+        # the recheck says the same, and the copy still goes.
+        _emit({"status": "BLOCKED", "errors": [
+            "SOURCE_SNAPSHOT_UNAVAILABLE", *_discard_materialized_packet(materialized_root),
+        ]})
+        return 2
     except Exception:
-        # The tree became something the enumerator refuses. The verdict keeps that cause,
-        # but a locked copy of a tree that is no longer bound to anything must not stay.
-        with contextlib.suppress(Exception):
-            remove_materialized_packet(materialized_root)
+        # The tree became something the enumerator refuses (PacketPolicyError keeps its code
+        # and paths through main). A locked copy of a tree no longer bound to anything must
+        # not stay; here the removal is best effort, because the cause owns the verdict.
+        _discard_materialized_packet(materialized_root)
         raise
     if (
         recomputed["source_snapshot_id"] != packet["source_snapshot_id"]
         or compute_tree_sha256(recomputed["manifest"]["files"])
         != materialized_manifest.get("source_tree_sha256")
     ):
-        remove_materialized_packet(materialized_root)
-        _emit({"status": "BLOCKED", "errors": ["SOURCE_CHANGED_BEFORE_MATERIALIZE"]})
+        _emit({"status": "BLOCKED", "errors": [
+            "SOURCE_CHANGED_BEFORE_MATERIALIZE", *_discard_materialized_packet(materialized_root),
+        ]})
         return 2
     provider_source = materialized_root / "source"
     (output_root / "execution-manifest.json").write_text(json.dumps({

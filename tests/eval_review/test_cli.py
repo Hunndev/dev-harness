@@ -574,7 +574,7 @@ class OutputContractTests(unittest.TestCase):
         documented = self.documented(self.DOCS[0])
         # Both files are written after the five early-return checks, so both rows name the same five.
         for entry in ("final-result.json", "execution-manifest.json"):
-            self.assertIn("packet·prompt·model·materialized·source 재검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
+            self.assertIn("packet·prompt·model·materialized 검증 또는 source 재검증 실패로 조기 BLOCKED되면 없다", documented[entry], entry)
         # The three checks before mkdir (cli.command_run) leave no output root at all.
         before_mkdir = (
             ("packet", lambda: dict(packet=self.packet(), binding_errors=("SOURCE_SNAPSHOT_MISMATCH",)),
@@ -599,6 +599,7 @@ class OutputContractTests(unittest.TestCase):
             self.assertTrue(self.output.is_dir())
             self.assertEqual(set(), observed["final"])
             self.assertIn("run이 지우고", documented["materialized-packet/"])
+            self.assertIn("MATERIALIZED_PACKET_REMOVE_FAILED", documented["materialized-packet/"])
         # The materialized-packet check runs after mkdir and the copy: only that directory remains.
         with self.subTest(check="materialized"):
             observed = self.run_mocked(self.packet(), materialized_ok=False)
@@ -664,13 +665,15 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
         path.write_text(json.dumps(data))
         return path, data
 
-    def run_with(self, after_validate=None, after_copy=None):
+    def run_with(self, after_validate=None, after_copy=None, recheck_error=None, remove_error=None):
         packet_path, packet_data = self.bound_packet()
         events = []
         providers = []
+        recheck_ids = []
         real_validate = cli.validate_packet_bindings
         real_materialize = cli.materialize_source_packet
         real_snapshot = cli.compute_source_snapshot
+        real_remove = cli.remove_materialized_packet
 
         def validate(packet, repository):
             errors = real_validate(packet, repository)
@@ -688,7 +691,16 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
 
         def snapshot(repository):
             events.append("snapshot")
-            return real_snapshot(repository)
+            if recheck_error is not None:
+                raise recheck_error
+            result = real_snapshot(repository)
+            recheck_ids.append(result["source_snapshot_id"])
+            return result
+
+        def remove(root):
+            if remove_error is not None:
+                raise remove_error
+            real_remove(root)
 
         def provider(engine, stage, packet, packet_source, output_root, prompt,
                      timeout_seconds=240, peer_output_root=None, model=None):
@@ -718,13 +730,14 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
         with patch.object(cli, "validate_packet_bindings", validate), \
                 patch.object(cli, "materialize_source_packet", materialize), \
                 patch.object(cli, "compute_source_snapshot", snapshot), \
+                patch.object(cli, "remove_materialized_packet", remove), \
                 patch.object(cli, "run_provider_stage", provider), \
                 patch.object(cli, "run_dual_stages", dual), \
                 patch("sys.stdout", stdout):
             code = cli.main(argv)
         return {
             "code": code, "verdict": json.loads(stdout.getvalue()), "events": events,
-            "providers": providers, "packet": packet_data,
+            "providers": providers, "packet": packet_data, "recheck_ids": recheck_ids,
         }
 
     def test_unchanged_source_passes_both_checks(self):
@@ -743,11 +756,10 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
 
     def test_change_between_validate_and_copy_blocks(self):
         observed = self.run_with(after_validate=lambda: self.tracked.write_text("B\n"))
-        # Control: the tree no longer has the packet's snapshot, so the id check catches it.
-        self.assertNotEqual(
-            observed["packet"]["source_snapshot_id"],
-            compute_source_snapshot(self.source)["source_snapshot_id"],
-        )
+        # Control: what the recheck itself computed is not the packet's snapshot, so the id
+        # check is the one that catches this case.
+        self.assertEqual(1, len(observed["recheck_ids"]))
+        self.assertNotEqual(observed["packet"]["source_snapshot_id"], observed["recheck_ids"][0])
         self.assertEqual(2, observed["code"])
         self.assertEqual("BLOCKED", observed["verdict"]["status"])
         self.assertEqual(["SOURCE_CHANGED_BEFORE_MATERIALIZE"], observed["verdict"]["errors"])
@@ -760,12 +772,9 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
             after_validate=lambda: self.tracked.write_text("B\n"),
             after_copy=lambda: self.tracked.write_text("A\n"),
         )
-        # Control: the tree is back at the packet's snapshot, so the id check alone would pass;
-        # only the tree hash of what was actually copied disagrees.
-        self.assertEqual(
-            observed["packet"]["source_snapshot_id"],
-            compute_source_snapshot(self.source)["source_snapshot_id"],
-        )
+        # Control: what the recheck itself computed IS the packet's snapshot, so the id check
+        # alone would have passed; only the tree hash of what was actually copied disagrees.
+        self.assertEqual([observed["packet"]["source_snapshot_id"]], observed["recheck_ids"])
         self.assertEqual(2, observed["code"])
         self.assertEqual(["SOURCE_CHANGED_BEFORE_MATERIALIZE"], observed["verdict"]["errors"])
         self.assertEqual([], observed["providers"])
@@ -783,6 +792,36 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
         self.assertEqual([], list(self.output.iterdir()))
         self.assertEqual("B\n", self.tracked.read_text())
         self.assertEqual(mode_before, self.tracked.stat().st_mode)
+
+    def test_remove_failure_after_a_mismatch_keeps_the_cause_and_reports_the_leftover(self):
+        # Double fault: the tree changed and the locked copy cannot be removed. The verdict
+        # keeps the source-change code and adds the cleanup code; neither masks the other,
+        # the exception text stays out of stdout, and the leftover is what the code says.
+        observed = self.run_with(after_validate=lambda: self.tracked.write_text("B\n"),
+                                 remove_error=PermissionError("locked detail"))
+        self.addCleanup(cli.remove_materialized_packet, self.output / "materialized-packet")
+        self.assertEqual(2, observed["code"])
+        self.assertEqual(
+            ["SOURCE_CHANGED_BEFORE_MATERIALIZE", "MATERIALIZED_PACKET_REMOVE_FAILED"],
+            observed["verdict"]["errors"],
+        )
+        self.assertEqual([], observed["providers"])
+        self.assertNotIn("locked detail", json.dumps(observed["verdict"]))
+        self.assertTrue((self.output / "materialized-packet" / "source").is_dir())
+        self.assertFalse((self.output / "execution-manifest.json").exists())
+
+    def test_recheck_fault_maps_to_the_same_code_as_packet_validation(self):
+        # A git or filesystem fault while re-snapshotting is the fault validate_packet_bindings
+        # reports as SOURCE_SNAPSHOT_UNAVAILABLE; the recheck says the same, and the copy goes.
+        faults = (subprocess.CalledProcessError(128, ["git", "rev-parse", "HEAD"]), OSError("io detail"))
+        for error in faults:
+            with self.subTest(fault=type(error).__name__):
+                observed = self.run_with(recheck_error=error)
+                self.assertEqual(2, observed["code"])
+                self.assertEqual(["SOURCE_SNAPSHOT_UNAVAILABLE"], observed["verdict"]["errors"])
+                self.assertEqual([], observed["providers"])
+                self.assertNotIn("detail", json.dumps(observed["verdict"]))
+                self.assertFalse((self.output / "materialized-packet").exists())
 
     def test_recheck_failure_after_copy_still_removes_the_copy_and_keeps_its_cause(self):
         # Near miss: after the copy the tree changes in a way the enumerator refuses outright.
