@@ -176,8 +176,21 @@ def command_run(args: argparse.Namespace) -> int:
         raise ValueError("output_root must be outside packet_source")
     if output_root.exists() and any(output_root.iterdir()):
         raise ValueError("output_root must be absent or empty")
-    binding_errors = validate_packet_bindings(packet, packet_source)
     schema_errors = validate_packet_schema(packet)
+    if schema_errors:
+        # Retain the existing source-policy diagnostics for malformed packets, but
+        # never read caller evidence paths that have not passed the catalog.
+        invalid = dict(packet)
+        invalid["evidence_entries"] = []
+        errors = schema_errors + validate_packet_bindings(invalid, packet_source)
+        _emit({"status": "BLOCKED", "errors": list(dict.fromkeys(errors))})
+        return 2
+    gate_binding_errors = validate_gate_binding(packet)
+    if gate_binding_errors:
+        _emit({"status": "BLOCKED", "errors": gate_binding_errors})
+        return 2
+    track, identifier, artifacts = packet_context(packet, packet_source)
+    binding_errors = validate_packet_bindings(packet, packet_source)
     if ("SOURCE_SNAPSHOT_MISMATCH" in binding_errors and isinstance(packet.get("request"), dict)
             and isinstance(packet["request"].get("gate"), dict)):
         gate_path = packet_source / packet["request"]["gate"].get("path", "")
@@ -206,11 +219,6 @@ def command_run(args: argparse.Namespace) -> int:
     if packet.get("request", {}).get("model_ids") != model_ids:
         _emit({"status": "BLOCKED", "errors": ["MODEL_ID_MISMATCH"]})
         return 2
-    gate_binding_errors = validate_gate_binding(packet)
-    if gate_binding_errors:
-        _emit({"status": "BLOCKED", "errors": gate_binding_errors})
-        return 2
-    track, identifier, artifacts = packet_context(packet, packet_source)
     parent_facts = json.dumps({
         "packet_id": packet["packet_id"],
         "source_snapshot_id": packet["source_snapshot_id"],
@@ -267,7 +275,7 @@ def command_run(args: argparse.Namespace) -> int:
         gate_errors = validate_gate_file(
             evidence_root / "gate-result.json", packet_source, evidence_root=evidence_root,
             source_snapshot_id=recomputed["source_snapshot_id"], track=track,
-            issue_type=packet["request"].get("issue_type"),
+            issue_type=packet["request"].get("issue_type"), artifacts=artifacts,
         )
         if gate_errors:
             raise ContractError(gate_errors)

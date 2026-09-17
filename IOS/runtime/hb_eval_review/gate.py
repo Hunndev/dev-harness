@@ -139,54 +139,72 @@ def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Opti
         return ['TDD_EVIDENCE_MISSING']
     if artifacts is not None and expected[0].parent != artifacts.relative_to(repo):
         return ['TDD_EVIDENCE_MISSING']
-    for relative in expected:
+    for relative, validator in zip(expected, (validate_test_design, validate_test_sensitivity)):
         root = evidence_root if evidence_root is not None else repo
         path = root / relative.name if evidence_root is not None else root / relative
         if not _safe_relative_file(path, root):
-            return ['TDD_EVIDENCE_MISSING']
+            errors.append('TDD_EVIDENCE_MISSING')
+            continue
         try:
             document = _load_json(path)
-        except (OSError, UnicodeError, ValueError):
-            return ['TDD_EVIDENCE_MISSING']
-        if not isinstance(document, dict) or document.get('status') != 'PASS':
-            return ['TDD_EVIDENCE_MISSING']
+        except OSError:
+            errors.append('TDD_EVIDENCE_MISSING')
+            continue
+        except (UnicodeError, ValueError):
+            errors.extend(('TDD_EVIDENCE_MISSING', 'TDD_SCHEMA_INVALID'))
+            continue
+        if not isinstance(document, dict):
+            errors.extend(('TDD_EVIDENCE_MISSING', 'TDD_SCHEMA_INVALID'))
+            continue
+        if document.get('status') != 'PASS':
+            errors.append('TDD_EVIDENCE_MISSING')
         documents.append(document)
-    baselines = [effective_baseline(document) for document in documents]
-    if None in baselines:
-        errors.append('TDD_BASELINE_INVALID')
-    elif baselines[0] != baselines[1]:
-        errors.append('TDD_BASELINE_MISMATCH')
-    if 'PASS_TO_PASS' in baselines and (track != 'maintenance' or issue_type != 'refactor'):
-        errors.append('TDD_BASELINE_INVALID')
-    for document, name, validator in zip(documents, _TDD_NAMES,
-                                         (validate_test_design, validate_test_sensitivity)):
-        if validate_schema(document, name.replace('.json', '.schema.json')):
+        if validate_schema(document, relative.name.replace('.json', '.schema.json')):
             errors.append('TDD_SCHEMA_INVALID')
         try:
-            # Preserve meaningful TDD codes even when the same enum/const value is
-            # rejected by its schema. Shape errors remain schema failures, not crashes.
+            # BLOCKED evidence is unavailable for acceptance, but its actual schema
+            # and semantic errors remain useful diagnostics. Inspect both files.
             errors.extend(validator(document))
         except (AttributeError, TypeError):
             errors.append('TDD_SCHEMA_INVALID')
+    baselines = [effective_baseline(document) for document in documents]
+    if None in baselines:
+        errors.append('TDD_BASELINE_INVALID')
+    elif len(baselines) == 2 and baselines[0] != baselines[1]:
+        errors.append('TDD_BASELINE_MISMATCH')
+    if 'PASS_TO_PASS' in baselines and (track != 'maintenance' or issue_type != 'refactor'):
+        errors.append('TDD_BASELINE_INVALID')
     return list(dict.fromkeys(errors))
 
 
 def validate_gate_file(path: Path, repo: Path, *, evidence_root: Optional[Path] = None,
                        source_snapshot_id: Optional[str] = None,
-                       track: Optional[str] = None, issue_type: Optional[str] = None) -> List[str]:
+                       track: Optional[str] = None, issue_type: Optional[str] = None,
+                       artifacts: Optional[Path] = None) -> List[str]:
     """Read real Gate/TDD bytes, using frozen evidence exclusively when supplied.
 
     A caller supplying the original source ID has already performed source-copy
     validation. It must not cause this consumer to hash the live tree again.
+    Frozen evidence also requires the original artifact directory, so flattened
+    filenames cannot hide references to another issue's evidence.
     """
     repo = Path(repo).absolute()
     path = Path(path).absolute()
     root = Path(evidence_root).absolute() if evidence_root is not None else repo
-    artifacts = _artifacts_from_gate(path, repo) if evidence_root is None else None
-    if not _safe_relative_file(path, root) or (evidence_root is None and artifacts is None):
+    original_artifacts = _artifacts_from_gate(path, repo) if evidence_root is None else None
+    if not _safe_relative_file(path, root) or (evidence_root is None and original_artifacts is None):
         return ['GATE_EVIDENCE_MISSING']
     if evidence_root is not None and path != root / 'gate-result.json':
         return ['GATE_EVIDENCE_MISSING']
+    if artifacts is not None:
+        artifacts = Path(artifacts).absolute()
+        if (_artifacts_from_gate(artifacts / 'eval-review/gate-result.json', repo) != artifacts
+                or (original_artifacts is not None and artifacts != original_artifacts)):
+            return ['TDD_EVIDENCE_MISSING']
+    elif evidence_root is not None:
+        return ['TDD_EVIDENCE_MISSING']
+    else:
+        artifacts = original_artifacts
     if artifacts is not None:
         actual_track = artifacts.parts[-2]
         if track is not None and track != actual_track:

@@ -8,10 +8,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .frozen_diff import build_frozen_diff
 from .gate import validate_gate_file
 from .schema_validation import validate_schema
 from .snapshot import (PacketPolicyError, compute_evidence_bundle_id,
-                       compute_packet_id, compute_source_snapshot)
+                       compute_packet_id, compute_source_snapshot, _is_secret_material)
 
 DIFF_PROMPT_LIMIT = 65536
 TDD_NAMES = ('tdd-test-design-result.json', 'tdd-sensitivity-result.json')
@@ -88,6 +89,8 @@ def _read_safe(root: Path, relative: str) -> bytes:
     path = Path(relative)
     if path.is_absolute() or '..' in path.parts:
         raise PacketPolicyError('EVIDENCE_ENTRY_PATH_ESCAPE', [relative])
+    if _is_secret_material(path):
+        raise PacketPolicyError('PACKET_SECRET_MATERIAL_PRESENT', [relative])
     cursor = root
     for part in path.parts:
         cursor = cursor / part
@@ -118,21 +121,8 @@ def materialize_evidence(repo: Path, packet_root: Path, entries: List[Dict[str, 
     return destination
 
 
-def _diff(repo: Path, base_sha: str) -> bytes:
-    pathspec = [':(top,exclude).harness/artifacts/**']
-    result = _git(repo, 'diff', '--binary', '--no-ext-diff', '--no-textconv', base_sha, '--', '.', *pathspec)
-    names = _git(repo, 'ls-files', '--others', '--exclude-standard', '-z').split(b'\0')
-    for raw in sorted(filter(None, names)):
-        relative = raw.decode('utf-8', 'surrogateescape')
-        if Path(relative).parts[:2] == ('.harness', 'artifacts'):
-            continue
-        cp = subprocess.run(['git', 'diff', '--no-index', '--binary', '--no-ext-diff',
-                             '--no-textconv', '--', '/dev/null', relative], cwd=str(repo),
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if cp.returncode not in (0, 1):
-            raise ContractError(['DIFF_UNAVAILABLE'], [relative])
-        result += cp.stdout
-    return result
+def _diff(repo: Path, base_sha: str, snapshot: Optional[Dict[str, Any]] = None) -> bytes:
+    return build_frozen_diff(repo, base_sha, snapshot or compute_source_snapshot(repo))
 
 
 def _command_doc(stage: str) -> str:
@@ -175,12 +165,13 @@ def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str
     errors = validate_gate_file(gate_path, repo, track=track, issue_type=issue_type)
     if errors:
         raise ContractError(errors)
-    snapshot_id = compute_source_snapshot(repo)['source_snapshot_id']
+    snapshot = compute_source_snapshot(repo)
+    snapshot_id = snapshot['source_snapshot_id']
     gate = json.loads(gate_path.read_bytes())
     if gate.get('source_snapshot_id') != snapshot_id:
         raise ContractError(['GATE_STALE'])
     base_sha = _git(repo, 'merge-base', base_ref, 'HEAD').decode().strip()
-    diff = _diff(repo, base_sha)
+    diff = _diff(repo, base_sha, snapshot)
     evaluation = artifacts / 'eval-review'; evaluation.mkdir(parents=True, exist_ok=True)
     diff_path = evaluation / 'diff.patch'; diff_path.write_bytes(diff)
     log_names = ('hotfix-red-log.txt', 'hotfix-green-log.txt') if issue_type == 'hotfix' or track == 'hotfix' else ('tdd-baseline-log.txt', 'tdd-green-log.txt')
@@ -207,7 +198,7 @@ def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str
                 raise ContractError(["EVIDENCE_COPY_MISMATCH"], [name])
         frozen_errors = validate_gate_file(frozen / "gate-result.json", repo,
                                            evidence_root=frozen, source_snapshot_id=snapshot_id,
-                                           track=track, issue_type=issue_type)
+                                           track=track, issue_type=issue_type, artifacts=artifacts)
         if frozen_errors:
             raise ContractError(frozen_errors)
     gate = json.loads(contents["gate-result.json"])
@@ -237,7 +228,7 @@ def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str
     evidence_id = compute_evidence_bundle_id(entries)
     packet = {'source_snapshot_id':snapshot_id,'evidence_bundle_id':evidence_id,'request':request,
               'evidence_entries':entries, 'packet_id':compute_packet_id(request,snapshot_id,evidence_id)}
-    errors = validate_packet_schema(packet)
+    errors = validate_packet_schema(packet) or validate_gate_binding(packet)
     if errors:
         raise ContractError(errors)
     destination = evaluation / 'packet'; destination.mkdir(parents=True, exist_ok=True)
@@ -257,16 +248,65 @@ def packet_context(packet: Dict[str, Any], repo: Path) -> Tuple[str, str, Path]:
 
 
 def validate_gate_binding(packet: Dict[str, Any]) -> List[str]:
-    request = packet.get('request', {}); gate = request.get('gate', {})
-    entries = packet.get('evidence_entries', [])
-    if not isinstance(gate, dict) or gate.get('status') != 'PASS' or not any(
-            entry.get('path') == gate.get('path') and entry.get('sha256') == gate.get('sha256') for entry in entries):
-        return ['GATE_EVIDENCE_MISSING']
-    digests = request.get('evidence_digests', {})
+    """Validate the complete catalog before any untrusted evidence path is read.
+
+    Digests bind bytes, not purpose: a caller can recompute all public hashes. The
+    required six paths therefore come from the packet's one artifact identity,
+    never from whichever entries the caller happened to supply.
+    """
+    request = packet.get("request", {})
+    entries = packet.get("evidence_entries", [])
+    if not isinstance(request, dict) or not isinstance(entries, list):
+        return ["PACKET_SCHEMA_INVALID"]
+    artifact_name = request.get("artifacts")
+    if not isinstance(artifact_name, str):
+        return ["ARTIFACT_EVIDENCE_MISMATCH"]
+    artifact = Path(artifact_name)
+    parts = artifact.parts
+    if (artifact.is_absolute() or len(parts) != 4 or parts[:2] != (".harness", "artifacts")
+            or parts[2] not in ("feature", "maintenance", "hotfix")
+            or parts[2] != request.get("track") or parts[3] != request.get("identifier")
+            or artifact.as_posix() != artifact_name or ".." in parts):
+        return ["ARTIFACT_EVIDENCE_MISMATCH"]
+    kind = request.get("issue_type")
+    if kind not in ("feature", "bug", "refactor", "hotfix", "performance"):
+        return ["ARTIFACT_EVIDENCE_MISMATCH"]
+    logs = ("hotfix-red-log.txt", "hotfix-green-log.txt") if kind == "hotfix" or parts[2] == "hotfix" else ("tdd-baseline-log.txt", "tdd-green-log.txt")
+    expected = {name: (artifact / name).as_posix() for name in (*logs, *TDD_NAMES)}
+    expected.update({name: (artifact / "eval-review" / name).as_posix()
+                     for name in ("gate-result.json", "diff.patch")})
+    if any(_is_secret_material(Path(path)) for path in expected.values()):
+        return ["PACKET_SECRET_MATERIAL_PRESENT"]
+    paths = []
     for entry in entries:
-        name = Path(entry['path']).name
-        if digests.get(name) != entry['sha256']:
-            return ['DIFF_EVIDENCE_MISSING' if name == 'diff.patch' else 'GATE_EVIDENCE_MISSING']
-    if not any(Path(entry['path']).name == 'diff.patch' for entry in entries):
-        return ['DIFF_EVIDENCE_MISSING']
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            return ["PACKET_SCHEMA_INVALID"]
+        name = Path(entry["path"]).name
+        if name not in expected:
+            return ["EVIDENCE_ENTRY_UNEXPECTED"]
+        if entry["path"] != expected[name]:
+            return ["ARTIFACT_EVIDENCE_MISMATCH"]
+        paths.append(entry["path"])
+    if len(paths) != len(set(paths)):
+        return ["EVIDENCE_ENTRY_DUPLICATE"]
+    missing = set(expected.values()) - set(paths)
+    if missing:
+        if expected["gate-result.json"] in missing:
+            return ["GATE_EVIDENCE_MISSING"]
+        if expected["diff.patch"] in missing:
+            return ["DIFF_EVIDENCE_MISSING"]
+        return ["TDD_EVIDENCE_MISSING"]
+    digests = request.get("evidence_digests")
+    if not isinstance(digests, dict) or set(digests) != set(expected):
+        return ["EVIDENCE_DIGESTS_INVALID"]
+    gate = request.get("gate")
+    if (not isinstance(gate, dict) or gate.get("status") != "PASS"
+            or gate.get("path") != expected["gate-result.json"]):
+        return ["GATE_EVIDENCE_MISSING"]
+    for entry in entries:
+        name = Path(entry["path"]).name
+        if digests[name] != entry.get("sha256"):
+            return ["DIFF_EVIDENCE_MISSING" if name == "diff.patch" else "GATE_EVIDENCE_MISSING"]
+        if name == "gate-result.json" and gate.get("sha256") != entry.get("sha256"):
+            return ["GATE_EVIDENCE_MISSING"]
     return []

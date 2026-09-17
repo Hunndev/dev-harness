@@ -217,7 +217,7 @@ class GateTests(unittest.TestCase):
         (self.repo / 'app.py').write_text('changed after frozen copy')
         with patch('hb_eval_review.gate.compute_source_snapshot', side_effect=AssertionError('must not reread live source')):
             self.assertEqual([], validate_gate_file(frozen / 'gate-result.json', self.repo,
-                evidence_root=frozen, source_snapshot_id=data['source_snapshot_id'], track='feature'))
+                evidence_root=frozen, source_snapshot_id=data['source_snapshot_id'], track='feature', artifacts=self.artifacts))
 
     def test_gate_path_and_tdd_reference_cannot_escape_artifact_layout(self):
         data = self.create_gate()
