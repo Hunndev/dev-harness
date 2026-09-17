@@ -34,7 +34,16 @@ def _git(repo: Path, *args: str) -> bytes:
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
 
 
+def reject_git_redirect_environment() -> None:
+    """Fail closed on exported repository/index/object redirection without changing env."""
+    keys = ("GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES")
+    if any(key in os.environ for key in keys):
+        raise ContractError(["GIT_REDIRECT_ENV_UNSUPPORTED"])
+
+
 def repository_root(repo: Path) -> Path:
+    reject_git_redirect_environment()
     repo = Path(repo).resolve()
     actual = Path(_git(repo, 'rev-parse', '--show-toplevel').decode().strip()).resolve()
     if actual != repo:
@@ -135,16 +144,51 @@ def _command_doc(stage: str) -> str:
 
 
 def _acceptance(text: str) -> List[str]:
-    explicit = re.findall(r'(?m)^.*\bAC[-_][A-Za-z0-9_-]+[^\n]*', text)
-    if explicit:
-        return [line.strip(' |') for line in explicit]
-    lines = []; active = False
+    """Collect actual list/table criteria, excluding prose references and fenced examples."""
+    result: List[str] = []
+    heading_level: Optional[int] = None
+    fence_character: Optional[str] = None
+    fence_size = 0
+    table = False
+    previous_line = ""
+    list_prefix = r"\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?"
+    identifier = r"AC[-_][A-Za-z0-9_-]+(?=\s|[:：.)|-]|$)"
     for line in text.splitlines():
-        if line.startswith('#'):
-            active = bool(re.search(r'acceptance|완료\s*기준|수용\s*기준', line, re.I))
-        elif active and re.match(r'\s*(?:[-*]|\d+[.)])\s+\S', line):
-            lines.append(line.strip())
-    return lines
+        preceding, previous_line = previous_line, line
+        fence = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if fence_character is not None:
+            if re.fullmatch(r"\s*" + re.escape(fence_character) + "{" + str(fence_size) + r",}\s*", line):
+                fence_character = None
+            continue
+        if fence:
+            table = False
+            fence_character, fence_size = fence.group(1)[0], len(fence.group(1))
+            continue
+        heading = re.match(r"^\s{0,3}(#{1,6})\s+(.+)", line)
+        if heading:
+            table = False
+            level = len(heading.group(1))
+            if re.search(r"acceptance|완료\s*기준|수용\s*기준", heading.group(2), re.I):
+                heading_level = level
+            elif heading_level is not None and level <= heading_level:
+                heading_level = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if ("|" in preceding and len(cells) > 1
+                and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)):
+            table = True
+            continue
+        if not line.strip() or "|" not in line:
+            table = False
+        explicit = (re.match(r"^" + list_prefix + identifier, line, re.I)
+                    or re.match(r"^\s*\|\s*" + identifier, line, re.I)
+                    or (table and re.match(r"^\s*" + identifier, line, re.I)))
+        heading_item = heading_level is not None and re.match(r"^" + list_prefix + r"\S", line)
+        if explicit or heading_item:
+            criterion = line.strip().strip("|").strip()
+            if criterion not in result:
+                result.append(criterion)
+    return result
 
 
 def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str,
@@ -157,9 +201,9 @@ def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str
     request_bytes = _read_safe(repo, (artifacts / request_source).relative_to(repo).as_posix())
     request_text = request_bytes.decode('utf-8')
     declared = re.search(r'(?im)^\s*(?:type|issue_type|유형|이슈 유형)\s*:\s*(bug|feature|refactor|hotfix|performance)\b', request_text)
-    declared_type = declared.group(1) if declared else None
+    declared_type = declared.group(1).lower() if declared else None
     if issue_type and declared_type and issue_type != declared_type:
-        raise ContractError(['TDD_BASELINE_MISMATCH'])
+        raise ContractError(['ISSUE_TYPE_CONFLICT'])
     issue_type = issue_type or declared_type or ('hotfix' if request_source == 'hotfix-reproduction.md' else 'bug')
     gate_path = artifacts / 'eval-review' / 'gate-result.json'
     errors = validate_gate_file(gate_path, repo, track=track, issue_type=issue_type)

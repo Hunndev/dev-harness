@@ -148,6 +148,21 @@ class GateTests(unittest.TestCase):
                 target.write_text(json.dumps(doc))
                 self.assertIn('TDD_EVIDENCE_MISSING', validate_gate_file(self.gate, self.repo, track=track, issue_type=issue_type))
 
+        # A refactor cannot choose a bug-style baseline merely by supplying two
+        # matching, individually valid documents. Version 1.0 implies RED_TO_GREEN.
+        for version in ('1.1', '1.0'):
+            with self.subTest(track='maintenance', issue_type='refactor', version=version):
+                self.artifacts = self.repo / '.harness/artifacts/maintenance/issue-1'
+                self.gate = self.artifacts / 'eval-review/gate-result.json'
+                self.write_tdd('RED_TO_GREEN', version=version)
+                generated = self.create_gate(issue_type='refactor')
+                with self.subTest(entrypoint='generate_gate'):
+                    self.assertEqual('BLOCKED', generated['status'])
+                    self.assertIn('TDD_BASELINE_INVALID', generated['errors'])
+                with self.subTest(entrypoint='validate_gate_file'):
+                    self.assertIn('TDD_BASELINE_INVALID', validate_gate_file(
+                        self.gate, self.repo, track='maintenance', issue_type='refactor'))
+
     def test_gate_preserves_tdd_meaning_error_codes(self):
         self.create_gate()
         target = self.artifacts / 'tdd-sensitivity-result.json'
@@ -203,8 +218,12 @@ class GateTests(unittest.TestCase):
     def test_pass_baseline_cannot_change_issue_type(self):
         self.write_tdd('PASS_TO_PASS')
         data = self.create_gate(issue_type='refactor')
-        self.assertEqual('BLOCKED', data['status'])
-        self.assertIn('TDD_BASELINE_INVALID', data['errors'])
+        with self.subTest(entrypoint='generate_gate'):
+            self.assertEqual('BLOCKED', data['status'])
+            self.assertIn('TDD_BASELINE_INVALID', data['errors'])
+        with self.subTest(entrypoint='validate_gate_file'):
+            self.assertIn('TDD_BASELINE_INVALID', validate_gate_file(
+                self.gate, self.repo, track='feature', issue_type='refactor'))
 
     def test_frozen_evidence_validator_never_reads_live_source(self):
         data = self.create_gate()

@@ -90,6 +90,8 @@
 2. H1~H3·request·AC 증거를 먼저 완성하고 `hb-eval-review gate --repo <root> --cmd '<실제 검사 argv>' --out <root>/.harness/artifacts/maintenance/{identifier}/eval-review/gate-result.json --issue-type hotfix`로 deterministic Gate를 통과시킨다.
 3. `hb-eval-review pack --repo <root> --artifacts <root>/.harness/artifacts/maintenance/{identifier} --request-source hotfix-reproduction.md --base <ref> --claude-model <model> --codex-model <model> --issue-type hotfix`로 Gate·TDD·전체 diff·AC를 같은 snapshot에 결속한다.
 4. 즉시 `hb-eval-review run --from <root>/.harness/artifacts/maintenance/{identifier}/eval-review/packet --claude-model <model> --codex-model <model>`을 실행한다. blind fresh Claude+Codex **검사(Evaluate)**가 모두 PASS일 때만 같은 packet으로 **평가(Review)**를 진행한다. source는 저장소 루트이며 output은 저장소 밖이다. provider 누락·timeout·schema·Gate·TDD·snapshot·사본 hash 오류는 fail-closed `BLOCKED`다.
+증거를 수정했다면 `gate` → `pack`을 다시 실행하여 새 결속을 만든 뒤 run한다.
+
 5. 부모 finalizer의 `PASS`만 완료로 인정한다. 모델의 process/timeout/mutation 자기보고는 실행 증거로 인정하지 않는다.
 
 ### 완료

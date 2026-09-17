@@ -174,6 +174,8 @@ def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Opti
         errors.append('TDD_BASELINE_MISMATCH')
     if 'PASS_TO_PASS' in baselines and (track != 'maintenance' or issue_type != 'refactor'):
         errors.append('TDD_BASELINE_INVALID')
+    if track == 'maintenance' and issue_type == 'refactor' and baselines != ['PASS_TO_PASS', 'PASS_TO_PASS']:
+        errors.append('TDD_BASELINE_INVALID')
     return list(dict.fromkeys(errors))
 
 

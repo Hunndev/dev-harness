@@ -59,13 +59,13 @@ SHARED/bin/hb-eval-review run \
   --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol --timeout 480
 ```
 
-`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. shell 파이프·리다이렉션·연결은 거부한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 schema 1.1 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
+`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 schema 1.1 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
 
-standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. packet source는 항상 `.git`이 있는 저장소 루트다. output은 저장소 밖의 `${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/`이며 `--output-root`로 새 빈 외부 디렉토리를 지정할 수 있다. slug는 이름과 저장소 경로·remote의 hash를 함께 써 같은 이름의 저장소를 구별한다. 모델은 명시 옵션 또는 `CLAUDE_MODEL_ID`·`CODEX_MODEL_ID`로 받고 packet에 기록한 값과 대조한다. 기존 `run --packet` 방식도 동일한 Gate·TDD 검증을 통과해야 하며 기존 7개 인자를 모두 제공한다.
+standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. packet source는 항상 `.git`이 있는 저장소 루트다. output은 저장소 밖의 `${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/`이며 `--output-root`로 새 빈 외부 디렉토리를 지정할 수 있다. slug는 이름과 저장소 경로·remote의 hash를 함께 써 같은 이름의 저장소를 구별한다. 모델은 명시 옵션 또는 `CLAUDE_MODEL_ID`·`CODEX_MODEL_ID`로 받고 packet에 기록한 값과 대조한다. 기존 `run --packet` 방식도 동일한 Gate·TDD 검증을 통과해야 하며 기존 7개 인자를 모두 제공한다. `GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES`가 export되어 있으면 빈 값이어도 pack/run은 첫 Git 사용 전에 `GIT_REDIRECT_ENV_UNSUPPORTED`로 BLOCKED한다. 환경을 자동 정화하지 않으며, 정상 환경으로 정리한 뒤 Gate부터 다시 실행한다. Git 전 층의 환경 정화는 이 변경의 범위 밖이다.
 
 Gate 1.1에는 source ID와 실제 명령 결과만 결속하며 순환하는 evidence/packet ID는 넣지 않는다. pack은 필수 Gate·TDD·로그·전체 diff의 hash와 요청·AC·모델·프롬프트를 결속한다. diff는 `.harness/artifacts/**`만 제외하며 `.harness/docs/**` 변경은 포함한다. diff는 Gate에 결속한 source manifest와 hash·mode·link가 일치하는 실제 사본 bytes를 고정한 뒤 고정 merge-base와 비교한다. live source가 생성 도중 바뀌었다 원복되어도 다른 bytes를 diff에 결속하지 않는다. 기존 diff 범위를 유지하기 위해 Git에 보이는 미추적 cache 파일도 별도 read-once 사본으로 포함한다. 이 추가 cache 증거는 diff/packet hash에 결속되지만 원래 source snapshot에서 제외되므로 Gate/source ID 검증을 받았다고 주장하지 않는다. 추가 경로도 기존 secret·symlink 경로 정책을 통과해야 한다. 긴 diff는 프롬프트의 절단 표기·전체 hash·전체 사본 경로를 통해 확인한다. run은 source 복사·재검증 뒤 Gate·TDD·diff를 `materialized-packet/evidence/`에 읽기 전용 사본으로 고정한다. gitignore와 무관하게 사본 bytes의 hash를 대조하고 이후 live 증거는 다시 읽지 않는다. run은 필수 6개 증거의 정확한 목록과 원래 artifact ID·Gate 참조 경로를 읽기 전에 대조하며 임의 추가 증거는 거부한다. 존재하지만 손상된 TDD는 누락/사용 불가 코드와 schema·baseline·의미 원인 코드를 함께 보존한다. 증거 준비/검증 실패도 provider 0회로 BLOCKED하며 packet을 정리하고 정리 실패 코드는 원인 뒤에 보존한다.
 
-모든 필수 증거와 request는 Gate 전에 완성하고 pack 직후 run한다. 중간에 TDD 로그 등 산출물을 쓰면 source 결속이 달라진다. 완료 후 런타임이 `final-result.json`과 `execution-manifest.json`의 실제 사본을 `.harness/artifacts/<track>/<id>/eval-review/run-<n>/`에 기록한다. 실행 manifest는 repo·id·외부 output 경로와 복사 크기·소요 시간을 남긴다. 나머지 provider·봉인 결과는 외부 output에 있으며 설치된 operational path의 blocking gate로 자동 승격하지 않는다.
+모든 필수 증거와 request는 Gate 전에 완성하고 pack 직후 run한다. 증거를 수정했다면 `gate` → `pack`을 다시 실행하여 새 결속을 만든 뒤 run한다. 중간에 TDD 로그 등 산출물을 쓰면 source 결속이 달라진다. 완료 후 런타임이 `final-result.json`과 `execution-manifest.json`의 실제 사본을 `.harness/artifacts/<track>/<id>/eval-review/run-<n>/`에 기록한다. 실행 manifest는 repo·id·외부 output 경로와 복사 크기·소요 시간을 남긴다. 나머지 provider·봉인 결과는 외부 output에 있으며 설치된 operational path의 blocking gate로 자동 승격하지 않는다.
 
 #### 실행 전 보안 조건
 
@@ -498,7 +498,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 388 · tdd_quality 21 · tooling 57 (CI에서 실행)
+├── tests/                        ← eval_review 408 · tdd_quality 21 · tooling 57 (CI에서 실행)
 └── README.md
 ```
 

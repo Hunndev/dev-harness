@@ -127,6 +127,28 @@ class GatePackRunTests(unittest.TestCase):
                 missing=self.artifacts/'tdd-sensitivity-result.json'; original=missing.read_bytes(); missing.unlink()
                 with self.assertRaises(Exception) as error: self.pack(issue_type=kind)
                 self.assertIn('TDD_EVIDENCE_MISSING',str(error.exception)); missing.write_bytes(original)
+        # F2: validator-layer positive/negative controls live in test_gate.py;
+        # this layer proves both public run consumers reject refactor + legacy/new RED.
+        from hb_eval_review.pack import ContractError
+        for version in ('1.1','1.0'):
+            with self.subTest(refactor_red_version=version):
+                case=GatePackRunTests();case.setUp();self.addCleanup(case.doCleanups)
+                case.artifacts,case.request_name=evidence_fixture(case.repo,'maintenance','bug',ignored=True)
+                case.packet_dir=case.artifacts/'eval-review/packet'
+                packet=case.pack()
+                request_path=case.artifacts/case.request_name
+                request_path.write_text(request_path.read_text().replace('Type: bug','Type: refactor'))
+                if version=='1.0':
+                    for name in ('tdd-test-design-result.json','tdd-sensitivity-result.json'):
+                        path=case.artifacts/name;data=json.loads(path.read_text())
+                        data['schema_version']='1.0';data.pop('baseline');write_json(path,data)
+                with self.assertRaises(ContractError) as blocked:case.pack()
+                self.assertIn('TDD_BASELINE_INVALID',blocked.exception.errors)
+                packet['request']['issue_type']='refactor';packet['request']['text']=request_path.read_text()
+                case.rebind(packet)
+                for from_mode in (True,False):
+                    rc,result,seen=case.run_packet(from_mode)
+                    self.assertEqual(2,rc,result);self.assertIn('TDD_BASELINE_INVALID',result['errors']);self.assertEqual([],seen)
 
     def test_run_packet_and_run_from_share_gate_validator(self):
         for from_mode in (True,False):
@@ -150,6 +172,7 @@ class GatePackRunTests(unittest.TestCase):
                     self.assertEqual(2,rc); self.assertEqual([],seen)
                     expected={'status':'GATE_NOT_PASSED','empty':'GATE_SCHEMA_INVALID','exit':'GATE_NOT_PASSED','tdd':'TDD_EVIDENCE_MISSING','hash':'TDD_TEST_IDENTITY_CHANGED'}[failure]
                     self.assertIn(expected,result['errors'])
+                    if failure=='empty': self.assertIn('GATE_NOT_PASSED',result['errors'])
                     self.assertFalse((self.output/'materialized-packet').exists())
 
     def test_pack_diff_excludes_only_artifacts(self):

@@ -20,7 +20,7 @@ from .materialize import (
 )
 from .gate import generate_gate, validate_gate_file
 from .pack import (ContractError, build_packet, default_output_root, materialize_evidence,
-                   packet_context, repository_slug, validate_gate_binding, validate_packet_schema)
+                   packet_context, reject_git_redirect_environment, repository_slug, validate_gate_binding, validate_packet_schema)
 from .orchestrate import run_dual_stages
 from .result_validation import validate_provider_result
 from .run_provider import run_provider_stage
@@ -115,6 +115,7 @@ def command_gate(args: argparse.Namespace) -> int:
 
 
 def command_pack(args: argparse.Namespace) -> int:
+    reject_git_redirect_environment()
     models = {"claude": args.claude_model or os.environ.get("CLAUDE_MODEL_ID"),
               "codex": args.codex_model or os.environ.get("CODEX_MODEL_ID")}
     if not all(models.values()):
@@ -168,6 +169,7 @@ def _copy_run_reports(output: Path, artifacts: Path) -> Path:
 
 def command_run(args: argparse.Namespace) -> int:
     """Run blind Dual Evaluate followed by Dual Review and persist parent-owned artifacts."""
+    reject_git_redirect_environment()
     _run_arguments(args)
     packet = _load(args.packet)
     packet_source = Path(args.packet_source).resolve()
