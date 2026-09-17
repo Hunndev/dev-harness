@@ -36,38 +36,26 @@ def _git(repo: Path, *args: str, input_data: bytes = None) -> bytes:
 
 
 def _untracked_names(repo: Path) -> bytes:
-    # Resolve this passive path with Git's ordinary system/global/local precedence,
-    # including path expansion and a repository-local empty override. The config
-    # query cannot execute helpers, and keeps the existing redirect-env isolation.
-    # Only this value crosses into the otherwise isolated plumbing environment.
-    env = _environment()
-    for key in ('GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_GLOBAL'):
-        # Honor caller-selected config files just as snapshot enumeration does.
-        if key in os.environ:
-            env[key] = os.environ[key]
-        else:
-            env.pop(key, None)
-    # Command-scope config also affects snapshot's ls-files. Consult it only in
-    # this non-executing query; later commands receive just core.excludesFile.
-    # GIT_CONFIG is deliberately excluded: it changes `git config` only, so its
-    # file does not describe the config used by snapshot enumeration.
-    for key, value in os.environ.items():
-        if (key in ('GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS')
-                or key.startswith(('GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'))):
-            env[key] = value
+    # Enumerate with the same complete config/environment interpretation as
+    # snapshot's ls-files. Copying selected keys loses other ignore semantics
+    # (case folding, Unicode precomposition, and future Git settings).
+    # This names-only command does not run diff/textconv/clean filters. Its one
+    # executable hook, fsmonitor, is disabled by a command-line override that
+    # wins over global/includes and command-scope environment configuration.
+    # Public pack/run reject these six redirects before reaching this helper.
+    # Keep its pre-existing repository/index isolation for direct internal calls;
+    # no ignore/configuration keys are selected or reconstructed here.
+    env = dict(os.environ)
+    for key in ('GIT_DIR', 'GIT_COMMON_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE',
+                'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'):
+        env.pop(key, None)
+    # Object reads and the final diff still use the isolated _environment().
     result = subprocess.run(
-        ['git', '-c', 'core.fsmonitor=false', '-c', 'core.attributesFile=' + os.devnull,
-         'config', '--null', '--path', '--get', 'core.excludesFile'],
+        ['git', '-c', 'core.fsmonitor=false', 'ls-files', '-z', '--others', '--exclude-standard'],
         cwd=str(repo), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode not in (0, 1):
+    if result.returncode:
         raise PacketPolicyError('DIFF_UNAVAILABLE', [])
-    args = []
-    if result.returncode == 0:
-        if not result.stdout.endswith(b'\0'):
-            raise PacketPolicyError('DIFF_UNAVAILABLE', [])
-        args = ['-c', 'core.excludesFile=' + os.fsdecode(result.stdout[:-1])]
-    # When no explicit value exists, Git still uses its default XDG ignore path.
-    return _git(repo, *args, 'ls-files', '--others', '--exclude-standard', '-z')
+    return result.stdout
 
 
 def _relative(value: str) -> Path:

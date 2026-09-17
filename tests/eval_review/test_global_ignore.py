@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unicodedata
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,7 +31,8 @@ class GlobalIgnoreTests(unittest.TestCase):
         self.home.mkdir()
         environment = {key: value for key, value in os.environ.items()
                        if not key.startswith('GIT_')}
-        environment.update(HOME=str(self.home), XDG_CONFIG_HOME=str(self.home / 'xdg'))
+        environment.update(HOME=str(self.home), XDG_CONFIG_HOME=str(self.home / 'xdg'),
+                           GIT_CONFIG_NOSYSTEM='1')
         self.environment = patch.dict(os.environ, environment, clear=True)
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -100,7 +102,8 @@ class GlobalIgnoreTests(unittest.TestCase):
         (self.repo / '.DS_Store').write_text('synthetic config file override\n')
         cases = (
             ({'GIT_CONFIG_GLOBAL': str(config)}, True),
-            ({'GIT_CONFIG_SYSTEM': str(config)}, True),
+            # Enable only this explicit synthetic system file, never the host file.
+            ({'GIT_CONFIG_SYSTEM': str(config), 'GIT_CONFIG_NOSYSTEM': '0'}, True),
             ({'GIT_CONFIG_SYSTEM': str(config), 'GIT_CONFIG_NOSYSTEM': '1'}, False),
         )
         for environment, ignored in cases:
@@ -191,11 +194,119 @@ class GlobalIgnoreTests(unittest.TestCase):
     def test_failed_ignore_lookup_is_blocked_instead_of_silently_ignored(self):
         snapshot = compute_source_snapshot(self.repo)
         run = frozen_diff.subprocess.run
-        def fail_config(args, *positional, **kwargs):
-            if 'config' in args and 'core.excludesFile' in args:
+        def fail_enumeration(args, *positional, **kwargs):
+            if 'ls-files' in args and '--others' in args:
                 return subprocess.CompletedProcess(args, 2, b'', b'synthetic config failure')
             return run(args, *positional, **kwargs)
-        with patch.object(frozen_diff.subprocess, 'run', side_effect=fail_config):
+        with patch.object(frozen_diff.subprocess, 'run', side_effect=fail_enumeration):
             with self.assertRaises(PacketPolicyError) as blocked:
                 frozen_diff.build_frozen_diff(self.repo, self.base_sha, snapshot)
         self.assertEqual('DIFF_UNAVAILABLE', blocked.exception.code)
+
+    def test_operator_ignore_settings_match_for_cache_and_root(self):
+        # These settings affect matching, not the excludes-file location. Check
+        # Git's actual output rather than carrying an ever-growing config list.
+        for key, pattern, filename in (
+            ('core.ignoreCase', 'foo.txt', 'FOO.txt'),
+            ('core.precomposeUnicode', 'caf\u00e9.txt', unicodedata.normalize('NFD', 'caf\u00e9.txt')),
+        ):
+            for directory in ('build', ''):
+                with self.subTest(key=key, directory=directory or 'root'):
+                    config = self.root / 'operator-config'
+                    config.write_text('')
+                    for setting in ('core.ignoreCase', 'core.precomposeUnicode'):
+                        subprocess.run(['git', 'config', '--unset-all', setting], cwd=str(self.repo),
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    git(self.repo, 'config', '--file', str(config), key, 'true')
+                    relative = Path(directory) / filename
+                    (self.repo / '.gitignore').write_text((Path(directory) / pattern).as_posix() + '\n')
+                    path = self.repo / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    marker = b'R1_OPERATOR_IGNORED_BYTES\n'
+                    path.write_bytes(marker)
+                    try:
+                        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(config)}):
+                            operator_names = git(self.repo, 'ls-files', '-z', '--others', '--exclude-standard')
+                            ignored = os.fsencode(relative.as_posix()) not in operator_names.split(b'\0')
+                            if key == 'core.ignoreCase' or sys.platform == 'darwin':
+                                self.assertTrue(ignored, 'positive control: operator Git hides this file')
+                            # Git's Unicode precomposition is platform dependent;
+                            # non-macOS still checks parity with its actual behavior.
+                            actual_names = frozen_diff._untracked_names(self.repo)
+                            with self.subTest('enumeration parity'):
+                                self.assertEqual(set(operator_names.split(b'\0')), set(actual_names.split(b'\0')))
+                            with self.subTest('pack and diff'):
+                                snapshot, diff = self.pack()
+                                self.assertEqual(not ignored, marker.rstrip() in diff)
+                                if ignored:
+                                    self.assertNotIn(relative.as_posix(), [x['path'] for x in snapshot['manifest']['files']])
+                    finally:
+                        path.unlink(missing_ok=True)
+
+    def test_unignored_cache_stays_in_diff_under_operator_settings(self):
+        config = self.root / 'operator-config'
+        git(self.repo, 'config', '--file', str(config), 'core.ignoreCase', 'false')
+        subprocess.run(['git', 'config', '--unset-all', 'core.ignoreCase'], cwd=str(self.repo),
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (self.repo / '.gitignore').write_text('build/foo.txt\n')
+        (self.repo / 'build').mkdir()
+        (self.repo / 'build' / 'FOO.txt').write_text('R1_VISIBLE_CACHE_CONTROL\n')
+        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(config)}):
+            self.assertIn(b'build/FOO.txt', git(self.repo, 'ls-files', '-z', '--others', '--exclude-standard').split(b'\0'))
+            snapshot, diff = self.pack()
+        self.assertNotIn('build/FOO.txt', [x['path'] for x in snapshot['manifest']['files']])
+        self.assertIn(b'+R1_VISIBLE_CACHE_CONTROL\n', diff)
+
+    def test_command_scope_helpers_cannot_run_inside_frozen_diff(self):
+        snapshot = compute_source_snapshot(self.repo)
+        markers = {}
+        settings = {}
+        for name, key in (('monitor', 'core.fsmonitor'), ('external', 'diff.external'),
+                          ('textconv', 'diff.fixture.textconv'), ('clean', 'filter.fixture.clean')):
+            marker = self.root / (name + '-marker')
+            helper = self.root / (name + '-helper.sh')
+            suffix = 'exit 1\n' if name == 'monitor' else ('cat "$1"\n' if name == 'textconv' else ('cat\n' if name == 'clean' else 'exit 0\n'))
+            helper.write_text('#!/bin/sh\nprintf ran >> ' + shlex.quote(str(marker)) + '\n' + suffix)
+            helper.chmod(0o755)
+            markers[name] = marker
+            settings[key] = shlex.quote(str(helper))
+        attributes = self.root / 'attributes'
+        attributes.write_text('app.py diff=fixture filter=fixture\n')
+        settings['core.attributesFile'] = str(attributes)
+        include = self.root / 'included-config'
+        for key, value in settings.items():
+            git(self.repo, 'config', '--file', str(include), key, value)
+        def count_env(values):
+            result = {'GIT_CONFIG_COUNT': str(len(values))}
+            for index, (key, value) in enumerate(values.items()):
+                result.update({'GIT_CONFIG_KEY_' + str(index): key, 'GIT_CONFIG_VALUE_' + str(index): value})
+            return result
+        def parameters_env(values):
+            # Git's internal PARAMETERS format requires quoted entries even when
+            # shlex.quote would leave a shell-safe word unquoted.
+            return {'GIT_CONFIG_PARAMETERS': ' '.join(
+                "'" + (key + '=' + value).replace("'", "'\\''") + "'"
+                for key, value in values.items())}
+        cases = (
+            ('count', count_env(settings)),
+            ('parameters', parameters_env(settings)),
+            ('count-include', count_env({'include.path': str(include)})),
+            ('parameters-include', parameters_env({'include.path': str(include)})),
+        )
+        for label, environment in cases:
+            with self.subTest(scope=label), patch.dict(os.environ, environment):
+                for marker in markers.values():
+                    marker.unlink(missing_ok=True)
+                git(self.repo, 'ls-files', '-z', '--others', '--exclude-standard')
+                self.assertTrue(markers['monitor'].exists(), 'control: caller fsmonitor really executes')
+                git(self.repo, 'diff', 'HEAD')
+                self.assertTrue(markers['external'].exists())
+                git(self.repo, '-c', 'diff.external=', 'diff', '--no-ext-diff', '--textconv', 'HEAD')
+                self.assertTrue(markers['textconv'].exists())
+                git(self.repo, 'hash-object', '--path=app.py', 'app.py')
+                self.assertTrue(markers['clean'].exists())
+                for marker in markers.values():
+                    marker.unlink(missing_ok=True)
+                diff = frozen_diff.build_frozen_diff(self.repo, self.base_sha, snapshot)
+                self.assertIn(b'-value = 1\n+value = 2\n', diff)
+                self.assertEqual([], [name for name, marker in markers.items() if marker.exists()])

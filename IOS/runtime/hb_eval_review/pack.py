@@ -19,9 +19,11 @@ TDD_NAMES = ('tdd-test-design-result.json', 'tdd-sensitivity-result.json')
 
 
 class ContractError(ValueError):
-    def __init__(self, errors: List[str], paths: Optional[List[str]] = None):
+    def __init__(self, errors: List[str], paths: Optional[List[str]] = None,
+                 variables: Optional[List[str]] = None):
         self.errors = list(dict.fromkeys(errors))
         self.paths = paths or []
+        self.variables = variables or []
         super().__init__(','.join(self.errors))
 
 
@@ -38,8 +40,9 @@ def reject_git_redirect_environment() -> None:
     """Fail closed on exported repository/index/object redirection without changing env."""
     keys = ("GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE",
             "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES")
-    if any(key in os.environ for key in keys):
-        raise ContractError(["GIT_REDIRECT_ENV_UNSUPPORTED"])
+    present = sorted(key for key in keys if key in os.environ)
+    if present:
+        raise ContractError(["GIT_REDIRECT_ENV_UNSUPPORTED"], variables=present)
 
 
 def repository_root(repo: Path) -> Path:
@@ -143,27 +146,88 @@ def _command_doc(stage: str) -> str:
     raise ContractError(['PROMPT_TEMPLATE_MISSING'])
 
 
-def _acceptance(text: str) -> List[str]:
-    """Collect actual list/table criteria, excluding prose references and fenced examples."""
-    result: List[str] = []
-    heading_level: Optional[int] = None
+def _acceptance_lines(text: str) -> List[str]:
+    """Hide comments/fences while retaining line boundaries for table headers."""
+    visible: List[str] = []
+    in_comment = False
     fence_character: Optional[str] = None
     fence_size = 0
+    fence_container = 0
+    list_indents: List[int] = []
+    for raw_line in text.splitlines():
+        expanded = raw_line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(' '))
+        if fence_character is not None:
+            # An unclosed list fence ends when its containing item ends.
+            if expanded.strip() and indent < fence_container:
+                fence_character = None
+            else:
+                relative = expanded[fence_container:]
+                if re.fullmatch(r" {0,3}" + re.escape(fence_character)
+                                + "{" + str(fence_size) + r",}[ \t]*", relative):
+                    fence_character = None
+                visible.append('')
+                continue
+        # Comments in literal fenced content never affect subsequent Markdown.
+        line = raw_line
+        uncommented = ''
+        while line:
+            if in_comment:
+                end = line.find('-->')
+                if end < 0:
+                    line = ''
+                else:
+                    line = line[end + 3:]
+                    in_comment = False
+            else:
+                start = line.find('<!--')
+                if start < 0:
+                    uncommented += line
+                    break
+                uncommented += line[:start]
+                line = line[start + 4:]
+                in_comment = True
+        line = uncommented
+        expanded = line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(' '))
+        if expanded.strip():
+            while list_indents and indent < list_indents[-1]:
+                list_indents.pop()
+        container = list_indents[-1] if list_indents else 0
+        relative = expanded[container:]
+        # CommonMark fence indentation is measured after list container prefixes.
+        marker = re.match(r" {0,3}(?:[-*+]|\d{1,9}[.)])( +)", relative)
+        while marker:
+            padding = len(marker.group(1))
+            width = marker.end() if padding <= 4 else marker.end() - padding + 1
+            container += width
+            list_indents.append(container)
+            relative = expanded[container:]
+            marker = re.match(r" {0,3}(?:[-*+]|\d{1,9}[.)])( +)", relative)
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", relative)
+        if fence and (fence.group(1)[0] != '`' or '`' not in fence.group(2)):
+            fence_character, fence_size = fence.group(1)[0], len(fence.group(1))
+            fence_container = container
+            visible.append('')
+        else:
+            visible.append(line)
+    return visible
+
+
+def _acceptance(text: str) -> List[str]:
+    """Collect actual list/table criteria, excluding examples and empty seed rows."""
+    result: List[str] = []
+    heading_level: Optional[int] = None
     table = False
-    previous_line = ""
     list_prefix = r"\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?"
     identifier = r"AC[-_][A-Za-z0-9_-]+(?=\s|[:：.)|-]|$)"
-    for line in text.splitlines():
-        preceding, previous_line = previous_line, line
-        fence = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if fence_character is not None:
-            if re.fullmatch(r"\s*" + re.escape(fence_character) + "{" + str(fence_size) + r",}\s*", line):
-                fence_character = None
-            continue
-        if fence:
-            table = False
-            fence_character, fence_size = fence.group(1)[0], len(fence.group(1))
-            continue
+    lines = _acceptance_lines(text)
+    separators = set()
+    for index, line in enumerate(lines):
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) > 1 and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells):
+            separators.add(index)
+    for index, line in enumerate(lines):
         heading = re.match(r"^\s{0,3}(#{1,6})\s+(.+)", line)
         if heading:
             table = False
@@ -173,18 +237,30 @@ def _acceptance(text: str) -> List[str]:
             elif heading_level is not None and level <= heading_level:
                 heading_level = None
             continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if ("|" in preceding and len(cells) > 1
-                and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)):
+        # Delay classifying a possible header until its following separator is known.
+        if "|" in line and index + 1 in separators:
             table = True
+            continue
+        if table and index in separators:
             continue
         if not line.strip() or "|" not in line:
             table = False
-        explicit = (re.match(r"^" + list_prefix + identifier, line, re.I)
+        list_item = re.match(r"^" + list_prefix + identifier, line, re.I)
+        explicit = (list_item
                     or re.match(r"^\s*\|\s*" + identifier, line, re.I)
                     or (table and re.match(r"^\s*" + identifier, line, re.I)))
         heading_item = heading_level is not None and re.match(r"^" + list_prefix + r"\S", line)
         if explicit or heading_item:
+            if explicit:
+                wording = line[explicit.end():].strip()
+                # The criterion can share the ID cell or occupy the next cell;
+                # evidence/lens columns cannot fill an empty criterion placeholder.
+                if wording.startswith('|'):
+                    wording = wording[1:].lstrip()
+                wording = re.sub(r"^(?:[:：)]\s*|[.-]\s+)", '', wording)
+                criterion_wording = wording if list_item else wording.split('|', 1)[0]
+                if criterion_wording.strip() == '...':
+                    continue
             criterion = line.strip().strip("|").strip()
             if criterion not in result:
                 result.append(criterion)

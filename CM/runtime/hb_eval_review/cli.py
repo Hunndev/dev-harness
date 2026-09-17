@@ -418,6 +418,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         payload = {"status": "BLOCKED", "errors": [*error.errors, *_cleanup_errors(error)]}
         if error.paths:
             payload["paths"] = error.paths
+        if error.variables:
+            payload["variables"] = error.variables
         _emit(payload)
         return 2
     except PacketPolicyError as error:
