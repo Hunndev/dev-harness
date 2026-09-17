@@ -240,6 +240,38 @@ class FrozenDiffTests(unittest.TestCase):
                     self.build(snapshot)
                 self.assertEqual('PACKET_PATH_UNSAFE', raised.exception.code)
 
+    def test_artifact_nested_repository_is_excluded_before_source_boundary_checks(self):
+        self.write('app.txt', b'current source\n')
+        before = compute_source_snapshot(self.repo)
+        def nested_repository(relative):
+            path = self.repo / relative
+            path.mkdir(parents=True)
+            git(path, 'init', '-q')
+            git(path, 'config', 'user.email', 'fixture@example.invalid')
+            git(path, 'config', 'user.name', 'Fixture')
+            (path / 'inner.txt').write_text('synthetic nested content\n')
+            git(path, 'add', '-A')
+            git(path, 'commit', '-qm', 'nested fixture')
+        excluded = '.harness/artifacts/feature/issue-a/eval-review/synthetic-nested'
+        nested_repository(excluded)
+        names = git(self.repo, 'ls-files', '--others', '--exclude-standard', '-z')
+        self.assertIn((excluded + '/').encode(), names.split(b'\0'))
+        self.assertEqual(before, compute_source_snapshot(self.repo))
+        with self.subTest(boundary='excluded artifact'):
+            result = self.build(before)
+            self.assertIn(b'+current source\n', result)
+            self.assertNotIn(b'.harness/artifacts/', result)
+            self.assertNotIn(b'synthetic nested content', result)
+        nested_repository('source-nested')
+        with self.subTest(boundary='ordinary source'):
+            with self.assertRaises(PacketPolicyError) as captured:
+                compute_source_snapshot(self.repo)
+            self.assertEqual('PACKET_EMBEDDED_REPOSITORY_UNSUPPORTED', captured.exception.code)
+            with self.assertRaises(PacketPolicyError) as frozen:
+                self.build(before)
+            self.assertEqual('PACKET_EMBEDDED_REPOSITORY_UNSUPPORTED', frozen.exception.code)
+            self.assertEqual(['source-nested'], frozen.exception.paths)
+
     def test_git_visible_untracked_cache_stays_in_diff_without_claiming_snapshot_binding(self):
         before = compute_source_snapshot(self.repo)
         self.write('build/cache.txt', b'cache is full diff evidence\n')

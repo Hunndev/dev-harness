@@ -144,11 +144,13 @@ def _copy_current(repo: Path, destination: Path, snapshot: Dict[str, Any]) -> No
             name = raw.decode('utf-8', 'surrogateescape')
             if name in names:
                 continue
+            # Artifact outputs never enter diff evidence, including Git's special
+            # directory marker for a nested repository inside those outputs.
+            if _artifact(Path(name)):
+                continue
             if name.endswith('/'):
                 raise PacketPolicyError('PACKET_EMBEDDED_REPOSITORY_UNSUPPORTED', [name.rstrip('/')])
             relative = _relative(name)
-            if _artifact(relative):
-                continue
             if not _is_excluded(relative, tracked=False):
                 raise PacketPolicyError('DIFF_SOURCE_MISMATCH', [name])
             if _is_secret_material(relative):
