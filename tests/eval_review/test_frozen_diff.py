@@ -1,6 +1,7 @@
 """Diff evidence is generated from frozen, snapshot-verified source bytes."""
 import hashlib
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -372,6 +373,55 @@ class FrozenDiffTests(unittest.TestCase):
             self.build(snapshot)
         self.assertEqual('DIFF_UNAVAILABLE', raised.exception.code)
         self.assertFalse(marker.exists())
+
+    def missing_ignore_promisor_fixture(self):
+        # Isolate the fixture from operator-level Git configuration, including an
+        # inherited no-lazy-fetch setting that could make its positive control inert.
+        caller_env = {key: value for key, value in os.environ.items()
+                      if not key.startswith('GIT_')}
+        caller_env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
+                          GIT_NO_LAZY_FETCH='0')
+        environment = patch.dict(os.environ, caller_env, clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+        self.write('sub/.gitignore', b'hidden.txt\n')
+        self.commit()
+        object_id = git(self.repo, 'rev-parse', 'HEAD:sub/.gitignore').decode().strip()
+        git(self.repo, 'update-index', '--skip-worktree', 'sub/.gitignore')
+        (self.repo / 'sub/.gitignore').unlink()
+        self.write('sub/visible.txt', b'untracked source\n')
+        self.write('app.txt', b'current source\n')
+        snapshot = compute_source_snapshot(self.repo)
+        self.assertIn('sub/visible.txt', [entry['path'] for entry in snapshot['manifest']['files']])
+        marker = self.root / 'ignore-remote-helper-ran'
+        helper = self.root / 'ignore-remote-helper.sh'
+        helper.write_text('#!/bin/sh\nprintf "ran\\n" >> ' + shlex.quote(str(marker)) + '\nexit 1\n')
+        helper.chmod(0o755)
+        git(self.repo, 'config', 'extensions.partialClone', 'fixture')
+        git(self.repo, 'config', 'remote.fixture.promisor', 'true')
+        git(self.repo, 'config', 'remote.fixture.url', 'ext::' + str(helper))
+        git(self.repo, 'config', 'protocol.ext.allow', 'always')
+        (self.repo / '.git/objects' / object_id[:2] / object_id[2:]).unlink()
+        control = subprocess.run(['git', 'ls-files', '-z', '--others', '--exclude-standard'],
+                                 cwd=str(self.repo), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(0, control.returncode, control.stderr.decode('utf-8', 'replace'))
+        self.assertEqual(b'sub/visible.txt\0', control.stdout)
+        self.assertTrue(marker.exists(), 'operator ls-files must start the promisor remote helper')
+        marker.unlink()
+        return snapshot, marker, control.stdout
+
+    def test_missing_skip_worktree_ignore_untracked_names_do_not_start_remote_helper(self):
+        _, marker, names = self.missing_ignore_promisor_fixture()
+        self.assertEqual(names, frozen_diff._untracked_names(self.repo))
+        self.assertFalse(marker.exists(), 'frozen untracked enumeration must not lazy-fetch')
+
+    def test_missing_skip_worktree_ignore_frozen_diff_does_not_start_remote_helper(self):
+        snapshot, marker, _ = self.missing_ignore_promisor_fixture()
+        with self.assertRaises(PacketPolicyError) as raised:
+            self.build(snapshot)
+        # The absent base blob still fails closed after names were enumerated.
+        self.assertEqual('DIFF_UNAVAILABLE', raised.exception.code)
+        self.assertFalse(marker.exists(), 'frozen diff must not lazy-fetch while enumerating names')
 
     def test_replace_ref_cannot_rewrite_the_fixed_base(self):
         self.write('app.txt', b'replacement commit\n')

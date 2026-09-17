@@ -154,4 +154,43 @@ class GitRedirectEnvironmentTests(unittest.TestCase):
                     self.assertEqual([CODE], result['errors'])
                     provider.assert_not_called()
 
+    def test_false_root_guard_is_the_only_barrier_with_inner_evidence(self):
+        case = self.fixture()
+        outer = case.repo
+        inner = outer / 'inner'
+        inner.mkdir()
+        gitdir = fixtures.git(outer, 'rev-parse', '--absolute-git-dir').decode().strip()
+        case.repo = inner
+        with patch.dict(os.environ, dict(self.clean_environment(), GIT_DIR=gitdir), clear=True):
+            actual_root = fixtures.git(inner, 'rev-parse', '--show-toplevel').decode().strip()
+            self.assertEqual(inner, Path(actual_root).resolve())
+            case.artifacts, case.request_name = fixtures.evidence_fixture(inner)
+            case.packet_dir = case.artifacts / 'eval-review' / 'packet'
+            # Positive control: without the entry guard, this otherwise valid fixture
+            # reaches all four mocked providers with a false repository root.
+            with patch.object(cli, 'reject_git_redirect_environment'), \
+                    patch.object(pack, 'reject_git_redirect_environment'):
+                rc, result = case.invoke(self.pack_args(case))
+                self.assertEqual(0, rc, result)
+                packet = json.loads((case.packet_dir / 'packet.json').read_text())
+                self.assertEqual(str(inner), packet['request']['repository'])
+                rc, result, seen = case.run_packet(False)
+                self.assertEqual(0, rc, result)
+                self.assertEqual(4, len(seen))
+            case.output = case.base / 'guarded-run-output'
+            with self.subTest(command='pack'), patch.object(cli, 'run_provider_stage') as provider:
+                rc, result = case.invoke(self.pack_args(case))
+                self.assertEqual(2, rc)
+                self.assertEqual('BLOCKED', result['status'])
+                self.assertEqual([CODE], result['errors'])
+                self.assertEqual(['GIT_DIR'], result['variables'])
+                provider.assert_not_called()
+            with self.subTest(command='run-packet'):
+                rc, result, seen = case.run_packet(False)
+                self.assertEqual(2, rc)
+                self.assertEqual('BLOCKED', result['status'])
+                self.assertEqual([CODE], result['errors'])
+                self.assertEqual(['GIT_DIR'], result['variables'])
+                self.assertEqual([], seen)
+
 if __name__=='__main__':unittest.main()

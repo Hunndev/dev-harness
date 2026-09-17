@@ -147,19 +147,26 @@ def _command_doc(stage: str) -> str:
 
 
 def _acceptance_lines(text: str) -> List[str]:
-    """Hide comments/fences while retaining line boundaries for table headers."""
+    """Hide block examples, preserving line boundaries and literal inline text.
+
+    This is a criterion extractor, not a complete Markdown renderer. In particular,
+    plain indented criterion lists immediately following prose remain supported.
+    """
     visible: List[str] = []
     in_comment = False
     fence_character: Optional[str] = None
     fence_size = 0
     fence_container = 0
     list_indents: List[int] = []
+    indented_text: Optional[int] = None
+    previous_blank = True
     for raw_line in text.splitlines():
         expanded = raw_line.expandtabs(4)
         indent = len(expanded) - len(expanded.lstrip(' '))
+        blank = not expanded.strip()
         if fence_character is not None:
             # An unclosed list fence ends when its containing item ends.
-            if expanded.strip() and indent < fence_container:
+            if not blank and indent < fence_container:
                 fence_character = None
             else:
                 relative = expanded[fence_container:]
@@ -167,35 +174,35 @@ def _acceptance_lines(text: str) -> List[str]:
                                 + "{" + str(fence_size) + r",}[ \t]*", relative):
                     fence_character = None
                 visible.append('')
+                previous_blank = blank
                 continue
-        # Comments in literal fenced content never affect subsequent Markdown.
-        line = raw_line
-        uncommented = ''
-        while line:
-            if in_comment:
-                end = line.find('-->')
-                if end < 0:
-                    line = ''
-                else:
-                    line = line[end + 3:]
-                    in_comment = False
-            else:
-                start = line.find('<!--')
-                if start < 0:
-                    uncommented += line
-                    break
-                uncommented += line[:start]
-                line = line[start + 4:]
-                in_comment = True
-        line = uncommented
-        expanded = line.expandtabs(4)
-        indent = len(expanded) - len(expanded.lstrip(' '))
-        if expanded.strip():
-            while list_indents and indent < list_indents[-1]:
-                list_indents.pop()
+        if in_comment:
+            # Type-2 HTML blocks include their complete closing line.
+            in_comment = '-->' not in expanded
+            visible.append('')
+            previous_blank = blank
+            continue
+        if indented_text is not None:
+            if blank or indent >= indented_text:
+                visible.append('')
+                previous_blank = blank
+                continue
+            indented_text = None
+        if blank:
+            visible.append('')
+            previous_blank = True
+            continue
+        # A lazy paragraph continuation does not end the enclosing list item.
+        # Explicit block/list starts, or a blank separator, do end dedented items.
+        block_start = re.match(r" {0,3}(?:[-*+] +|\d{1,9}[.)] +|#{1,6} +|`{3,}|~{3,}|<!--)", expanded)
+        if list_indents and indent < list_indents[-1] and not previous_blank and not block_start:
+            visible.append(raw_line)
+            continue
+        while list_indents and indent < list_indents[-1]:
+            list_indents.pop()
         container = list_indents[-1] if list_indents else 0
         relative = expanded[container:]
-        # CommonMark fence indentation is measured after list container prefixes.
+        # Fence/comment indentation is relative to every enclosing list marker.
         marker = re.match(r" {0,3}(?:[-*+]|\d{1,9}[.)])( +)", relative)
         while marker:
             padding = len(marker.group(1))
@@ -205,12 +212,25 @@ def _acceptance_lines(text: str) -> List[str]:
             relative = expanded[container:]
             marker = re.match(r" {0,3}(?:[-*+]|\d{1,9}[.)])( +)", relative)
         fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", relative)
+        indented_fence = re.match(r"^ {4,}(`{3,}|~{3,})(.*)$", relative)
         if fence and (fence.group(1)[0] != '`' or '`' not in fence.group(2)):
             fence_character, fence_size = fence.group(1)[0], len(fence.group(1))
             fence_container = container
             visible.append('')
+        elif re.match(r"^ {0,3}<!--", relative):
+            # Inline/code-span markers are literal; even <!--> closes on this line.
+            in_comment = '-->' not in relative
+            visible.append('')
+        elif len(relative) - len(relative.lstrip(' ')) >= 4 and (
+                previous_blank or (indented_fence and (
+                    indented_fence.group(1)[0] != '`' or '`' not in indented_fence.group(2)))):
+            # A blank starts indented code. Without a blank, an over-indented
+            # fence is paragraph text; its indented example lines are not lists.
+            indented_text = container + 4
+            visible.append('')
         else:
-            visible.append(line)
+            visible.append(raw_line)
+        previous_blank = False
     return visible
 
 
@@ -219,13 +239,14 @@ def _acceptance(text: str) -> List[str]:
     result: List[str] = []
     heading_level: Optional[int] = None
     table = False
+    table_delimiter: Optional[int] = None
     list_prefix = r"\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?"
     identifier = r"AC[-_][A-Za-z0-9_-]+(?=\s|[:：.)|-]|$)"
     lines = _acceptance_lines(text)
     separators = set()
     for index, line in enumerate(lines):
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) > 1 and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells):
+        if len(cells) > 1 and all(re.fullmatch(r":?-+:?", cell) for cell in cells):
             separators.add(index)
     for index, line in enumerate(lines):
         heading = re.match(r"^\s{0,3}(#{1,6})\s+(.+)", line)
@@ -238,10 +259,11 @@ def _acceptance(text: str) -> List[str]:
                 heading_level = None
             continue
         # Delay classifying a possible header until its following separator is known.
-        if "|" in line and index + 1 in separators:
+        if not table and "|" in line and index + 1 in separators:
             table = True
+            table_delimiter = index + 1
             continue
-        if table and index in separators:
+        if table and index == table_delimiter:
             continue
         if not line.strip() or "|" not in line:
             table = False
@@ -259,8 +281,10 @@ def _acceptance(text: str) -> List[str]:
                     wording = wording[1:].lstrip()
                 wording = re.sub(r"^(?:[:：)]\s*|[.-]\s+)", '', wording)
                 criterion_wording = wording if list_item else wording.split('|', 1)[0]
-                if criterion_wording.strip() == '...':
-                    continue
+            else:
+                criterion_wording = re.sub(r"^" + list_prefix, '', line).strip()
+            if criterion_wording.strip() == '...':
+                continue
             criterion = line.strip().strip("|").strip()
             if criterion not in result:
                 result.append(criterion)

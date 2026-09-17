@@ -36,12 +36,12 @@ def _git(repo: Path, *args: str, input_data: bytes = None) -> bytes:
 
 
 def _untracked_names(repo: Path) -> bytes:
-    # Enumerate with the same complete config/environment interpretation as
-    # snapshot's ls-files. Copying selected keys loses other ignore semantics
+    # Preserve snapshot's ignore/configuration semantics while enumerating names.
+    # Copying selected keys loses other ignore semantics
     # (case folding, Unicode precomposition, and future Git settings).
-    # This names-only command does not run diff/textconv/clean filters. Its one
-    # executable hook, fsmonitor, is disabled by a command-line override that
-    # wins over global/includes and command-scope environment configuration.
+    # This names-only command does not run diff/textconv/clean filters. Disable
+    # fsmonitor with a command-line override and lazy fetching with its environment
+    # switch: reading a missing skip-worktree ignore blob can start a remote helper.
     # Public pack/run reject these six redirects before reaching this helper.
     # Keep its pre-existing repository/index isolation for direct internal calls;
     # no ignore/configuration keys are selected or reconstructed here.
@@ -49,6 +49,7 @@ def _untracked_names(repo: Path) -> bytes:
     for key in ('GIT_DIR', 'GIT_COMMON_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE',
                 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'):
         env.pop(key, None)
+    env['GIT_NO_LAZY_FETCH'] = '1'
     # Object reads and the final diff still use the isolated _environment().
     result = subprocess.run(
         ['git', '-c', 'core.fsmonitor=false', 'ls-files', '-z', '--others', '--exclude-standard'],
@@ -249,9 +250,11 @@ def _normalize_headers(diff: bytes) -> bytes:
 def build_frozen_diff(repo: Path, base_sha: str, snapshot: Dict[str, Any]) -> bytes:
     """Compare a fixed commit with frozen current bytes checked against `snapshot`.
 
-    The caller supplies the snapshot already bound to its Gate/source identity. This
-    function never writes to that repository, follows external links, or lets Git diff
-    consume live working files. Artifact outputs are excluded on both comparison sides.
+    The caller supplies the snapshot already bound to its Gate/source identity. Source
+    capture does not follow external links; Git diff consumes temporary copies rather
+    than live working files. Base-object reads and this function's untracked enumeration
+    disable lazy fetching. The caller's snapshot enumeration is outside this boundary.
+    Artifact outputs are excluded on both comparison sides.
     """
     repo = Path(repo).resolve()
     try:
