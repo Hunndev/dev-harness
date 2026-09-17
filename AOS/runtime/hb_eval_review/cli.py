@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import json
+import os
+import time
 import shutil
 import subprocess
 import sys
@@ -16,6 +18,9 @@ from .materialize import (
     remove_materialized_packet,
     verify_materialized_packet,
 )
+from .gate import generate_gate, validate_gate_file
+from .pack import (ContractError, build_packet, default_output_root, materialize_evidence,
+                   packet_context, repository_slug, validate_gate_binding, validate_packet_schema)
 from .orchestrate import run_dual_stages
 from .result_validation import validate_provider_result
 from .run_provider import run_provider_stage
@@ -103,8 +108,67 @@ def command_finalize(args: argparse.Namespace) -> int:
     return 0 if final["status"] == "PASS" else 2
 
 
+def command_gate(args: argparse.Namespace) -> int:
+    result = generate_gate(Path(args.repo), args.cmd, Path(args.out), issue_type=args.issue_type)
+    _emit(result)
+    return 0 if result["status"] == "PASS" else 2
+
+
+def command_pack(args: argparse.Namespace) -> int:
+    models = {"claude": args.claude_model or os.environ.get("CLAUDE_MODEL_ID"),
+              "codex": args.codex_model or os.environ.get("CODEX_MODEL_ID")}
+    if not all(models.values()):
+        raise ContractError(["MODEL_ID_REQUIRED"])
+    packet = build_packet(Path(args.repo), Path(args.artifacts), args.request_source,
+                          args.base, models, issue_type=args.issue_type)
+    _emit({"status": "PASS", "packet_id": packet["packet_id"],
+           "packet_path": str(Path(args.artifacts).resolve() / "eval-review/packet/packet.json")})
+    return 0
+
+
+def _run_arguments(args: argparse.Namespace) -> None:
+    if args.from_packet:
+        if any((args.packet, args.packet_source, args.evaluate_prompt, args.review_prompt)):
+            raise ContractError(["RUN_ARGUMENT_CONFLICT"])
+        folder = Path(args.from_packet).resolve()
+        args.packet = str(folder / "packet.json")
+        packet = _load(args.packet)
+        schema_errors = validate_packet_schema(packet)
+        if schema_errors:
+            raise ContractError(schema_errors)
+        args.packet_source = packet.get("request", {}).get("repository")
+        if not args.packet_source:
+            raise ContractError(["PACKET_REPOSITORY_MISMATCH"])
+        repo = Path(args.packet_source).resolve()
+        _, identifier, artifacts = packet_context(packet, repo)
+        if folder != artifacts / "eval-review" / "packet":
+            raise ContractError(["ARTIFACT_PATH_INVALID"])
+        args.evaluate_prompt = str(folder / "evaluate-prompt.md")
+        args.review_prompt = str(folder / "review-prompt.md")
+        args.output_root = args.output_root or str(default_output_root(repo, identifier))
+        args.claude_model = args.claude_model or os.environ.get("CLAUDE_MODEL_ID")
+        args.codex_model = args.codex_model or os.environ.get("CODEX_MODEL_ID")
+    required = ("packet", "packet_source", "evaluate_prompt", "review_prompt",
+                "output_root", "claude_model", "codex_model")
+    if any(not getattr(args, field) for field in required):
+        raise ContractError(["RUN_ARGUMENTS_MISSING"])
+
+
+def _copy_run_reports(output: Path, artifacts: Path) -> Path:
+    index = 1
+    destination = artifacts / "eval-review" / ("run-" + str(index))
+    while destination.exists():
+        index += 1
+        destination = artifacts / "eval-review" / ("run-" + str(index))
+    destination.mkdir(parents=True, exist_ok=False)
+    for name in ("final-result.json", "execution-manifest.json"):
+        (destination / name).write_bytes((output / name).read_bytes())
+    return destination
+
+
 def command_run(args: argparse.Namespace) -> int:
     """Run blind Dual Evaluate followed by Dual Review and persist parent-owned artifacts."""
+    _run_arguments(args)
     packet = _load(args.packet)
     packet_source = Path(args.packet_source).resolve()
     output_root = Path(args.output_root).resolve()
@@ -113,6 +177,16 @@ def command_run(args: argparse.Namespace) -> int:
     if output_root.exists() and any(output_root.iterdir()):
         raise ValueError("output_root must be absent or empty")
     binding_errors = validate_packet_bindings(packet, packet_source)
+    schema_errors = validate_packet_schema(packet)
+    if ("SOURCE_SNAPSHOT_MISMATCH" in binding_errors and isinstance(packet.get("request"), dict)
+            and isinstance(packet["request"].get("gate"), dict)):
+        gate_path = packet_source / packet["request"]["gate"].get("path", "")
+        early_gate_errors = validate_gate_file(gate_path, packet_source,
+                                              track=packet["request"].get("track"),
+                                              issue_type=packet["request"].get("issue_type"))
+        if "GATE_STALE" in early_gate_errors:
+            binding_errors.append("GATE_STALE")
+    binding_errors = list(dict.fromkeys(schema_errors + binding_errors))
     if binding_errors:
         _emit({"status": "BLOCKED", "errors": binding_errors})
         return 2
@@ -132,6 +206,11 @@ def command_run(args: argparse.Namespace) -> int:
     if packet.get("request", {}).get("model_ids") != model_ids:
         _emit({"status": "BLOCKED", "errors": ["MODEL_ID_MISMATCH"]})
         return 2
+    gate_binding_errors = validate_gate_binding(packet)
+    if gate_binding_errors:
+        _emit({"status": "BLOCKED", "errors": gate_binding_errors})
+        return 2
+    track, identifier, artifacts = packet_context(packet, packet_source)
     parent_facts = json.dumps({
         "packet_id": packet["packet_id"],
         "source_snapshot_id": packet["source_snapshot_id"],
@@ -147,7 +226,9 @@ def command_run(args: argparse.Namespace) -> int:
     }
     output_root.mkdir(parents=True, exist_ok=True)
     materialized_root = output_root / "materialized-packet"
+    copy_started = time.monotonic()
     materialized_manifest = materialize_source_packet(packet_source, materialized_root)
+    copy_duration_ms = int((time.monotonic() - copy_started) * 1000)
     if not verify_materialized_packet(materialized_root, materialized_manifest):
         _emit({"status": "BLOCKED", "errors": ["MATERIALIZED_PACKET_MISMATCH"]})
         return 2
@@ -181,6 +262,18 @@ def command_run(args: argparse.Namespace) -> int:
             "SOURCE_CHANGED_BEFORE_MATERIALIZE", *_discard_materialized_packet(materialized_root),
         ]})
         return 2
+    try:
+        evidence_root = materialize_evidence(packet_source, materialized_root, packet["evidence_entries"])
+        gate_errors = validate_gate_file(
+            evidence_root / "gate-result.json", packet_source, evidence_root=evidence_root,
+            source_snapshot_id=recomputed["source_snapshot_id"], track=track,
+            issue_type=packet["request"].get("issue_type"),
+        )
+        if gate_errors:
+            raise ContractError(gate_errors)
+    except Exception as error:
+        _attach_cleanup_errors(error, _discard_materialized_packet(materialized_root))
+        raise
     provider_source = materialized_root / "source"
     (output_root / "execution-manifest.json").write_text(json.dumps({
         "schema_version": "1.0",
@@ -191,6 +284,11 @@ def command_run(args: argparse.Namespace) -> int:
         "effective_prompt_sha256": effective_prompt_sha256,
         "model_ids": model_ids,
         "isolation_policy": "macos-deny-default-v1",
+        "repository_slug": repository_slug(packet_source), "identifier": identifier,
+        "repository": str(packet_source), "output_root": str(output_root),
+        "materialize_duration_ms": copy_duration_ms,
+        "materialized_bytes": sum(p.stat().st_size for p in materialized_root.rglob("*")
+                                  if p.is_file() and not p.is_symlink()),
     }, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
     lock = threading.Lock()
     review_cleanup_done = False
@@ -218,6 +316,7 @@ def command_run(args: argparse.Namespace) -> int:
             timeout_seconds=args.timeout,
             peer_output_root=output_root / f"{stage}-{peer}",
             model=model_ids[engine],
+            readable_roots=[materialized_root],
         )
 
     result = run_dual_stages(runner, packet)
@@ -238,7 +337,9 @@ def command_run(args: argparse.Namespace) -> int:
         (sealed_root / name).write_text(
             json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         )
+    report_copy = _copy_run_reports(output_root, artifacts)
     _emit({
+        "report_copy": str(report_copy),
         "status": result.get("status", "BLOCKED"),
         "stage": result.get("stage", "unknown"),
         "result_path": str(result_path),
@@ -268,15 +369,33 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("results", nargs="*")
     finalize.set_defaults(func=command_finalize)
 
+    gate = subparsers.add_parser("gate")
+    gate.add_argument("--repo", required=True)
+    gate.add_argument("--cmd", action="append", required=True)
+    gate.add_argument("--out", required=True)
+    gate.add_argument("--issue-type", choices=("bug", "feature", "refactor", "hotfix", "performance"))
+    gate.set_defaults(func=command_gate)
+
+    pack = subparsers.add_parser("pack")
+    pack.add_argument("--repo", required=True)
+    pack.add_argument("--artifacts", required=True)
+    pack.add_argument("--request-source", required=True)
+    pack.add_argument("--base", required=True)
+    pack.add_argument("--claude-model")
+    pack.add_argument("--codex-model")
+    pack.add_argument("--issue-type", choices=("bug", "feature", "refactor", "hotfix", "performance"))
+    pack.set_defaults(func=command_pack)
+
     run = subparsers.add_parser("run")
-    run.add_argument("--packet", required=True)
-    run.add_argument("--packet-source", required=True)
-    run.add_argument("--evaluate-prompt", required=True)
-    run.add_argument("--review-prompt", required=True)
-    run.add_argument("--output-root", required=True)
+    run.add_argument("--from", dest="from_packet")
+    run.add_argument("--packet")
+    run.add_argument("--packet-source")
+    run.add_argument("--evaluate-prompt")
+    run.add_argument("--review-prompt")
+    run.add_argument("--output-root")
     run.add_argument("--timeout", type=float, default=240)
-    run.add_argument("--claude-model", required=True)
-    run.add_argument("--codex-model", required=True)
+    run.add_argument("--claude-model")
+    run.add_argument("--codex-model")
     run.set_defaults(func=command_run)
     return parser
 
@@ -285,6 +404,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         args = build_parser().parse_args(argv)
         return args.func(args)
+    except ContractError as error:
+        payload = {"status": "BLOCKED", "errors": [*error.errors, *_cleanup_errors(error)]}
+        if error.paths:
+            payload["paths"] = error.paths
+        _emit(payload)
+        return 2
     except PacketPolicyError as error:
         # Paths only. The refused bytes never reach stdout. A cleanup that failed on the way
         # here is reported after the cause, never instead of it.

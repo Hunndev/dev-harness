@@ -257,17 +257,20 @@ class ArtifactNameTests(unittest.TestCase):
                 self.assertIn(name, text, (path, name))
             self.assertNotIn("README 예시는", text, path)
 
-    def test_readme_run_example_uses_a_fresh_run_directory_under_eval_review(self):
+    def test_readme_run_example_uses_a_fresh_external_directory_and_copies_reports(self):
         """`eval-review/` holds qa-snapshot.json, and `run` refuses a non-empty output root (cli.py)."""
         lines = [line for line in read(README).splitlines() if "--output-root" in line]
         self.assertEqual(1, len(lines))
-        self.assertIn("/eval-review/run-1", lines[0])
+        self.assertIn("${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/", lines[0])
+        self.assertIn("저장소 밖", lines[0])
+        self.assertIn(".harness/artifacts/<track>/<id>/eval-review/run-<n>/", read(README))
+        self.assertIn("실제 사본", read(README))
         self.assertIn("run-<n>", read(README))
 
     def test_readme_tree_reports_the_current_test_counts(self):
         lines = [line for line in read(README).splitlines() if "tests/" in line and "eval_review" in line]
         self.assertEqual(1, len(lines))
-        self.assertIn("eval_review 310", lines[0])
+        self.assertIn("eval_review 352", lines[0])
         self.assertIn("tooling 57", lines[0])
 
     def test_shared_documents_describe_the_envelope_as_a_field_of_the_sealed_file(self):
