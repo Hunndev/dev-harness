@@ -25,7 +25,7 @@ class CiWorkflowTests(unittest.TestCase):
     def test_darwin_only_skips_are_audited(self) -> None:
         self.assertIn("macOS sandbox required", self.text)
         self.assertIn("macOS filesystem semantics required", self.text)
-        self.assertIn("expected_sandbox=7", self.text)
+        self.assertIn("expected_sandbox=8", self.text)
         self.assertIn("expected_fs=9", self.text)
         self.assertIn("expected_sandbox=0; expected_fs=0", self.text)
 
@@ -54,11 +54,11 @@ class CiWorkflowTests(unittest.TestCase):
 
     def test_audit_step_logic_with_sample_logs(self) -> None:
         self.assertEqual(0, self._run_audit("macOS", 0, 0))
-        self.assertNotEqual(0, self._run_audit("macOS", 7, 9))
+        self.assertNotEqual(0, self._run_audit("macOS", 8, 9))
         self.assertNotEqual(0, self._run_audit("macOS", 0, 1))
-        self.assertEqual(0, self._run_audit("Linux", 7, 9))
-        self.assertNotEqual(0, self._run_audit("Linux", 7, 0))
-        self.assertNotEqual(0, self._run_audit("Linux", 6, 9))
+        self.assertEqual(0, self._run_audit("Linux", 8, 9))
+        self.assertNotEqual(0, self._run_audit("Linux", 8, 0))
+        self.assertNotEqual(0, self._run_audit("Linux", 7, 9))
         self.assertNotEqual(0, self._run_audit("Linux", 0, 0))
 
     def test_lint_job_is_kept(self) -> None:
