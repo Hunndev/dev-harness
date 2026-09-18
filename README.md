@@ -59,7 +59,7 @@ SHARED/bin/hb-eval-review run \
   --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol --timeout 480
 ```
 
-`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨기며, 줄 중간·code span의 `<!--`는 문구로 보존한다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 산문 바로 뒤의 들여쓴 기준 목록은 기존 동작대로 수집한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 schema 1.1 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
+`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(현재 줄이 속하는 바깥 목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨긴다. 문단 연속 줄의 들여쓴 inline 주석은 같은 문단 안에서 닫혔을 때만 예시를 숨기며, 빈 줄·새 목록 같은 문단 경계를 넘어 기준을 숨기지 않는다. 줄 중간·code span의 `<!--`는 기록 문구를 자르지 않는다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 이 비교에서는 code span 밖의 닫힌 inline 주석을 제외하되 기록할 문구는 보존한다. 빈 줄로 끊기지 않은 산문 뒤의 들여쓴 기준 목록은 기존 동작대로 수집하며, 그 안의 과도하게 들여쓴 fence 예시는 짝 fence 또는 바깥 문맥으로 돌아가는 들여쓰기 감소에서 끝낸다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 schema 1.1 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
 
 standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. packet source는 항상 `.git`이 있는 저장소 루트다. output은 저장소 밖의 `${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/`이며 `--output-root`로 새 빈 외부 디렉토리를 지정할 수 있다. slug는 이름과 저장소 경로·remote의 hash를 함께 써 같은 이름의 저장소를 구별한다. 모델은 명시 옵션 또는 `CLAUDE_MODEL_ID`·`CODEX_MODEL_ID`로 받고 packet에 기록한 값과 대조한다. 기존 `run --packet` 방식도 동일한 Gate·TDD 검증을 통과해야 하며 기존 7개 인자를 모두 제공한다. `GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES`가 export되어 있으면 빈 값이어도 pack/run은 첫 Git 사용 전에 `GIT_REDIRECT_ENV_UNSUPPORTED`로 BLOCKED한다. `variables`에는 설정된 대상 이름만 정렬해 기록하고 값은 기록하지 않는다. 환경을 자동 정화하지 않으며, 정상 환경으로 정리한 뒤 Gate부터 다시 실행한다. Git 전 층의 환경 정화는 이 변경의 범위 밖이다.
 
@@ -498,7 +498,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 439 · tdd_quality 21 · tooling 57 (CI에서 실행)
+├── tests/                        ← eval_review 453 · tdd_quality 21 · tooling 57 (CI에서 실행)
 └── README.md
 ```
 

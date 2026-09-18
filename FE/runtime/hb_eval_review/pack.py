@@ -146,11 +146,72 @@ def _command_doc(stage: str) -> str:
     raise ContractError(['PROMPT_TEMPLATE_MISSING'])
 
 
+def _acceptance_block_start(relative: str) -> bool:
+    """Recognize supported block starts after matching list containers."""
+    if re.match(r" {0,3}(?:[-*+] +|\d{1,9}[.)] +|#{1,6} +|<!--)", relative):
+        return True
+    fence = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", relative)
+    return bool(fence and (fence.group(1)[0] != '`' or '`' not in fence.group(2)))
+
+
+def _continuation_comment_end(lines: List[str], start: int,
+                              list_indents: List[int]) -> Optional[int]:
+    """Pair an indented inline comment only within one paragraph continuation."""
+    if '-->' in lines[start]:
+        return start
+    for index in range(start + 1, len(lines)):
+        expanded = lines[index].expandtabs(4)
+        if not expanded.strip():
+            return None
+        indent = len(expanded) - len(expanded.lstrip(' '))
+        container = next((level for level in reversed(list_indents) if level <= indent), 0)
+        relative = expanded[container:]
+        if (_acceptance_block_start(relative)
+                or re.match(r' {0,3}(?:>|#{1,6} *$)', relative)
+                or re.fullmatch(r' {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})', relative)):
+            return None
+        if '-->' in expanded:
+            return index
+    return None
+
+
+def _without_inline_comments(wording: str) -> str:
+    """Ignore closed comments for placeholder comparison, keeping code spans literal."""
+    visible: List[str] = []
+    cursor = 0
+    while cursor < len(wording):
+        if wording[cursor] == '\\':
+            visible.append(wording[cursor:cursor + 2])
+            cursor += 2
+            continue
+        if wording[cursor] == '`':
+            opening = re.match(r'`+', wording[cursor:]).group()
+            end = cursor + len(opening)
+            for closing in re.finditer(r'`+', wording[end:]):
+                if closing.group() == opening:
+                    end += closing.end()
+                    break
+            visible.append(wording[cursor:end])
+            cursor = end
+            continue
+        if wording.startswith('<!--', cursor):
+            # Empty <!--> and <!---> comments have an overlapping closer.
+            end = wording.find('-->', cursor)
+            if end >= 0:
+                cursor = end + 3
+                continue
+        visible.append(wording[cursor])
+        cursor += 1
+    return ''.join(visible)
+
+
 def _acceptance_lines(text: str) -> List[str]:
     """Hide block examples, preserving line boundaries and literal inline text.
 
     This is a criterion extractor, not a complete Markdown renderer. In particular,
-    plain indented criterion lists immediately following prose remain supported.
+    plain indented criterion lists following prose without a blank remain supported.
+    Such paragraphs may contain paired indented example fences or inline comments;
+    their closing markers end only those spans, not subsequent compatible criteria.
     """
     visible: List[str] = []
     in_comment = False
@@ -159,11 +220,19 @@ def _acceptance_lines(text: str) -> List[str]:
     fence_container = 0
     list_indents: List[int] = []
     indented_text: Optional[int] = None
+    indented_fence_marker: Optional[Tuple[str, int, int]] = None
+    continuation_comment_end: Optional[int] = None
     previous_blank = True
-    for raw_line in text.splitlines():
+    lines = text.splitlines()
+    for index, raw_line in enumerate(lines):
         expanded = raw_line.expandtabs(4)
         indent = len(expanded) - len(expanded.lstrip(' '))
         blank = not expanded.strip()
+        if continuation_comment_end is not None and index <= continuation_comment_end:
+            visible.append('')
+            previous_blank = blank
+            continue
+        continuation_comment_end = None
         if fence_character is not None:
             # An unclosed list fence ends when its containing item ends.
             if not blank and indent < fence_container:
@@ -184,17 +253,30 @@ def _acceptance_lines(text: str) -> List[str]:
             continue
         if indented_text is not None:
             if blank or indent >= indented_text:
+                # Only no-blank compatibility examples have a closing fence.
+                # A delimiter inside blank-start indented code remains code.
+                if indented_fence_marker is not None:
+                    character, size, opening_indent = indented_fence_marker
+                    # Compatibility delimiters may be at most three columns
+                    # deeper than their opener; deeper delimiter text is example.
+                    if (indent <= opening_indent + 3
+                            and re.fullmatch(r' *' + re.escape(character) + '{' + str(size)
+                                             + r',} *', expanded[indented_text:])):
+                        indented_text = None
+                        indented_fence_marker = None
                 visible.append('')
                 previous_blank = blank
                 continue
             indented_text = None
+            indented_fence_marker = None
         if blank:
             visible.append('')
             previous_blank = True
             continue
         # A lazy paragraph continuation does not end the enclosing list item.
         # Explicit block/list starts, or a blank separator, do end dedented items.
-        block_start = re.match(r" {0,3}(?:[-*+] +|\d{1,9}[.)] +|#{1,6} +|`{3,}|~{3,}|<!--)", expanded)
+        outer_container = next((level for level in reversed(list_indents) if level <= indent), 0)
+        block_start = _acceptance_block_start(expanded[outer_container:])
         if list_indents and indent < list_indents[-1] and not previous_blank and not block_start:
             visible.append(raw_line)
             continue
@@ -221,12 +303,19 @@ def _acceptance_lines(text: str) -> List[str]:
             # Inline/code-span markers are literal; even <!--> closes on this line.
             in_comment = '-->' not in relative
             visible.append('')
+        elif not previous_blank and re.match(r'^ {4,}<!--', relative):
+            # Unlike a type-2 block, an inline comment cannot cross a paragraph
+            # boundary. An unmatched candidate remains literal compatibility text.
+            continuation_comment_end = _continuation_comment_end(lines, index, list_indents)
+            visible.append('' if continuation_comment_end is not None else raw_line)
         elif len(relative) - len(relative.lstrip(' ')) >= 4 and (
                 previous_blank or (indented_fence and (
                     indented_fence.group(1)[0] != '`' or '`' not in indented_fence.group(2)))):
-            # A blank starts indented code. Without a blank, an over-indented
-            # fence is paragraph text; its indented example lines are not lists.
+            # A blank starts indented code. Without a blank, remember the paired
+            # example fence so compatible criteria can resume after its closer.
             indented_text = container + 4
+            if not previous_blank and indented_fence:
+                indented_fence_marker = (indented_fence.group(1)[0], len(indented_fence.group(1)), indent)
             visible.append('')
         else:
             visible.append(raw_line)
@@ -283,7 +372,7 @@ def _acceptance(text: str) -> List[str]:
                 criterion_wording = wording if list_item else wording.split('|', 1)[0]
             else:
                 criterion_wording = re.sub(r"^" + list_prefix, '', line).strip()
-            if criterion_wording.strip() == '...':
+            if _without_inline_comments(criterion_wording).strip() == '...':
                 continue
             criterion = line.strip().strip("|").strip()
             if criterion not in result:
