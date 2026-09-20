@@ -1,4 +1,8 @@
-"""SF-5–SF-8 exact v4 rows, separating 6688272 RED from existing GUARD behavior."""
+"""SF-5–SF-8 exact v4 rows, separating 6688272 RED from existing GUARD behavior.
+
+The equivalent class adds behavior beyond the canonical RED rows; its inputs
+also fail on 6688272 and are reported separately from the canonical baseline.
+"""
 import unittest
 from unittest.mock import patch
 

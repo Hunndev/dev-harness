@@ -154,25 +154,35 @@ def _acceptance_block_start(relative: str) -> bool:
     return bool(fence and (fence.group(1)[0] != '`' or '`' not in fence.group(2)))
 
 
+def _acceptance_table_separator(line: str) -> bool:
+    """Use the extractor's existing two-or-more-cell separator grammar."""
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    return len(cells) > 1 and all(re.fullmatch(r":?-+:?", cell) for cell in cells)
+
+
 def _continuation_comment_end(lines: List[str], start: int,
-                              list_indents: List[int]) -> Optional[int]:
-    """Pair an indented inline comment only within one paragraph continuation."""
+                              list_indents: List[int]) -> Tuple[Optional[int], int]:
+    """Return a paired closer, or the exclusive boundary of a failed scan."""
     if '-->' in lines[start]:
-        return start
+        return start, start
     for index in range(start + 1, len(lines)):
         expanded = lines[index].expandtabs(4)
         if not expanded.strip():
-            return None
+            return None, index
         indent = len(expanded) - len(expanded.lstrip(' '))
         container = next((level for level in reversed(list_indents) if level <= indent), 0)
         relative = expanded[container:]
         if (_acceptance_block_start(relative)
                 or re.match(r' {0,3}(?:>|#{1,6} *$)', relative)
-                or re.fullmatch(r' {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})', relative)):
-            return None
+                or re.fullmatch(r' {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})', relative)
+                or re.fullmatch(r' {0,3}=+ *', relative)
+                or (indent - container <= 3 and '|' in relative
+                    and index + 1 < len(lines)
+                    and _acceptance_table_separator(lines[index + 1]))):
+            return None, index
         if '-->' in expanded:
-            return index
-    return None
+            return index, index
+    return None, len(lines)
 
 
 def _without_inline_comments(wording: str) -> str:
@@ -222,6 +232,7 @@ def _acceptance_lines(text: str) -> List[str]:
     indented_text: Optional[int] = None
     indented_fence_marker: Optional[Tuple[str, int, int]] = None
     continuation_comment_end: Optional[int] = None
+    failed_comment_scan: Optional[Tuple[Tuple[int, ...], int]] = None
     previous_blank = True
     lines = text.splitlines()
     for index, raw_line in enumerate(lines):
@@ -255,6 +266,8 @@ def _acceptance_lines(text: str) -> List[str]:
             if blank or indent >= indented_text:
                 # Only no-blank compatibility examples have a closing fence.
                 # A delimiter inside blank-start indented code remains code.
+                if blank:
+                    indented_fence_marker = None
                 if indented_fence_marker is not None:
                     character, size, opening_indent = indented_fence_marker
                     # Compatibility delimiters may be at most three columns
@@ -306,7 +319,18 @@ def _acceptance_lines(text: str) -> List[str]:
         elif not previous_blank and re.match(r'^ {4,}<!--', relative):
             # Unlike a type-2 block, an inline comment cannot cross a paragraph
             # boundary. An unmatched candidate remains literal compatibility text.
-            continuation_comment_end = _continuation_comment_end(lines, index, list_indents)
+            context = tuple(list_indents)
+            if '-->' in expanded:
+                continuation_comment_end = index
+            elif (failed_comment_scan is not None and failed_comment_scan[0] == context
+                  and index < failed_comment_scan[1]):
+                continuation_comment_end = None
+            else:
+                continuation_comment_end, stop = _continuation_comment_end(lines, index, list_indents)
+                if continuation_comment_end is None:
+                    # Reuse only this context's failed interior; process the
+                    # boundary itself and candidates beyond it normally.
+                    failed_comment_scan = (context, stop)
             visible.append('' if continuation_comment_end is not None else raw_line)
         elif len(relative) - len(relative.lstrip(' ')) >= 4 and (
                 previous_blank or (indented_fence and (
@@ -334,8 +358,7 @@ def _acceptance(text: str) -> List[str]:
     lines = _acceptance_lines(text)
     separators = set()
     for index, line in enumerate(lines):
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) > 1 and all(re.fullmatch(r":?-+:?", cell) for cell in cells):
+        if _acceptance_table_separator(line):
             separators.add(index)
     for index, line in enumerate(lines):
         heading = re.match(r"^\s{0,3}(#{1,6})\s+(.+)", line)
