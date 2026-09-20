@@ -160,6 +160,51 @@ def _acceptance_table_separator(line: str) -> bool:
     return len(cells) > 1 and all(re.fullmatch(r":?-+:?", cell) for cell in cells)
 
 
+def _acceptance_table_cells(line: str) -> List[str]:
+    """Split GFM cells, retaining empty cells and pipes inside code spans."""
+    # GFM table scanning consumes backslash-pipe even after another backslash;
+    # it does not apply the generic inline parser's odd/even escape parity.
+    cells = re.split(r'(?<!\\)\|', line.strip(' \t'))
+    # Only one optional border pipe is allowed on either side. Repeated pipes
+    # represent empty cells, and an escaped trailing pipe remains cell content.
+    if cells and not cells[0]:
+        cells.pop(0)
+    if cells and not cells[-1]:
+        cells.pop()
+    return [cell.strip(' \t') for cell in cells]
+
+
+def _acceptance_table_start(relative: str, separator: str, container: int) -> bool:
+    """Match both rows at zero to three columns within the same container."""
+    indent = len(relative) - len(relative.lstrip(' '))
+    if indent > 3 or '|' not in relative:
+        return False
+    expanded = separator.expandtabs(4)
+    separator_indent = len(expanded) - len(expanded.lstrip(' '))
+    if not container <= separator_indent <= container + 3:
+        return False
+    # This stricter block-boundary grammar does not replace the extractor's
+    # existing separator grammar for criteria outside comments.
+    cells = _acceptance_table_cells(expanded[container:])
+    return (len(cells) > 1 and all(re.fullmatch(r":?-+:?", cell) for cell in cells)
+            and len(_acceptance_table_cells(relative)) == len(cells))
+
+
+def _acceptance_html_boundary(relative: str) -> bool:
+    """CommonMark 0.31.2 HTML types 1, 3, 4, 5 and 6 interrupt paragraphs."""
+    # Type 7 (arbitrary tags, e.g. img/br/span/custom elements) cannot interrupt
+    # a paragraph. Keep the type-1 and type-6 token endings distinct.
+    block_tags = (r'address|article|aside|base|basefont|blockquote|body|caption|center|'
+                  r'col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|'
+                  r'figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|'
+                  r'iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|'
+                  r'option|p|param|search|section|summary|table|tbody|td|tfoot|th|'
+                  r'thead|title|tr|track|ul')
+    return bool(re.match(r' {0,3}(?:<\?|<![A-Za-z]|<!\[CDATA\[)', relative)
+                or re.match(r' {0,3}<(?:pre|script|style|textarea)(?=[ \t>]|$)', relative, re.I | re.ASCII)
+                or re.match(r' {0,3}</?(?:' + block_tags + r')(?=[ \t>]|/>|$)', relative, re.I | re.ASCII))
+
+
 def _continuation_comment_end(lines: List[str], start: int,
                               list_indents: List[int]) -> Tuple[Optional[int], int]:
     """Return a paired closer, or the exclusive boundary of a failed scan."""
@@ -175,10 +220,10 @@ def _continuation_comment_end(lines: List[str], start: int,
         if (_acceptance_block_start(relative)
                 or re.match(r' {0,3}(?:>|#{1,6} *$)', relative)
                 or re.fullmatch(r' {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})', relative)
-                or re.fullmatch(r' {0,3}=+ *', relative)
-                or (indent - container <= 3 and '|' in relative
-                    and index + 1 < len(lines)
-                    and _acceptance_table_separator(lines[index + 1]))):
+                or re.fullmatch(r' {0,3}(?:=+|-+) *', relative)
+                or _acceptance_html_boundary(relative)
+                or (index + 1 < len(lines)
+                    and _acceptance_table_start(relative, lines[index + 1], container))):
             return None, index
         if '-->' in expanded:
             return index, index
@@ -233,9 +278,12 @@ def _acceptance_lines(text: str) -> List[str]:
     indented_fence_marker: Optional[Tuple[str, int, int]] = None
     continuation_comment_end: Optional[int] = None
     failed_comment_scan: Optional[Tuple[Tuple[int, ...], int]] = None
+    table_context: Optional[Tuple[int, ...]] = None
     previous_blank = True
     lines = text.splitlines()
     for index, raw_line in enumerate(lines):
+        previous_table_context = table_context
+        table_context = None
         expanded = raw_line.expandtabs(4)
         indent = len(expanded) - len(expanded.lstrip(' '))
         blank = not expanded.strip()
@@ -306,8 +354,21 @@ def _acceptance_lines(text: str) -> List[str]:
             list_indents.append(container)
             relative = expanded[container:]
             marker = re.match(r" {0,3}(?:[-*+]|\d{1,9}[.)])( +)", relative)
+        context = tuple(list_indents)
+        after_table = previous_table_context is not None and previous_table_context == context
+        table_row = not (_acceptance_block_start(relative)
+                         or re.match(r' {0,3}>', relative)
+                         or _acceptance_html_boundary(relative))
+        if (table_row and index + 1 < len(lines)
+                and _acceptance_table_start(relative, lines[index + 1], container)):
+            table_context = context
+        elif table_row and after_table and indent - container <= 3 and '|' in relative:
+            # Track only a table actually opened by a matching header/delimiter;
+            # an isolated pipe paragraph never gains table context.
+            table_context = context
         fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", relative)
         indented_fence = re.match(r"^ {4,}(`{3,}|~{3,})(.*)$", relative)
+        indented_comment = re.match(r'^ {4,}<!--', relative)
         if fence and (fence.group(1)[0] != '`' or '`' not in fence.group(2)):
             fence_character, fence_size = fence.group(1)[0], len(fence.group(1))
             fence_container = container
@@ -316,10 +377,9 @@ def _acceptance_lines(text: str) -> List[str]:
             # Inline/code-span markers are literal; even <!--> closes on this line.
             in_comment = '-->' not in relative
             visible.append('')
-        elif not previous_blank and re.match(r'^ {4,}<!--', relative):
+        elif not previous_blank and not after_table and indented_comment:
             # Unlike a type-2 block, an inline comment cannot cross a paragraph
             # boundary. An unmatched candidate remains literal compatibility text.
-            context = tuple(list_indents)
             if '-->' in expanded:
                 continuation_comment_end = index
             elif (failed_comment_scan is not None and failed_comment_scan[0] == context
@@ -333,10 +393,12 @@ def _acceptance_lines(text: str) -> List[str]:
                     failed_comment_scan = (context, stop)
             visible.append('' if continuation_comment_end is not None else raw_line)
         elif len(relative) - len(relative.lstrip(' ')) >= 4 and (
-                previous_blank or (indented_fence and (
+                previous_blank or (after_table and indented_comment) or (indented_fence and (
                     indented_fence.group(1)[0] != '`' or '`' not in indented_fence.group(2)))):
             # A blank starts indented code. Without a blank, remember the paired
             # example fence so compatible criteria can resume after its closer.
+            # An indented comment after an actual table is code too; ordinary
+            # indented criteria retain the extractor's compatibility behavior.
             indented_text = container + 4
             if not previous_blank and indented_fence:
                 indented_fence_marker = (indented_fence.group(1)[0], len(indented_fence.group(1)), indent)

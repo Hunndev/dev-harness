@@ -3,6 +3,9 @@
 Existing SF-5–SF-8 equivalence classes in test_request_parsing_sf58.py also fail
 on 6688272 and represent additional behavior changes, not existing guards.
 They remain unchanged and are separate from the canonical v5 RED evidence.
+
+TABLE_NEIGHBORS and SCAN_NEIGHBORS also contain five inputs that fail on
+233cac7; these are additional behavior changes, not baseline-passing guards.
 """
 import unittest
 from unittest.mock import patch
