@@ -140,8 +140,7 @@ class RequestParsingV7ConsequenceTests(ParserAssertions, unittest.TestCase):
 _TABLE = '| Label | Criterion |\n|---|---|\n| data | value |\n'
 _NESTED_TABLE = '- Group\n' + ''.join('  ' + line + '\n' for line in _TABLE.splitlines())
 
-# Pin both sides of the closing/dedent boundary, including subsequent code
-# regions, so comment state cannot accidentally close an unrelated fence.
+# Concrete closer/dedent examples and selected follow-on code-region controls.
 BOUNDARY_NEIGHBORS = [
     ('closed-comment-hides-list-and-row', _TABLE +
      '    <!-- note\n    - AC-98: hidden\n    | AC-99 | hidden |\n'
@@ -202,6 +201,9 @@ BOUNDARY_NEIGHBORS = [
     ('comment-closer-then-unrelated-fence', _TABLE +
      '    <!-- note -->\n    ````\n    - AC-99: hidden -->\n    ```\n'
      '    - AC-98: hidden\n    ````\n    - AC-1: real\n', ['- AC-1: real']),
+    ('closer-then-blank-code-arrow-stays-hidden', _TABLE +
+     '    <!-- note\n    - AC-97: hidden\n    -->\n    - AC-1: real\n\n'
+     '    - AC-98: example\n    x -->\n    - AC-99: leaked\n', ['- AC-1: real']),
     ('comment-dedent-then-unrelated-fence', _TABLE +
      '    <!-- note\nNew prose\n    ```\n    - AC-99: hidden -->\n'
      '    - AC-98: hidden\n    ```\n    - AC-1: real\n', ['- AC-1: real']),
