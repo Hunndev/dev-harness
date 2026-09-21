@@ -44,7 +44,7 @@ class BaselineContract(unittest.TestCase):
                 elif change == "unknown":
                     data["baseline"] = "SOMETHING_ELSE"
                 elif change == "unsupported_version":
-                    data["schema_version"] = "1.2"
+                    data["schema_version"] = "9.9"
                 elif change == "missing_version":
                     data.pop("schema_version")
                 else:
@@ -94,7 +94,7 @@ class BaselineContract(unittest.TestCase):
         for name in ("tdd-test-design-result", "tdd-sensitivity-result"):
             schema = json.loads((ROOT / "SHARED" / "contracts" / (name + ".schema.json")).read_text())
             with self.subTest(contract=name):
-                self.assertEqual("1.1", schema["properties"]["schema_version"]["const"])
+                self.assertEqual("1.2", schema["properties"]["schema_version"]["const"])
                 self.assertIn("baseline", schema["required"])
                 self.assertEqual(["RED_TO_GREEN", "PASS_TO_PASS"], schema["properties"]["baseline"]["enum"])
 
@@ -105,6 +105,7 @@ class BaselineContract(unittest.TestCase):
                 self.assertIn("RED_TO_GREEN", text)
                 self.assertIn("PASS_TO_PASS", text)
                 self.assertIn('"schema_version": "1.1"', text)
+                self.assertIn('"schema_version": "1.2"', text)
                 self.assertIn("red_failure_kind", text)
                 self.assertIn("approved_red_revision", text)
                 self.assertIn("maintenance의 refactor", text)

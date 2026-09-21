@@ -63,7 +63,8 @@ run은 materialize → verify → dev-27 source 재검증 이후 `materialized-p
 1. `gate-result.json` status가 `PASS`인지 확인한다.
 2. Gate schema 1.1의 source_snapshot_id가 packet 및 현재 source와 같은지 확인한다. Gate에는 evidence_bundle_id·packet_id를 넣지 않는다(순환 방지). Gate 실제 bytes의 status·비어 있지 않은 commands·모든 exit_code 0을 공통 validator로 확인한다.
 3. 현재 repository snapshot을 재계산해 packet과 다르면 이전 결과를 사용하지 않는다. 재계산은 packet 검증 시점과 source 복사 직후 두 번이며(검증→복사 사이 재검증), 두 번째는 복사본의 tree 해시와도 대조한다 — 바뀐 내용이 복사된 뒤 live source가 원복된 경우도 여기서 걸린다(복사되기 전에 원복된 순간적 변경까지 항상 잡는 것은 아니다).
-4. 필수 AC·제외사항·TDD 증거가 없으면 `BLOCKED`한다. design·sensitivity는 schema와 기존 의미 validator를 모두 통과해야 하고 baseline이 같아야 한다. schema 1.1의 PASS_TO_PASS는 maintenance refactor에만 허용하며 1.0은 RED_TO_GREEN으로 호환한다. `TDD_*` 오류 코드는 `GATE_*`와 구분해 보존한다.
+4. 필수 AC·제외사항·TDD 증거가 없으면 `BLOCKED`한다. design·sensitivity는 schema와 기존 의미 validator를 모두 통과하고 `baseline`이 같아야 한다. 새 실행 관측 증거는 부모의 `hb-eval-review tdd-check red|green`이 기존 `tdd-test-design-result.json`·`tdd-sensitivity-result.json`에 schema 1.2로 생성한다. `observed`의 argv·cwd·exit_code·selected_tests·executed·recorded_at·test_file_sha256과 run·repository·gitdir·artifact·고정 baseline 결속을 확인한다. 선택된 테스트가 실제 실행되지 않았거나, Green에서 Red의 선택된 테스트 ID 전체가 PASS하지 않거나, 승인 기록 없이 test hash가 바뀌면 `BLOCKED`다. `approved_red_revision: true` 자기보고는 승인 증거가 아니다. Gate는 Green의 `observed.sut_sha256`와 현재 source view를 대조해 Green 이후 구현 변경을 차단한다. 이 view는 검증한 source manifest의 `files`에서 현재 artifact 디렉터리의 정확한 prefix만 제외한 path·kind·mode·hash이며 기존 packet snapshot·열거기·제외 규칙은 유지한다. run은 source 복사 후 재검증을 마친 manifest를 사용하고 live source를 추가로 다시 읽지 않는다. Red·Green의 전체 source hash 동일성이나 관측 당시 `source_snapshot_id`와 이후 Gate snapshot의 무조건적인 동일성을 요구하지 않는다.
+5. `PASS_TO_PASS`는 maintenance refactor에만 허용한다. 기존 1.0은 `RED_TO_GREEN`, 1.1은 명시적 baseline의 의미 호환을 유지하지만, 어느 버전도 1.2 실행 관측 baseline을 대신할 수 없다. 실행 관측과 테스트 의미 품질을 구분하며 AC·assertion·mock·독립 검수·회귀·mutation 규칙도 그대로 검사한다. `TDD_*` 오류 코드는 `GATE_*`와 구분해 보존한다.
 
 ### [E1] 동일 packet 봉인
 

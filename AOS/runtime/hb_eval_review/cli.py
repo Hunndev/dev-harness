@@ -114,6 +114,16 @@ def command_gate(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "PASS" else 2
 
 
+def command_tdd_check(args: argparse.Namespace) -> int:
+    from .tdd_observation import tdd_check
+    result = tdd_check(args.phase, Path(args.repo), Path(args.test_file), args.cmd,
+                       Path(args.design), Path(args.out), issue_type=args.issue_type,
+                       sensitivity_path=Path(args.sensitivity) if args.sensitivity else None,
+                       approval_path=Path(args.approval_record) if args.approval_record else None)
+    _emit(result)
+    return 0 if result['status'] == 'PASS' else 2
+
+
 def command_pack(args: argparse.Namespace) -> int:
     reject_git_redirect_environment()
     models = {"claude": args.claude_model or os.environ.get("CLAUDE_MODEL_ID"),
@@ -276,7 +286,7 @@ def command_run(args: argparse.Namespace) -> int:
         evidence_root = materialize_evidence(packet_source, materialized_root, packet["evidence_entries"])
         gate_errors = validate_gate_file(
             evidence_root / "gate-result.json", packet_source, evidence_root=evidence_root,
-            source_snapshot_id=recomputed["source_snapshot_id"], track=track,
+            source_snapshot_id=recomputed["source_snapshot_id"], source_manifest=recomputed['manifest'], track=track,
             issue_type=packet["request"].get("issue_type"), artifacts=artifacts,
         )
         if gate_errors:
@@ -385,6 +395,18 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--out", required=True)
     gate.add_argument("--issue-type", choices=("bug", "feature", "refactor", "hotfix", "performance"))
     gate.set_defaults(func=command_gate)
+
+    tdd = subparsers.add_parser('tdd-check')
+    tdd.add_argument('phase', choices=('red', 'green'))
+    tdd.add_argument('--repo', default=os.getcwd())
+    tdd.add_argument('--test-file', required=True)
+    tdd.add_argument('--cmd', required=True)
+    tdd.add_argument('--design', required=True)
+    tdd.add_argument('--out', required=True)
+    tdd.add_argument('--issue-type', choices=('bug', 'feature', 'refactor', 'hotfix', 'performance'))
+    tdd.add_argument('--sensitivity')
+    tdd.add_argument('--approval-record')
+    tdd.set_defaults(func=command_tdd_check)
 
     pack = subparsers.add_parser("pack")
     pack.add_argument("--repo", required=True)

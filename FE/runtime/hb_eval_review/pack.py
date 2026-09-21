@@ -528,6 +528,7 @@ def build_packet(repo: Path, artifacts: Path, request_source: str, base_ref: str
                 raise ContractError(["EVIDENCE_COPY_MISMATCH"], [name])
         frozen_errors = validate_gate_file(frozen / "gate-result.json", repo,
                                            evidence_root=frozen, source_snapshot_id=snapshot_id,
+                                           source_manifest=snapshot['manifest'],
                                            track=track, issue_type=issue_type, artifacts=artifacts)
         if frozen_errors:
             raise ContractError(frozen_errors)

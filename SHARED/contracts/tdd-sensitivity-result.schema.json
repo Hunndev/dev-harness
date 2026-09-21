@@ -4,26 +4,321 @@
   "title": "TDD Sensitivity Result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "baseline", "stage", "tier", "status", "test_id", "red_test_hash", "green_test_hash", "red_outcome", "green_outcome", "approved_red_revision", "high_risk", "mutation", "regression"],
-  "allOf": [{
-    "if": {"properties": {"baseline": {"const": "RED_TO_GREEN"}}},
-    "then": {"properties": {"red_outcome": {"const": "FAIL"}}},
-    "else": {"properties": {"red_outcome": {"const": "PASS"}}}
-  }],
+  "required": [
+    "schema_version",
+    "baseline",
+    "stage",
+    "tier",
+    "status",
+    "test_id",
+    "red_test_hash",
+    "green_test_hash",
+    "red_outcome",
+    "green_outcome",
+    "approved_red_revision",
+    "high_risk",
+    "mutation",
+    "regression",
+    "observed"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "baseline": {
+            "const": "RED_TO_GREEN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "red_outcome": {
+            "const": "FAIL"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "red_outcome": {
+            "const": "PASS"
+          }
+        }
+      }
+    }
+  ],
   "properties": {
-    "schema_version": {"const": "1.1"},
-    "baseline": {"enum": ["RED_TO_GREEN", "PASS_TO_PASS"]},
-    "stage": {"const": "tdd-sensitivity"},
-    "tier": {"enum": ["T0", "T1", "T2"]},
-    "status": {"enum": ["PASS", "BLOCKED", "NEEDS_HUMAN_REVIEW"]},
-    "test_id": {"type": "string", "minLength": 1},
-    "red_test_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "green_test_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "red_outcome": {"enum": ["FAIL", "PASS"]},
-    "green_outcome": {"const": "PASS"},
-    "approved_red_revision": {"type": "boolean"},
-    "high_risk": {"type": "boolean"},
-    "mutation": {"type": "object", "required": ["required", "performed", "outcome"], "properties": {"required": {"type": "boolean"}, "performed": {"type": "boolean"}, "outcome": {"enum": ["KILLED", "SURVIVED", "NOT_REQUIRED", "BLOCKED"]}}},
-    "regression": {"type": "object", "required": ["status"], "properties": {"status": {"const": "PASS"}}}
+    "schema_version": {
+      "const": "1.2"
+    },
+    "baseline": {
+      "enum": [
+        "RED_TO_GREEN",
+        "PASS_TO_PASS"
+      ]
+    },
+    "stage": {
+      "const": "tdd-sensitivity"
+    },
+    "tier": {
+      "enum": [
+        "T0",
+        "T1",
+        "T2"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "BLOCKED",
+        "NEEDS_HUMAN_REVIEW"
+      ]
+    },
+    "test_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "red_test_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "green_test_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "red_outcome": {
+      "enum": [
+        "FAIL",
+        "PASS"
+      ]
+    },
+    "green_outcome": {
+      "const": "PASS"
+    },
+    "approved_red_revision": {
+      "type": "boolean"
+    },
+    "high_risk": {
+      "type": "boolean"
+    },
+    "mutation": {
+      "type": "object",
+      "required": [
+        "required",
+        "performed",
+        "outcome"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "performed": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "enum": [
+            "KILLED",
+            "SURVIVED",
+            "NOT_REQUIRED",
+            "BLOCKED"
+          ]
+        }
+      }
+    },
+    "regression": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "const": "PASS"
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argv",
+        "cwd",
+        "exit_code",
+        "selected_tests",
+        "executed",
+        "recorded_at",
+        "test_file_sha256",
+        "run_id",
+        "git_dir",
+        "artifacts",
+        "test_file",
+        "source_snapshot_id",
+        "baseline_sha256",
+        "sut_sha256"
+      ],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "cwd": {
+          "type": "string",
+          "pattern": "^/[^\\x00]*$"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "selected_tests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "executed": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|\\+00:00)$"
+        },
+        "test_file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "git_dir": {
+          "type": "string",
+          "pattern": "^/[^\\x00]*$"
+        },
+        "artifacts": {
+          "type": "string",
+          "pattern": "^/[^\\x00]*$"
+        },
+        "test_file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\)[^\\x00]+$"
+        },
+        "source_snapshot_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "baseline_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_path",
+            "record_sha256",
+            "record"
+          ],
+          "properties": {
+            "record_path": {
+              "type": "string",
+              "pattern": "^/[^\\x00]*$"
+            },
+            "record_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "record": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "kind",
+                "repo",
+                "git_dir",
+                "artifacts",
+                "run_id",
+                "test_file",
+                "old_sha256",
+                "new_sha256",
+                "revision",
+                "revision_line",
+                "approved_by",
+                "approval_source",
+                "recorded_at"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "1.0"
+                },
+                "kind": {
+                  "const": "tdd-red-revision-approval"
+                },
+                "repo": {
+                  "type": "string",
+                  "pattern": "^/[^\\x00]*$"
+                },
+                "git_dir": {
+                  "type": "string",
+                  "pattern": "^/[^\\x00]*$"
+                },
+                "artifacts": {
+                  "type": "string",
+                  "pattern": "^/[^\\x00]*$"
+                },
+                "run_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                },
+                "test_file": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\)[^\\x00]+$"
+                },
+                "old_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "new_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "revision": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ]
+                },
+                "revision_line": {
+                  "type": "string",
+                  "pattern": "^revision [12]: \\S.*$"
+                },
+                "approved_by": {
+                  "const": "user"
+                },
+                "approval_source": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recorded_at": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|\\+00:00)$"
+                }
+              }
+            }
+          }
+        },
+        "sut_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Observation-only digest of the verified source snapshot manifest, excluding only the exact current artifact directory prefix. Source changes between baseline and green are allowed."
+        }
+      }
+    }
   }
 }

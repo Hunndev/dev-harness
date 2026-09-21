@@ -26,14 +26,14 @@ node -p "require('react-scripts/package.json').version"
 
 ### 2. 이전 TDD 아티팩트 정리 (stale counter 방지)
 
-아티팩트 디렉토리(`.harness/artifacts/{track}/{identifier}/`)에서 이전 run의 잔존 파일을 삭제한다. 이들이 남아있으면 "line count as counter" 규칙이 stale 값을 상속한다:
+새 작업을 시작할 때 아티팩트 디렉토리(`.harness/artifacts/{track}/{identifier}/`)의 이전 작업 잔존 카운터를 정리한다. 이미 수용된 baseline으로 진행 중인 작업을 재개할 때는 아래 정리를 실행하지 않는다. revision 카운터와 부모가 고정한 run을 유지해야 한다:
 
 ```bash
 rm -f {artifacts-dir}/tdd-red-debug.md
 rm -f {artifacts-dir}/tdd-red-revisions.md
 ```
 
-`tdd-baseline-log.txt`, `tdd-green-log.txt`, `tdd-refactor-notes.md`는 덮어쓰기 대상이므로 삭제 불필요 (cycle이 재작성). 단, 동일 identifier로 재실행하는 경우 기존 아티팩트 디렉토리가 의도된 것인지 사용자 확인을 받는다.
+`tdd-baseline-log.txt`, `tdd-green-log.txt`는 부모 실행이 기록하고 `tdd-refactor-notes.md`는 해당 단계가 작성한다. 고정된 Design·run 기록을 삭제하거나 수동으로 덮어써 새 baseline을 만들지 않는다. 동일 identifier의 수용된 baseline을 바꾸려면 아래 승인된 Red 재작성 절차를 따른다.
 
 ---
 
@@ -44,26 +44,25 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
 1. 테스트가 실행되면 FAIL해야 함 (구현이 없거나 기존 동작이 버그이므로)
    - 단, **maintenance의 refactor 이슈 유형**만 `PASS_TO_PASS` 예외를 사용한다. 현재 동작의 characterization test가 실제 PASS하는 baseline을 고정한다. 그 밖의 유형은 `RED_TO_GREEN`이며, JSON의 baseline 값만 바꿔 작업 유형을 refactor로 취급하지 않는다.
 2. 테스트 범위: 하나의 수용기준(AC) 또는 하나의 버그 재현
-3. Baseline 로그를 아티팩트 디렉토리의 `tdd-baseline-log.txt`에 캡처:
-   - 실패한 테스트 이름 (bug/feature 유형)
-   - expected vs actual
-   - 출력 tail 30줄
+3. 아래 Test Design 항목을 검수하고 `tdd-design-metadata.json` 입력을 준비한 뒤 부모 CLI로 baseline을 직접 실행한다. `--test-file`은 실제 테스트 파일의 저장소 상대 경로다. `--issue-type`에는 실제 작업 유형(`feature`, `bug`, `performance`, `refactor`, `hotfix`)을 넣는다.
 
    ```bash
-   npm test -- --watchAll=false {module} 2>&1 | tail -30 > tdd-baseline-log.txt
+   <플러그인 설치 경로>/bin/hb-eval-review tdd-check red --repo <root> --test-file {test-file} --cmd 'npm test -- --watchAll=false {module}' --design {artifacts-dir}/tdd-design-metadata.json --out {artifacts-dir} --issue-type {issue-type}
    ```
+
+   부모가 `tdd-baseline-log.txt`와 schema 1.2 `tdd-test-design-result.json`을 생성한다. `--cmd` 안에 파이프·리다이렉션·셸 조합을 넣지 않는다. 로그 tail이나 exit code만으로 Red를 인정하지 않고, 스택 리포트에서 선택된 테스트가 1개 이상 실제 실행됐으며 assertion 때문에 실패했는지 확인한다. `refactor`는 선택된 테스트의 실제 PASS baseline을 요구한다.
 
 4. **실패 이유 검증 (bug/feature 유형)**:
    - 구현 부재 / assertion fail → **올바른 Red** → Green 단계로 진행
    - JS/TS 컴파일 에러 / import 에러 / mock 설정 오류 → **올바르지 않은 Red**
      - (a) 테스트 코드를 수정하고 재실행 (최대 3회)
      - (b) 3회 후에도 올바르지 않은 Red면: 원인을 `tdd-red-debug.md`에 기록하고 사용자에게 보고 (mock/설정 혼란 가능성)
-     - (c) 각 재시도의 최종 출력만 `tdd-baseline-log.txt`에 덮어쓰기
+     - (c) 부모의 `tdd-check red` 재시도가 `tdd-baseline-log.txt`를 기록한다. 올바르지 않은 Red는 수용된 고정 baseline을 만들지 않는다.
      - (d) **재시도 카운터 persistence**: 재시도 횟수는 `tdd-red-debug.md`의 attempt 라인 수(`attempt N: {reason}`)로 결정한다. 파일이 없으면 0부터 시작. 워크플로우 재개 시에도 카운터가 유지된다.
 
 ### Test Design Check: 변경 구현 전 테스트 코드 검수
 
-`RED_TO_GREEN`은 올바른 Red 실패를, `PASS_TO_PASS`는 실제 PASS baseline을 확인한 뒤 **구현 코드를 작성하기 전에** 다음을 검사하고 `tdd-test-design-result.json`에 기록한다. 두 경우 모두 schema 1.1과 명시적인 `baseline`을 쓴다. RED에서는 `red_failure_kind`가 필수이고, PASS baseline에서는 해당 필드를 넣지 않는다.
+**구현 코드를 작성하기 전에** 다음을 검사해 `tdd-design-metadata.json`에 의미 검수 결과를 작성한다. `tdd-check red`가 이 입력과 직접 실행한 baseline을 결합해 schema 1.2 `tdd-test-design-result.json`을 생성해야 Design 검수가 완료된다. `RED_TO_GREEN`은 올바른 Red 실패, maintenance의 refactor만 `PASS_TO_PASS`의 실제 PASS baseline을 요구한다. RED에서는 `red_failure_kind`가 필수이고, PASS baseline에서는 해당 필드를 넣지 않는다. 생성된 Design의 관측값이나 status를 모델이 수정하지 않는다.
 
 1. 테스트 하나가 하나의 실제 AC 또는 하나의 재현 버그에 연결되는가.
 2. 이름과 assertion이 내부 메서드 호출이 아니라 사용자가 관찰할 행동·상태·부작용·오류 계약을 검증하는가.
@@ -72,7 +71,7 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
 5. 순서·실시간·실제 네트워크에 불필요하게 의존하는 flaky 구조가 아닌가.
 6. T2/high-risk는 구현 context와 분리된 read-only Sub-agent/Team lens가 테스트 설계를 독립 확인했는가.
 
-검사 실패 시 변경 구현을 시작하지 않는다. 테스트를 수정한 뒤 해당 baseline(RED의 올바른 실패 또는 PASS)을 다시 실행하고 새 Test Design 결과를 봉인한다.
+검사 실패 시 변경 구현을 시작하지 않는다. 수용된 baseline이 아직 없다면 테스트를 수정하고 `tdd-check red`로 해당 baseline(RED의 올바른 실패 또는 PASS)을 다시 실행한다. 이미 고정된 baseline의 테스트를 바꿔야 하면 아래 승인된 Red 재작성 절차를 거친다.
 
 ### Green: 최소 구현으로 통과
 
@@ -81,11 +80,13 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
 1. Red 테스트가 PASS가 되도록 **최소한의 코드만** 작성
 2. 범위 폭주 금지: Red 테스트가 요구하지 않는 코드 추가 금지
 3. 다른 기존 테스트가 깨지면 즉시 수정 (새로운 회귀 만들지 말 것)
-4. PASS 로그를 `tdd-green-log.txt`에 캡처:
+4. 관련 회귀·위험도 검수를 마치고 `tdd-sensitivity-metadata.json`을 준비한 뒤 부모 CLI로 변경 후 테스트를 실행한다. `--design`에는 Red에서 생성된 **동일한 고정 Design 파일**을 전달한다.
 
    ```bash
-   npm test -- --watchAll=false {module} 2>&1 | tail -30 > tdd-green-log.txt
+   <플러그인 설치 경로>/bin/hb-eval-review tdd-check green --repo <root> --test-file {test-file} --cmd 'npm test -- --watchAll=false {module}' --design {artifacts-dir}/tdd-test-design-result.json --sensitivity {artifacts-dir}/tdd-sensitivity-metadata.json --out {artifacts-dir} --issue-type {issue-type}
    ```
+
+   부모가 `tdd-green-log.txt`와 schema 1.2 `tdd-sensitivity-result.json`을 생성한다. exit 0이고 Red에서 선택된 테스트 ID 전체가 실제 실행·PASS해야 한다. argv의 문자열 동일성이나 테스트 파일 경로 포함 여부로 이를 대신하지 않는다.
 
 5. 추가 검증 (타입 및 lint 오류 없음 확인):
 
@@ -97,23 +98,40 @@ rm -f {artifacts-dir}/tdd-red-revisions.md
 
 Green 구현 중 수용기준(AC) 자체가 잘못 서술되었거나 Red 테스트가 잘못된 대상을 검증한다는 증거가 나오면:
 
-1. 구현을 **즉시 중단**한다. 테스트를 억지로 수정해 PASS시키지 않는다.
-2. 사용자에게 Red 재작성 필요성을 제기한다 (이유 + 제안 수정).
-3. 승인 시 Red 단계로 복귀한다. `tdd-baseline-log.txt`를 덮어쓰고 `tdd-red-revisions.md`에 `revision {N}: {reason}` 기록.
-4. **승인 없이 테스트를 수정하여 Green을 만드는 것은 금지** (test-after 회귀로 간주).
-5. **재작성 캡 — 최대 2회 복귀**: `tdd-red-revisions.md`의 라인 수가 revision 카운터 역할을 한다 (파일이 없으면 0, 한 번 복귀할 때마다 라인 +1). **3번째 복귀 요청(revision 3)**이 발생하면 즉시 중단하고 deep 트랙 에스컬레이션 또는 사용자 개입을 요청한다 — 이는 근본 원인이 테스트가 아니라 설계의도(requirements.md)에 있다는 신호다.
-6. **Counter reset 규칙 (중요 — 두 카운터 상호작용 방지)**: Green→Red 복귀 시 반드시 `tdd-red-debug.md`를 **truncate**(rm -f)한다. 그렇지 않으면 이전 Red phase의 attempt 라인 수가 새 Red phase에 carry over되어 false escalation이 발생한다. 아래 3단계를 순서대로 수행:
-   - (a) `tdd-red-revisions.md`에 `revision {N}: {reason}` 라인 append (revision 카운터 +1)
-   - (b) `rm -f {artifacts-dir}/tdd-red-debug.md` (retry 카운터 reset to 0)
-   - (c) `tdd-baseline-log.txt`를 덮어쓰기할 준비 상태로 Red 단계 진입
-   `tdd-red-revisions.md`는 revision 카운터이므로 절대 reset하지 않는다 (revision 3 cap 유지).
+1. 구현을 **즉시 중단**하고 사용자에게 이유와 구체적인 수정안을 제시한다. 승인 없이 테스트를 수정해 Green을 만드는 것은 금지다.
+2. 실제 사용자 승인 뒤 `tdd-red-revisions.md`에 `revision {N}: {reason}` 한 줄을 append한다. 파일의 revision 라인 수가 카운터이며 최대 2회만 허용한다. 파일이 없으면 0이고 한 번 복귀할 때 한 줄만 추가하며 reset하지 않는다. 3번째 요청은 중단하고 deep 트랙 또는 사용자 개입으로 에스컬레이션한다.
+3. 부모/controller가 사용자 승인 메시지를 근거로 **저장소 밖의 승인 기록 JSON**을 준비한다. 모델·source·provider가 `approved_by`나 승인 사실을 스스로 만들어서는 안 된다. 기존 revision 라인이나 `approved_red_revision: true`만으로는 승인되지 않는다.
+4. 이전 Red retry 카운터인 `tdd-red-debug.md`만 truncate한다. 새 테스트와 검수 metadata를 준비하고 Red 명령에 `--approval-record <controller-owned-external-json>`을 추가해 다시 실행한다. 부모는 기존 baseline을 보존하고 승인에 결속된 새 run을 만든다. Green은 새 Red의 `tdd-test-design-result.json`을 사용한다.
+
+외부 승인 기록 형식은 다음과 같다. 아래는 필드 설명을 위한 예시이며, 실제 사용자 승인 없이 복사해 승인 기록으로 사용하지 않는다.
+
+```json
+{
+  "schema_version": "1.0",
+  "kind": "tdd-red-revision-approval",
+  "repo": "<canonical absolute repo>",
+  "git_dir": "<canonical absolute gitdir>",
+  "artifacts": "<canonical absolute artifact output dir>",
+  "run_id": "<기존 Design의 observed.run_id>",
+  "test_file": "<저장소 상대 테스트 파일 경로>",
+  "old_sha256": "<기존 baseline의 64자리 SHA-256>",
+  "new_sha256": "<승인된 변경 후 64자리 SHA-256>",
+  "revision": 1,
+  "revision_line": "revision 1: <승인된 수정 사유>",
+  "approved_by": "user",
+  "approval_source": "<실제 사용자 승인 메시지 참조>",
+  "recorded_at": "<UTC ISO timestamp ending Z>"
+}
+```
+
+`--approval-record`는 부모/controller가 명시적으로 전달한다. 부모는 canonical repository·gitdir·artifact output·기존 run·test-file·old/new hash·revision 번호와 파일의 정확한 `revision_line`을 대조하고, 호출 전후 승인 기록의 bytes hash를 확인한다. 저장소 안의 기록, symlink 또는 `..`를 사용한 경로는 거부한다. `approval_source`는 사용자 승인 출처를 기록하는 값이며 암호학적 사용자 신원 검증을 뜻하지 않는다. 직접 Green에 승인 기록을 전달하는 경우에도 이 결속과 선택된 테스트 전체의 PASS 검사는 생략되지 않는다.
 
 ### Test Sensitivity Check: Green 이후 회귀 검출력 확인
 
-`RED_TO_GREEN`은 Green 이후 Refactor 전에, `PASS_TO_PASS`는 주 변경인 Refactor 완료 후 `tdd-sensitivity-result.json`을 생성한다. schema 1.1을 쓰며 Design 파일과 `baseline`이 같아야 한다.
+`RED_TO_GREEN`은 Green 이후 Refactor 전에, `PASS_TO_PASS`는 주 변경인 Refactor 완료 후 아래 의미 검수를 수행한다. 회귀·위험도·mutation 결과를 `tdd-sensitivity-metadata.json` 입력으로 준비하고 위 `tdd-check green`을 실행해 schema 1.2 `tdd-sensitivity-result.json`을 생성한다. 부모가 Design과 같은 `baseline`, 관측한 실행 결과와 hash를 기록한다.
 
 1. 같은 test identity와 test-file hash에 대해 `RED_TO_GREEN`은 `red_outcome=FAIL` → `green_outcome=PASS`, `PASS_TO_PASS`는 `red_outcome=PASS` → `green_outcome=PASS`를 확인한다. 필드 이름은 두 경우 모두 유지한다.
-2. hash가 달라졌다면 승인된 Red revision과 새 baseline이 있는지 확인한다. 승인 없는 assertion 약화·테스트 교체는 `BLOCKED`다.
+2. hash가 달라졌다면 `tdd-red-revisions.md`의 해당 라인과 실제 사용자 승인에 근거해 부모/controller가 만든 외부 승인 기록이 필요하다. `approved_red_revision: true` 자기보고나 저장소 내부 파일만으로는 승인되지 않으며 `TDD_TEST_IDENTITY_CHANGED`로 `BLOCKED`다. 승인된 Red 재작성은 새 baseline부터 다시 검수한다.
 3. repository가 정의한 관련 회귀 suite가 PASS인지 확인한다.
 4. 인증·권한·결제·DB 무결성·API contract 등 T2/high-risk에서 안전하고 지원되는 경우 격리 worktree의 targeted mutation/revert로 핵심 결함을 되살렸을 때 테스트가 FAIL하는지 확인한다.
 5. 필요한 mutation을 실행할 수 없으면 사유를 명시하고 `BLOCKED` 또는 `NEEDS_HUMAN_REVIEW`로 보낸다. 조용히 PASS하지 않는다.
@@ -131,7 +149,7 @@ T0에는 routine mutation을 강제하지 않는다. 동일 테스트의 해당 
    npm test -- --watchAll=false {module}
    ```
 
-5. 변경 내용을 `tdd-refactor-notes.md`에 요약
+5. 변경 내용을 `tdd-refactor-notes.md`에 요약한다. 최종 코드 변경 뒤 의미 검수 metadata를 갱신하고 같은 고정 Design을 사용하는 `tdd-check green`을 다시 실행해 최종 source의 관측 증거를 남긴다.
 
 ---
 
@@ -159,26 +177,26 @@ Red/Green/Refactor가 적용되는 단계에서 다음 파일을 **반드시** �
 .harness/artifacts/{track}/{identifier}/
   tdd-baseline-log.txt     ← Red 단계 baseline (FAIL or PASS per issue type)
   tdd-green-log.txt        ← 변경 후 PASS 증거 (refactor 포함)
-  tdd-test-design-result.json ← schema 1.1·baseline·변경 전 AC·assertion·mock·경계 검수
-  tdd-sensitivity-result.json ← schema 1.1·baseline·FAIL→PASS/PASS→PASS·hash·회귀·mutation 증거
+  tdd-test-design-result.json ← 부모 생성 schema 1.2·고정 baseline·Design 의미 검수·observed
+  tdd-sensitivity-result.json ← 부모 생성 schema 1.2·선택된 테스트 전환·hash·회귀·mutation 증거
   tdd-refactor-notes.md    ← Refactor 내용 요약 (skip 시 "skipped: {reason}")
   tdd-red-revisions.md     ← (선택) Red 재작성 이력. 없으면 생성 안 함.
 ```
 
-- `tdd-baseline-log.txt`: bug/feature는 FAIL 출력, refactor는 PASS characterization 출력 (tail 30줄 + expected/actual)
+- `tdd-baseline-log.txt`: bug/feature는 FAIL 출력, refactor는 PASS characterization 출력 (부모가 캡처한 stdout/stderr와 실제 실행 결과)
 - `tdd-green-log.txt`: 구현 또는 refactor 후 PASS 출력 (테스트 통과 증거)
 - `tdd-refactor-notes.md`: 리팩토링 변경 요약 + 최종 PASS 확인. 건너뛸 때는 `skipped: {reason}` 기록.
-- `tdd-red-revisions.md`: Green 단계에서 Red 재작성이 필요했을 때만 생성. `revision 1: {reason}` 형태로 누적.
+- `tdd-red-revisions.md`: 실제 사용자 승인 후 `revision 1: {reason}` 형태로 누적하는 최대 2회의 Red 재작성 카운터다. 외부 부모/controller 승인 기록과 함께 대조하며, 이 파일 단독으로는 승인 증거가 아니다.
 
 hotfix 트랙의 실행 로그만 별도 파일명을 사용한다: `hotfix-red-log.txt`, `hotfix-green-log.txt` (Refactor 없음). 두 TDD JSON 파일은 hotfix에서도 같은 이름으로 반드시 생성한다.
 
 ---
 
-## TDD JSON 증거 작성 (schema 1.1)
+## 부모 실행 관측과 TDD JSON (schema 1.2)
 
-두 파일은 `.harness/artifacts/{track}/{identifier}/`에 실제 검사 결과로 작성한다. 로그만 만들고 JSON을 생략하면 Gate를 통과할 수 없다. 아래는 `RED_TO_GREEN`의 필수 필드를 모두 보인 작성 예시다. `<...>`는 실제 test ID·AC·설명·64자리 소문자 SHA-256으로 교체한다. 예시의 `PASS`는 검사가 실제로 통과했을 때만 기록한다.
+`hb-eval-review`는 플러그인에 vendored된 실행 파일이므로 `<플러그인 설치 경로>/bin/hb-eval-review`로 호출한다. `--repo`를 생략하면 현재 작업 디렉터리를 쓴다. `--out`은 `.harness/artifacts/{track}/{identifier}/`이고 `--issue-type`은 실제 작업 유형이다. 어댑터는 테스트 명령에서 추론하며 별도 `--stack` 인자는 없다.
 
-`tdd-test-design-result.json`:
+Red의 `--design`은 아래처럼 **의미 검수만 담은 입력 파일**(`tdd-design-metadata.json`)이다. 기존 schema 1.1 형식을 입력으로 사용할 수 있으며, 이 파일은 실행 증거가 아니다. `<...>`는 실제 검수 내용으로 바꾼다.
 
 ```json
 {
@@ -193,27 +211,29 @@ hotfix 트랙의 실행 로그만 별도 파일명을 사용한다: `hotfix-red-
 }
 ```
 
-`tdd-sensitivity-result.json`:
+Green의 `--design`은 입력 metadata가 아니라 **Red가 생성한 고정 `tdd-test-design-result.json`**이다. `--sensitivity`에는 관련 회귀·위험도·mutation을 검수한 의미 metadata 파일(`tdd-sensitivity-metadata.json`)을 전달한다.
 
 ```json
 {
-  "schema_version": "1.1", "baseline": "RED_TO_GREEN",
-  "stage": "tdd-sensitivity", "tier": "T1", "status": "PASS",
-  "test_id": "<Design과 같은 실제 test ID>",
-  "red_test_hash": "<변경 전 test 파일의 실제 SHA-256>",
-  "green_test_hash": "<변경 후 test 파일의 실제 SHA-256>",
-  "red_outcome": "FAIL", "green_outcome": "PASS",
-  "approved_red_revision": false, "high_risk": false,
+  "tier": "T1", "test_id": "<Design과 같은 실제 test ID>",
+  "high_risk": false,
   "mutation": {"required": false, "performed": false, "outcome": "NOT_REQUIRED"},
   "regression": {"status": "PASS"}
 }
 ```
 
-- maintenance의 refactor는 두 파일 모두 `baseline: "PASS_TO_PASS"`, sensitivity는 `red_outcome: "PASS"`, `green_outcome: "PASS"`로 작성하고 design의 `red_failure_kind`는 필드 자체를 생략한다. baseline을 `PASS_TO_PASS`로 썼다는 이유만으로 작업 유형이 바뀌지 않는다.
-- `RED_TO_GREEN` design은 `red_failure_kind`가 `missing_behavior` 또는 `bug_reproduced`여야 한다. syntax·import·fixture 오류는 해당 값으로 포장하지 않는다.
-- 예시의 tier·위험도·mutation·reviewer·경로 목록은 실제 작업으로 채운다. T2의 독립 read-only 검수와 필요한 mutation은 기존 규칙대로 증명한다. test hash가 달라지면 실제 승인된 revision이 있어야 `approved_red_revision: true`를 쓸 수 있다.
-- Design과 Sensitivity의 baseline은 일치해야 한다. 누락·미지값·지원하지 않는 버전은 거부된다. 기존 1.0 증거만 `RED_TO_GREEN`으로 해석하며 원본을 덮어쓰지 않는다. 새 증거는 1.1로 생산한다.
-- 1.1은 모델이 문서에 따라 작성한 증거다. 런타임이 실제 테스트 실행을 관측했다는 보증은 아니며, observed 계약 1.2는 후속 dev-16v3 범위다. `qa-snapshot.json`의 1.0과 provider envelope 2.0은 변경하지 않는다.
+`--sensitivity`를 생략하면 `--out/tdd-sensitivity-result.json`의 기존 의미 metadata를 읽는다. 첫 실행에서는 위 입력을 명시한다. `PASS`·`NOT_REQUIRED`는 실제 검수가 뒷받침할 때만 사용한다. 이 입력으로 실행 수·결과·hash·승인을 자기보고할 수 없으며, 부모가 해당 값과 최종 status를 계산한다. 입력 metadata의 `status: BLOCKED`, 알 수 없는 schema 버전, 해당 단계와 다른 `stage`는 테스트 실행 전에 거부한다.
+
+- 부모가 생성하는 두 정본 파일은 `"schema_version": "1.2"`이며 명시적인 `baseline`을 가진다. `observed`의 `argv`, `cwd`, `exit_code`, `selected_tests`, `executed`, `recorded_at`, `test_file_sha256`은 직접 실행과 리포트에서 계산한다. 같은 관측에 `run_id`, `git_dir`, `artifacts`, `test_file`, `source_snapshot_id`, `sut_sha256`를 결속하고, Green에는 고정 Red JSON의 정확한 bytes hash인 `baseline_sha256`도 기록한다. 모델이 이 필드를 만들거나 덮어쓰지 않는다.
+- 리포트 경로는 부모가 만든 임시 디렉터리로 고정한다. pytest의 `--junitxml`, Jest의 `--json --outputFile`, Gradle XML, xcodebuild의 `-resultBundlePath`와 `xcrun xcresulttool`을 통해 실제 테스트 ID·실행 수·결과를 읽는다. 사용자 지정 리포트 출력 경로는 거부한다. 오래된 리포트·stdout marker·exit code만으로는 실행을 증명하지 못한다.
+- Jest Red는 assertion 실패 status나 문구만으로 인정하지 않는다. `failureMessages`에 실제 test body의 circus `_callCircusTest` frame이 있어야 하며, `_callCircusHook` frame은 hook·fixture 실패로 거부한다. phase 증거가 없거나 잘린 리포트도 `TDD_RED_REASON_INVALID`로 `BLOCKED`다. 이 판별은 실제 캐시의 Jest 27.5.1에서 확인했으며 모든 Jest 버전·Jasmine runner의 호환을 보장하지 않는다. repository의 `testEnvironment`·`testRunner`를 덮어써 이 조건을 맞추지 않는다.
+- `RED_TO_GREEN`은 exit ≠ 0, 선택된 테스트 ≥ 1개 실행, assertion 실패를 함께 요구한다. collection·compile·syntax·import·fixture 오류는 stdout/stderr 어디에 있어도 `TDD_RED_REASON_INVALID`다. Green은 exit 0이며 Red에서 선택된 모든 테스트 ID가 실제 실행·PASS해야 한다. 파일 경로가 argv에 들어 있는지, 접두가 특정 문자열인지, Red/Green argv가 글자까지 같은지로 판정하지 않는다.
+- maintenance의 refactor만 `--issue-type refactor`를 쓰고 두 산출물의 `baseline`은 `PASS_TO_PASS`가 된다. Design 입력도 `PASS_TO_PASS`로 작성하고 `red_failure_kind`는 생략한다. 전후 실제 PASS와 동일 테스트·hash·회귀·필요한 mutation 검수는 그대로 필요하다. 나머지 유형은 `RED_TO_GREEN`이다.
+- 각 성공한 Red는 이전 관측을 덮어쓰지 않는 새 run으로 고정된다. Green은 같은 repository·gitdir·artifact run·test-file의 baseline에 결속돼야 한다. 다른 run이나 저장소의 Design을 가져오거나 출력 JSON을 편집해 관측값을 바꾸면 `BLOCKED`다.
+- `source_snapshot_id`는 각 실행의 출력 생성 전 source 관측이다. Red와 Green 사이에는 구현이 바뀌므로 두 값의 동일성을 요구하지 않으며, 이후 로그·산출물이 반영된 Gate snapshot과도 무조건 같아야 하는 값이 아니다. 각 명령을 실행하는 동안에는 source·테스트 hash·고정 baseline/state bytes가 유지돼야 한다.
+- `sut_sha256`는 기존에 검증한 source manifest의 `files` 항목에서 **현재 artifact 디렉터리의 정확한 prefix만 제외한** path·kind·mode·hash 목록으로 계산한다. packet의 기존 source snapshot·열거기·제외 규칙은 변경하지 않는다. Red→Green의 SUT 변경은 허용하지만, Gate에서는 **Green의 `sut_sha256`와 현재 source view**가 일치해야 한다. Green 이후 구현이 바뀌면 오래된 증거로 Gate를 통과할 수 없고 `tdd-check green`을 다시 실행한다. run은 source 복사 후 재검증을 마친 manifest로 같은 검사를 하며 live source를 추가로 다시 읽지 않는다.
+- 기존 1.0은 `RED_TO_GREEN`, 1.1은 명시적 baseline의 **의미 호환용**으로만 유지하며 원본을 덮어쓰지 않는다. 1.0/1.1 자기보고 문서를 1.2 관측 baseline으로 사용할 수 없다. `qa-snapshot.json`의 1.0과 provider envelope의 2.0은 변경하지 않는다.
+- 실행 관측은 테스트의 의미 품질을 대신하지 않는다. AC 연결·행동 assertion·SUT mock 금지·T2 독립 read-only 검수와 필요한 mutation은 기존 검수 규칙을 따른다.
 
 ---
 
