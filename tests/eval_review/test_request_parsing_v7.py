@@ -151,7 +151,7 @@ BOUNDARY_NEIGHBORS = [
     ('deep-opener-closes-at-code-threshold', _TABLE +
      '        <!-- note\n    -->\n    - AC-1: real\n', ['- AC-1: real']),
     ('closer-line-list-suffix-stays-hidden', _TABLE +
-     '    <!-- note\n    --> - AC-99: hidden\n    - AC-1: real\n', ['- AC-1: real']),
+     '    <!-- note\n    - AC-99: hidden -->\n    - AC-1: real\n', ['- AC-1: real']),
     ('closer-line-table-criterion-stays-hidden', _TABLE +
      '    <!-- note\n    | AC-99 | hidden --> |\n    - AC-1: real\n', ['- AC-1: real']),
     ('near-miss-closer-does-not-end-code', _TABLE +
