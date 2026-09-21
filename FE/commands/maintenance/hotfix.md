@@ -87,9 +87,11 @@
 ### [H4] Gate → 검사(Evaluate) → 평가(Review) (부모 runner)
 
 1. Production·DB·secret·인증·권한·destructive 변경이면 구현 전에 받은 사용자 승인을 확인한다. 승인이 없으면 `BLOCKED`다.
-2. H1~H3 증거와 request/AC/scope/diff를 같은 snapshot의 sealed packet으로 고정하고 deterministic Gate를 통과시킨다.
-3. `hb-eval-review run`으로 blind fresh Claude+Codex **검사(Evaluate)**를 실행한다. 둘 다 PASS일 때만 다음 단계로 간다.
-4. 같은 packet으로 blind fresh Claude+Codex **평가(Review)**를 실행한다. provider 누락·timeout·schema 오류·snapshot mismatch·mutation은 fail-closed `BLOCKED`다.
+2. H1~H3·request·AC 증거를 먼저 완성하고 `hb-eval-review gate --repo <root> --cmd '<실제 검사 argv>' --out <root>/.harness/artifacts/maintenance/{identifier}/eval-review/gate-result.json --issue-type hotfix`로 deterministic Gate를 통과시킨다.
+3. `hb-eval-review pack --repo <root> --artifacts <root>/.harness/artifacts/maintenance/{identifier} --request-source hotfix-reproduction.md --base <ref> --claude-model <model> --codex-model <model> --issue-type hotfix`로 Gate·TDD·전체 diff·AC를 같은 snapshot에 결속한다.
+4. 즉시 `hb-eval-review run --from <root>/.harness/artifacts/maintenance/{identifier}/eval-review/packet --claude-model <model> --codex-model <model>`을 실행한다. blind fresh Claude+Codex **검사(Evaluate)**가 모두 PASS일 때만 같은 packet으로 **평가(Review)**를 진행한다. source는 저장소 루트이며 output은 저장소 밖이다. provider 누락·timeout·schema·Gate·TDD·snapshot·사본 hash 오류는 fail-closed `BLOCKED`다.
+증거를 수정했다면 `gate` → `pack`을 다시 실행하여 새 결속을 만든 뒤 run한다.
+
 5. 부모 finalizer의 `PASS`만 완료로 인정한다. 모델의 process/timeout/mutation 자기보고는 실행 증거로 인정하지 않는다.
 
 ### 완료
@@ -113,7 +115,13 @@
   hotfix-summary.md
   tdd-test-design-result.json
   tdd-sensitivity-result.json
-  eval-review/final-result.json
+  eval-review/gate-result.json
+  eval-review/diff.patch
+  eval-review/packet/packet.json
+  eval-review/packet/evaluate-prompt.md
+  eval-review/packet/review-prompt.md
+  eval-review/run-{n}/final-result.json       ← 외부 run 결과의 실제 사본
+  eval-review/run-{n}/execution-manifest.json ← repo·id·경로·복사 크기·소요 시간
   INDEX.md
 ```
 

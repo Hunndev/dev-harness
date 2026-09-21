@@ -372,6 +372,12 @@ class SealedResultPathTests(unittest.TestCase):
 
         recomputed = {"source_snapshot_id": "s" * 64, "manifest": {"files": []}}
         with patch.object(self.cli, "validate_packet_bindings", return_value=[]), \
+                patch.object(self.cli, "validate_packet_schema", return_value=[]), \
+                patch.object(self.cli, "validate_gate_binding", return_value=[]), \
+                patch.object(self.cli, "packet_context", return_value=("feature", "fixture", self.base / "artifacts")), \
+                patch.object(self.cli, "materialize_evidence", return_value=self.base / "frozen-evidence"), \
+                patch.object(self.cli, "validate_gate_file", return_value=[]), \
+                patch.object(self.cli, "_copy_run_reports", return_value=self.base / "artifacts"), \
                 patch.object(self.cli, "materialize_source_packet", fake_materialize), \
                 patch.object(self.cli, "verify_materialized_packet", return_value=True), \
                 patch.object(self.cli, "compute_source_snapshot", return_value=recomputed), \
@@ -427,7 +433,7 @@ class OutputContractTests(unittest.TestCase):
     provider execution.
     """
 
-    DOC_ROOT = ".harness/artifacts/{track}/{identifier}/eval-review/run-{n}/"
+    DOC_ROOT = "${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/{repo-slug}/{identifier}/run-{n}/"
     DOCS = (ROOT / "SHARED" / "commands" / "evaluate.md", ROOT / "SHARED" / "commands" / "review.md")
 
     @classmethod
@@ -509,7 +515,7 @@ class OutputContractTests(unittest.TestCase):
                       "manifest": {"files": []}}
 
         def fake_provider(engine, stage, packet, packet_source, output_root, prompt,
-                          timeout_seconds=240, peer_output_root=None, model=None):
+                          timeout_seconds=240, peer_output_root=None, model=None, readable_roots=None):
             Path(output_root).mkdir(parents=True, exist_ok=True)
             (Path(output_root) / "provider-output.txt").write_text(stage + " " + engine + "\n")
             return {
@@ -529,6 +535,12 @@ class OutputContractTests(unittest.TestCase):
 
         stdout = io.StringIO()
         with patch.object(cli, "validate_packet_bindings", return_value=list(binding_errors)), \
+                patch.object(cli, "validate_packet_schema", return_value=[]), \
+                patch.object(cli, "validate_gate_binding", return_value=[]), \
+                patch.object(cli, "packet_context", return_value=("feature", "fixture", self.base / "artifacts")), \
+                patch.object(cli, "materialize_evidence", return_value=self.base / "frozen-evidence"), \
+                patch.object(cli, "validate_gate_file", return_value=[]), \
+                patch.object(cli, "_copy_run_reports", return_value=self.base / "artifacts"), \
                 patch.object(cli, "materialize_source_packet", fake_materialize), \
                 patch.object(cli, "verify_materialized_packet", return_value=materialized_ok), \
                 patch.object(cli, "compute_source_snapshot", return_value=recomputed), \
@@ -653,17 +665,15 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
         self.output = self.base / "output"
 
     def bound_packet(self):
-        """A packet whose three identities really are recomputed from this tree."""
-        source_id = compute_source_snapshot(self.source)["source_snapshot_id"]
-        evidence_id = compute_evidence_bundle_id([])
-        data = {
-            "packet_id": compute_packet_id(self.request, source_id, evidence_id),
-            "source_snapshot_id": source_id, "evidence_bundle_id": evidence_id,
-            "request": self.request, "evidence_entries": [],
-        }
-        path = self.base / "packet.json"
-        path.write_text(json.dumps(data))
-        return path, data
+        """Real Gate/TDD/packet contract in addition to the existing dev-27 source checks."""
+        from test_gate_pack_run import evidence_fixture
+        from hb_eval_review.pack import build_packet
+        artifacts, request_name = evidence_fixture(self.source)
+        data = build_packet(self.source, artifacts, request_name, "HEAD", self.request["model_ids"])
+        self.request = data["request"]
+        folder = artifacts / "eval-review" / "packet"
+        self.prompts = {stage: folder / (stage + "-prompt.md") for stage in ("evaluate", "review")}
+        return folder / "packet.json", data
 
     def run_with(self, after_validate=None, after_copy=None, recheck_error=None, remove_error=None):
         packet_path, packet_data = self.bound_packet()
@@ -703,7 +713,7 @@ class SourceChangeBeforeMaterializeTests(unittest.TestCase):
             real_remove(root)
 
         def provider(engine, stage, packet, packet_source, output_root, prompt,
-                     timeout_seconds=240, peer_output_root=None, model=None):
+                     timeout_seconds=240, peer_output_root=None, model=None, readable_roots=None):
             providers.append((stage, engine, Path(packet_source)))
             Path(output_root).mkdir(parents=True, exist_ok=True)
             return {

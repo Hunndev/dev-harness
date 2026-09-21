@@ -44,21 +44,32 @@ BUCCL의 여섯 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅
 
 ### 전체 Dual workflow 실행
 
-sealed packet과 단계별 prompt를 만든 뒤 canonical 또는 standalone 실행 파일로 시작한다.
+저장소 루트에서 증거를 모두 작성한 뒤 `gate` → `pack` → `run --from` 순서로 실행한다. 각 명령의 실패는 `BLOCKED`이며 provider 호출 전에 중단한다.
 
 ```bash
+SHARED/bin/hb-eval-review gate --repo "$PWD" \
+  --cmd 'python3 -m unittest discover -s tests' \
+  --out "$PWD/.harness/artifacts/maintenance/<id>/eval-review/gate-result.json"
+SHARED/bin/hb-eval-review pack --repo "$PWD" \
+  --artifacts "$PWD/.harness/artifacts/maintenance/<id>" \
+  --request-source seed.md --base main \
+  --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol
 SHARED/bin/hb-eval-review run \
-  --packet .harness/artifacts/<track>/<id>/packet.json \
-  --packet-source .harness/artifacts/<track>/<id>/packet \
-  --evaluate-prompt .harness/artifacts/<track>/<id>/evaluate-prompt.md \
-  --review-prompt .harness/artifacts/<track>/<id>/review-prompt.md \
-  --output-root .harness/artifacts/<track>/<id>/eval-review/run-1 \
-  --claude-model claude-fable-5-1 \
-  --codex-model gpt-5.6-sol \
-  --timeout 480
+  --from "$PWD/.harness/artifacts/maintenance/<id>/eval-review/packet" \
+  --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol --timeout 480
 ```
 
-standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. output 디렉토리는 비어 있어야 하며 packet source 밖에 둔다. run마다 `eval-review/run-<n>/` 같은 새 하위 디렉토리를 쓴다 — `eval-review/`에는 검사 로그 재사용 기록(`qa-snapshot.json`)이 함께 있으므로 그 디렉토리 자체를 output root로 쓰면 비어 있지 않아 BLOCKED다. 부모 runner가 Evaluate 두 결과를 확인한 뒤에만 Review를 시작하고 `final-result.json`을 저장한다.
+`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(현재 줄이 속하는 바깥 목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨긴다. 문단 연속 줄의 들여쓴 inline 주석은 같은 문단 안에서 닫혔을 때만 예시를 숨기며, 빈 줄·새 목록·표 시작(헤더·구분선 모두 같은 목록 컨테이너 기준 0–3칸, escape를 제외한 셀 수가 같고 2셀 이상)·문단을 끊는 HTML 블록·setext 밑줄 같은 문단 경계를 넘어 기준을 숨기지 않는다. 줄 중간·code span의 `<!--`는 기록 문구를 자르지 않는다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 이 비교에서는 code span 밖의 닫힌 inline 주석을 제외하되 기록할 문구는 보존한다. 빈 줄로 끊기지 않은 산문 뒤의 들여쓴 기준 목록은 기존 동작대로 수집하며, 그 안의 과도하게 들여쓴 fence 예시는 짝 fence 또는 바깥 문맥으로 돌아가는 들여쓰기 감소에서 끝낸다. 닫는 fence는 여는 fence보다 최대 3칸 더 깊은 들여쓰기까지 인정한다. 예시 안에서 빈 줄을 만나면 짝 기록을 버리고 들여쓴 코드로 유지하므로, 이후 실제 기준은 들여쓰기를 해제해 코드 밖에 작성한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 schema 1.1 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
+
+실제 표 바로 뒤의 들여쓴 `<!--`는 문단 연속 주석으로 스캔하지 않고 코드 구간으로 숨긴다. 이 구간은 주석의 `-->`가 있는 줄까지, 또는 비어 있지 않은 줄이 목록 컨테이너+4칸보다 얕아지는 지점의 직전까지 중 먼저 오는 지점에서 끝난다. 한 줄에서 닫힌 주석은 그 다음 줄부터 기존 기준 수집을 재개한다. 닫은 다음 줄이 빈 줄이면 기존 들여쓴 코드 규칙이 먼저 적용되므로 이후 실제 기준은 들여쓰기를 해제해 쓴다. 닫히지 않은 주석은 들여쓰기 감소 전까지 코드로 유지하는 현재 동작을 의도적으로 고정한다(사용자 결정 (b)). 기준이 하나도 남지 않으면 기존 packet 검증이 요청을 차단한다.
+
+> **알려진 한계:** 예시 fence 안에 빈 줄(공백·탭만 있는 줄 포함)을 넣으면 그 뒤 들여쓴 실제 기준도 packet에서 조용히 빠질 수 있다. 코드 밖에 다른 기준이 있으면 요청 자체는 통과할 수 있다. 실제 기준은 들여쓰기를 해제해 코드 밖에 써라. 이 동작은 사용자 결정 (b)에 따라 유지한다.
+
+standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. packet source는 항상 `.git`이 있는 저장소 루트다. output은 저장소 밖의 `${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/`이며 `--output-root`로 새 빈 외부 디렉토리를 지정할 수 있다. slug는 이름과 저장소 경로·remote의 hash를 함께 써 같은 이름의 저장소를 구별한다. 모델은 명시 옵션 또는 `CLAUDE_MODEL_ID`·`CODEX_MODEL_ID`로 받고 packet에 기록한 값과 대조한다. 기존 `run --packet` 방식도 동일한 Gate·TDD 검증을 통과해야 하며 기존 7개 인자를 모두 제공한다. `GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES`가 export되어 있으면 빈 값이어도 pack/run은 첫 Git 사용 전에 `GIT_REDIRECT_ENV_UNSUPPORTED`로 BLOCKED한다. `variables`에는 설정된 대상 이름만 정렬해 기록하고 값은 기록하지 않는다. 환경을 자동 정화하지 않으며, 정상 환경으로 정리한 뒤 Gate부터 다시 실행한다. Git 전 층의 환경 정화는 이 변경의 범위 밖이다.
+
+Gate 1.1에는 source ID와 실제 명령 결과만 결속하며 순환하는 evidence/packet ID는 넣지 않는다. pack은 필수 Gate·TDD·로그·전체 diff의 hash와 요청·AC·모델·프롬프트를 결속한다. diff는 `.harness/artifacts/**`만 제외하며 `.harness/docs/**` 변경은 포함한다. diff는 Gate에 결속한 source manifest와 hash·mode·link가 일치하는 실제 사본 bytes를 고정한 뒤 고정 merge-base와 비교한다. live source가 생성 도중 바뀌었다 원복되어도 다른 bytes를 diff에 결속하지 않는다. 기존 diff 범위를 유지하기 위해 Git에 보이는 미추적 cache 파일도 별도 read-once 사본으로 포함한다. 미추적 이름은 snapshot과 같은 설정·환경에서 운영자 Git이 열거하는 결과를 사용하며, 운영자 Git이 무시한 파일은 추가 cache 증거에도 넣지 않는다. 이 frozen-diff 열거에서는 fsmonitor와 누락 객체의 lazy fetch를 끈다. base 객체 읽기도 lazy fetch를 끄며, 최종 diff는 격리 설정으로 임시 사본을 비교한다. 앞서 실행되는 snapshot 단계의 helper 호출까지 차단하는 것은 이 변경의 범위 밖이다. 이 추가 cache 증거는 diff/packet hash에 결속되지만 원래 source snapshot에서 제외되므로 Gate/source ID 검증을 받았다고 주장하지 않는다. 추가 경로도 기존 secret·symlink 경로 정책을 통과해야 한다. 긴 diff는 프롬프트의 절단 표기·전체 hash·전체 사본 경로를 통해 확인한다. run은 source 복사·재검증 뒤 Gate·TDD·diff를 `materialized-packet/evidence/`에 읽기 전용 사본으로 고정한다. gitignore와 무관하게 사본 bytes의 hash를 대조하고 이후 live 증거는 다시 읽지 않는다. run은 필수 6개 증거의 정확한 목록과 원래 artifact ID·Gate 참조 경로를 읽기 전에 대조하며 임의 추가 증거는 거부한다. 존재하지만 손상된 TDD는 누락/사용 불가 코드와 schema·baseline·의미 원인 코드를 함께 보존한다. 증거 준비/검증 실패도 provider 0회로 BLOCKED하며 packet을 정리하고 정리 실패 코드는 원인 뒤에 보존한다.
+
+모든 필수 증거와 request는 Gate 전에 완성하고 pack 직후 run한다. 증거를 수정했다면 `gate` → `pack`을 다시 실행하여 새 결속을 만든 뒤 run한다. 중간에 TDD 로그 등 산출물을 쓰면 source 결속이 달라진다. 완료 후 런타임이 `final-result.json`과 `execution-manifest.json`의 실제 사본을 `.harness/artifacts/<track>/<id>/eval-review/run-<n>/`에 기록한다. 실행 manifest는 repo·id·외부 output 경로와 복사 크기·소요 시간을 남긴다. 나머지 provider·봉인 결과는 외부 output에 있으며 설치된 operational path의 blocking gate로 자동 승격하지 않는다.
 
 #### 실행 전 보안 조건
 
@@ -491,7 +502,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 310 · tdd_quality 12 · tooling 57 (CI에서 실행)
+├── tests/                        ← eval_review 493 · tdd_quality 21 · tooling 57 (CI에서 실행)
 └── README.md
 ```
 

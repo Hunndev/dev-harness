@@ -54,8 +54,8 @@ jobs:
         run: python3 -m unittest discover -s tests/tooling -v
 
       # darwin-only skips are counted by their exact reason strings so nothing is
-      # hidden: 'macOS sandbox required' = 7 (test_process_isolation.py x6,
-      # test_process.py DescendantEnvelopeTests x1); 'macOS filesystem semantics
+      # hidden: 'macOS sandbox required' = 8 (test_process_isolation.py x6,
+      # test_process.py DescendantEnvelopeTests x1, evidence isolation x1); 'macOS filesystem semantics
       # required' = 9 (test_run_provider.py MACOS_FS: chflags, nofollow chmod with
       # dir_fd, inode identity after recreate). On macOS every one of them must run.
       - name: Audit macOS-only skips
@@ -63,7 +63,7 @@ jobs:
         run: |
           sandbox=$(grep -c "skipped 'macOS sandbox required'" eval_review.log || true)
           fs=$(grep -c "skipped 'macOS filesystem semantics required'" eval_review.log || true)
-          expected_sandbox=7
+          expected_sandbox=8
           expected_fs=9
           if [ "$RUNNER_OS" = "macOS" ]; then expected_sandbox=0; expected_fs=0; fi
           echo "darwin-only skips: sandbox=$sandbox (expected_sandbox=$expected_sandbox) filesystem=$fs (expected_fs=$expected_fs)"

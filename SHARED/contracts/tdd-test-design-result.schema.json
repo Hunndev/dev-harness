@@ -4,9 +4,15 @@
   "title": "TDD Test Design Result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "stage", "tier", "status", "test_id", "acceptance_refs", "red_failure_kind", "assertions", "mocked_boundaries", "system_under_test_mocked", "paths", "reviewer"],
+  "required": ["schema_version", "baseline", "stage", "tier", "status", "test_id", "acceptance_refs", "assertions", "mocked_boundaries", "system_under_test_mocked", "paths", "reviewer"],
+  "allOf": [{
+    "if": {"properties": {"baseline": {"const": "RED_TO_GREEN"}}},
+    "then": {"required": ["red_failure_kind"]},
+    "else": {"not": {"required": ["red_failure_kind"]}}
+  }],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
+    "baseline": {"enum": ["RED_TO_GREEN", "PASS_TO_PASS"]},
     "stage": {"const": "tdd-test-design"},
     "tier": {"enum": ["T0", "T1", "T2"]},
     "status": {"enum": ["PASS", "BLOCKED", "NEEDS_HUMAN_REVIEW"]},

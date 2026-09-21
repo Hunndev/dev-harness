@@ -770,6 +770,7 @@ def run_provider_stage(
     timeout_seconds: float = 240,
     peer_output_root: Optional[Path] = None,
     model: Optional[str] = None,
+    readable_roots: Optional[List[Path]] = None,
 ) -> Dict[str, Any]:
     """Run Claude or Codex as a fresh sibling process against one protected packet copy."""
     packet_source = Path(packet_source).resolve()
@@ -825,7 +826,7 @@ def run_provider_stage(
         execution = run_isolated_process(
             command, packet_source, output_root, packet, stage, engine, timeout_seconds,
             environment, denied_read_roots=[Path(item) for item in denied],
-            readable_roots=[Path.home() / ".npm-global"] + ([claude_temp] if engine == "claude" else []),
+            readable_roots=[Path.home() / ".npm-global"] + ([claude_temp] if engine == "claude" else []) + list(readable_roots or []),
             writable_roots=[claude_temp] if engine == "claude" else [],
         )
         envelope = execution["envelope"]
