@@ -270,7 +270,7 @@ class ArtifactNameTests(unittest.TestCase):
     def test_readme_tree_reports_the_current_test_counts(self):
         lines = [line for line in read(README).splitlines() if "tests/" in line and "eval_review" in line]
         self.assertEqual(1, len(lines))
-        self.assertIn("eval_review 485", lines[0])
+        self.assertIn("eval_review 493", lines[0])
         self.assertIn("tooling 57", lines[0])
 
     def test_shared_documents_describe_the_envelope_as_a_field_of_the_sealed_file(self):

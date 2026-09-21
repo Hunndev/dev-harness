@@ -161,7 +161,7 @@ def _acceptance_table_separator(line: str) -> bool:
 
 
 def _acceptance_table_cells(line: str) -> List[str]:
-    """Split GFM cells, retaining empty cells and pipes inside code spans."""
+    """Split GFM cells, retaining empties; unescaped code-span pipes split too."""
     # GFM table scanning consumes backslash-pipe even after another backslash;
     # it does not apply the generic inline parser's odd/even escape parity.
     cells = re.split(r'(?<!\\)\|', line.strip(' \t'))
@@ -181,6 +181,7 @@ def _acceptance_table_start(relative: str, separator: str, container: int) -> bo
         return False
     expanded = separator.expandtabs(4)
     separator_indent = len(expanded) - len(expanded.lstrip(' '))
+    # A delimiter dedented out of this container is not a table boundary.
     if not container <= separator_indent <= container + 3:
         return False
     # This stricter block-boundary grammar does not replace the extractor's
@@ -275,6 +276,7 @@ def _acceptance_lines(text: str) -> List[str]:
     fence_container = 0
     list_indents: List[int] = []
     indented_text: Optional[int] = None
+    table_comment_code = False
     indented_fence_marker: Optional[Tuple[str, int, int]] = None
     continuation_comment_end: Optional[int] = None
     failed_comment_scan: Optional[Tuple[Tuple[int, ...], int]] = None
@@ -325,10 +327,14 @@ def _acceptance_lines(text: str) -> List[str]:
                                              + r',} *', expanded[indented_text:])):
                         indented_text = None
                         indented_fence_marker = None
+                if table_comment_code and '-->' in expanded:
+                    indented_text = None
+                    table_comment_code = False
                 visible.append('')
                 previous_blank = blank
                 continue
             indented_text = None
+            table_comment_code = False
             indented_fence_marker = None
         if blank:
             visible.append('')
@@ -400,6 +406,12 @@ def _acceptance_lines(text: str) -> List[str]:
             # An indented comment after an actual table is code too; ordinary
             # indented criteria retain the extractor's compatibility behavior.
             indented_text = container + 4
+            if after_table and indented_comment:
+                # Include the closing line, then resume compatible criteria.
+                # A nonblank dedent ends this region first; blanks stay inside.
+                table_comment_code = '-->' not in expanded
+                if not table_comment_code:
+                    indented_text = None
             if not previous_blank and indented_fence:
                 indented_fence_marker = (indented_fence.group(1)[0], len(indented_fence.group(1)), indent)
             visible.append('')
