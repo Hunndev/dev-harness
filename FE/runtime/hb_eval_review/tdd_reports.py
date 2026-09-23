@@ -6,9 +6,10 @@ caller executes every command through the shared gate runner. In particular,
 Xcode's two report_commands must succeed and their complete stdout must be
 written to the corresponding report_json_paths before parse_report is called.
 Command names select a report format; they are never evidence of execution.
-Jest assertion RED additionally requires an untrimmed jest-circus test-body
-stack frame. Hook failures or missing phase evidence fail closed; no runner or
-test-environment configuration is overridden to obtain that evidence.
+Jest rejects known hook frames. Under the approved D2 policy, concrete assertion
+failures with source frames remain valid when async/deep stacks omit the Circus
+body frame. Such stacks can also hide async hooks; declaration location alone
+cannot resolve that ambiguity. No runner or test environment is overridden.
 """
 
 import json
@@ -20,6 +21,7 @@ from urllib.parse import unquote, urlparse
 
 _INVALID = 'TDD_RED_REASON_INVALID'
 _PATH_INVALID = 'TDD_REPORT_PATH_INVALID'
+_JEST_UNSUPPORTED = 'TDD_JEST_PHASE_UNSUPPORTED'
 _REPORT_LIMIT = 32 * 1024 * 1024
 _ASSERTION = re.compile(
     r'Assertion(?:Failed)?Error|AssertionFailedException|ComparisonFailure|'
@@ -49,6 +51,15 @@ _JEST_ASSERTION_HEADER = re.compile(
     r'^\s*(?:(?:Error:\s*)?expect\([^\n]*\)\.|'
     r'(?:JestAssertionError|AssertionError)(?::|\s|\[))',
 )
+_JEST_JASMINE_FRAME = re.compile(
+    r'^\s+at [^\n]*(?:[/\\]jest-jasmine2[/\\]|[/\\]jasmine-core[/\\])', re.MULTILINE,
+)
+_JEST_SOURCE_FRAME = re.compile(
+    # Match the terminal line/column suffix, allowing parentheses within a
+    # normal source path (including nested archive/worktree directory names).
+    r'^\s+at (?:(?:[^\n(]+\s+)?\(([^\n]+):\d+:\d+\)|([^\n]+):\d+:\d+)\s*$',
+    re.MULTILINE,
+)
 
 
 def _new_path(path: Path) -> None:
@@ -61,7 +72,8 @@ def _reject_overrides(argv: List[str]) -> None:
         option = value.split('=', 1)[0].lower()
         if (option in {'--junitxml', '--junit-xml', '--json', '--outputfile',
                        '--output-file', '--reporters', '--testresultsprocessor',
-                       '--init-script', '-resultbundlepath'}
+                       '--init-script', '-resultbundlepath', '--testlocationinresults',
+                       '--no-testlocationinresults'}
                 or value.startswith('-I') or option == '-resultstreampath'):
             raise ValueError(_PATH_INVALID)
         if value in ('-o', '--override-ini'):
@@ -88,6 +100,26 @@ def _kind(argv: List[str]) -> str:
     raise ValueError(_INVALID)
 
 
+def _reject_unsupported_jest_options(argv: List[str]) -> None:
+    for index, token in enumerate(argv):
+        option, separator, value = token.partition('=')
+        if not separator:
+            value = argv[index + 1] if index + 1 < len(argv) and not argv[index + 1].startswith('-') else ''
+        option = option.lower().replace('-', '')
+        if option == 'nostacktrace' and value.lower() not in ('false', '0'):
+            raise ValueError(_JEST_UNSUPPORTED)
+        if option == 'testrunner' and 'jasmine' in value.lower():
+            raise ValueError(_JEST_UNSUPPORTED)
+        if option == 'config' and value.lstrip().startswith('{'):
+            try:
+                config = json.loads(value)
+            except ValueError:
+                continue  # The runner reports malformed configuration itself.
+            if isinstance(config, dict) and (config.get('noStackTrace') is True
+                    or 'jasmine' in str(config.get('testRunner', '')).lower()):
+                raise ValueError(_JEST_UNSUPPORTED)
+
+
 def prepare_report(argv: List[str], temporary: Path) -> Dict[str, Any]:
     """Inject owned output paths, preserving framework test selectors."""
     if not isinstance(argv, list) or not argv or any(not isinstance(x, str) or not x for x in argv):
@@ -97,6 +129,8 @@ def prepare_report(argv: List[str], temporary: Path) -> Dict[str, Any]:
         raise ValueError(_PATH_INVALID)
     temporary = temporary.resolve()
     kind = _kind(argv)
+    if kind == 'jest':
+        _reject_unsupported_jest_options(argv)
     names = {'pytest': 'pytest.xml', 'jest': 'jest.json', 'gradle': 'gradle-results',
              'xcodebuild': 'tests.xcresult'}
     report = temporary / names[kind]
@@ -108,7 +142,7 @@ def prepare_report(argv: List[str], temporary: Path) -> Dict[str, Any]:
     elif kind == 'jest':
         if any(Path(x).name == 'npm' for x in argv) and '--' not in argv:
             command.append('--')
-        command.extend(['--json', '--outputFile=' + str(report)])
+        command.extend(['--json', '--outputFile=' + str(report), '--testLocationInResults'])
     elif kind == 'gradle':
         script = temporary / 'runner-reports.gradle'
         _new_path(script)
@@ -203,13 +237,36 @@ def _assertion(message: str) -> bool:
             and not bool(_RUNTIME_ERROR.search(message)))
 
 
-def _jest_assertion(message: str) -> bool:
-    # Jest assigns hook failures to a test's assertionResults too. A matcher
-    # message alone therefore cannot demonstrate that the test body executed.
-    # The assertion header describes the failure; expected/received exception
-    # names later in toThrow output must not turn it into a runtime exception.
-    return (bool(_JEST_ASSERTION_HEADER.search(message)) and bool(_JEST_BODY_FRAME.search(message))
-            and not bool(_JEST_HOOK_FRAME.search(message)))
+def _jest_assertion(message: str, repo: Path) -> bool:
+    # Known hook frames win even if a body frame appears in the same message.
+    # Matcher expected/received exception names are not the actual error type.
+    if _JEST_HOOK_FRAME.search(message) or not _JEST_ASSERTION_HEADER.search(message):
+        return False
+    if _JEST_JASMINE_FRAME.search(message):
+        raise ValueError(_JEST_UNSUPPORTED)
+    if _JEST_BODY_FRAME.search(message):
+        return True
+    # D2: await and deep helpers can remove the Circus frame. Test declaration
+    # location is not callback scope, so comparing line order would reject a
+    # legitimate helper declared above the test. Accept a complete repository
+    # source frame instead, with the explicit risk of an indistinguishable hook.
+    for match in _JEST_SOURCE_FRAME.finditer(message):
+        source = match.group(1) or match.group(2)
+        if source in ('<anonymous>', 'native') or source.startswith('node:'):
+            continue
+        if source.startswith('file://'):
+            source = unquote(urlparse(source).path)
+        path = Path(source)
+        path = path if path.is_absolute() else repo / path
+        try:
+            relative = path.resolve().relative_to(repo.resolve())
+        except (OSError, ValueError):
+            continue
+        if 'node_modules' not in relative.parts and path.is_file():
+            return True
+    # This includes configured/trimmed no-stack reports. Missing phase support
+    # is a distinct configuration limitation, not a claim of a runtime failure.
+    raise ValueError(_JEST_UNSUPPORTED)
 
 
 def _xml_assertion(failure: ET.Element) -> bool:
@@ -308,7 +365,7 @@ def _jest_cases(plan: Dict[str, Any], repo: Path) -> List[Dict[str, Any]]:
                     or not isinstance(messages, list) or not all(isinstance(x, str) for x in messages)):
                 raise ValueError(_INVALID)
             outcome = outcomes[status]
-            assertion = outcome == 'FAIL' and bool(messages) and all(_jest_assertion(message) for message in messages)
+            assertion = outcome == 'FAIL' and bool(messages) and all(_jest_assertion(message, repo) for message in messages)
             cases.append(_case(file + '::' + name, file, '.'.join(ancestors), outcome, assertion))
     return cases
 

@@ -1,7 +1,7 @@
 {
   "files": {
     "bin/hb-eval-review": "9e70f0ac4fcf5192b0a8b945c4b32ac646d063fa9ccdc4ec47e2a630f4c8a805",
-    "commands/shared/evaluate.md": "375eb51a0257f3555a1c116fe66213a858ea0b99973d9f34e6865bd3a83947fa",
+    "commands/shared/evaluate.md": "99e538b0afeeaafa2dcd51dc5eab7aca52a6d3ea490e75698447909540c57656",
     "commands/shared/review.md": "fabc9faa61319a4870f1a764ab520ba36486d481cc1261d9095b624813e5a45d",
     "contracts/evaluate-result.schema.json": "6cac8e31915cea5ed0c76238e3ee9134dead039d98cf58ffddf023d9ea0238b0",
     "contracts/execution-envelope.schema.json": "eadf39b30d063c286b2092adce12a4924796c8bb2f49173a2969a79cfbadb832",
@@ -20,7 +20,7 @@
     "runtime/hb_eval_review/cli.py": "357eee15e537d5308c970cb667c05115fd1792252a546016a5b2f9d1781f5361",
     "runtime/hb_eval_review/finalize.py": "4d1a559305b2b44f0acf8a5489e8914ccc91973fe3fb9c1105484fee5b5c9812",
     "runtime/hb_eval_review/frozen_diff.py": "ef01dc997d868fdf0759912fc27328088224b0ff1d32bd50493cc82161fcab13",
-    "runtime/hb_eval_review/gate.py": "5b82f9dd03cc0aea870357158f832f525abbf442177853ae558c8ac60d122ea6",
+    "runtime/hb_eval_review/gate.py": "651a2dc6c8792036b7598a6cb7f78e5d81df5451ba54130f6d8b50c091975788",
     "runtime/hb_eval_review/materialize.py": "6b674b6caad82fa176d0aaf4f56f3cd1d02538e7d1fb96416576b502d5f3d04a",
     "runtime/hb_eval_review/orchestrate.py": "3e9079c5563c1f934f2d9c551e60cd5cf5459efa3837fe4b716b18cad1f3a44a",
     "runtime/hb_eval_review/pack.py": "36fc68253b5a7c681316b122673158aa940460a118e9cb72ed87828281f6418a",
@@ -30,9 +30,9 @@
     "runtime/hb_eval_review/run_provider.py": "44fe63bf16faa7b0244add388b11c48b2bdda3ba1e9a472481709d0d5031ac42",
     "runtime/hb_eval_review/schema_validation.py": "5938e4a33d897efecf1c5bc67dd233f8bac2b02a77984a08638abd31dfb454eb",
     "runtime/hb_eval_review/snapshot.py": "5f96da2556853b41370ab608dfd22fe6382a8eac8b7b8083c729edb5228741e4",
-    "runtime/hb_eval_review/tdd_observation.py": "6a883467c0083bb70e95f031783efb2bfe3ecb2b2db6931d53b4bf3613a983c4",
+    "runtime/hb_eval_review/tdd_observation.py": "f37d0a06755c1cd28318c0fb3252f1e58cbe3f1fbf1b54fbf3928d85fad74cf8",
     "runtime/hb_eval_review/tdd_quality.py": "60f063f7d6a791084ae93c8ddd959db4d58a8bd404c6b7dad1a70b7e72c3235d",
-    "runtime/hb_eval_review/tdd_reports.py": "a720254c42fc6e34e646ab45da45145f1806e4fa27a573a5a63d383dd21b0dfb"
+    "runtime/hb_eval_review/tdd_reports.py": "88d19f7deb55793459f4bad1feb5bd09f6ad970964904494c92edfb2a4c69e03"
   },
   "schema_version": "1.0"
 }

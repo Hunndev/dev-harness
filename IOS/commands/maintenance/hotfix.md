@@ -49,7 +49,7 @@
 
    `&&` 뒤의 복사·tail은 부모 CLI가 Red를 수용해 exit 0으로 끝난 경우에만 실행한다. 전체 redacted 출력은 `xcodebuild-red.log`, 요약은 `hotfix-red-log.txt`에 남긴다. CLI가 실패하면 후처리하지 않고 생성된 로그를 진단용으로만 사용한다. 실제 xcodebuild의 실패 exit를 부모 CLI의 수용 여부와 혼동하지 않는다.
 
-5. 부모가 `hotfix-red-log.txt`와 schema 1.2 `tdd-test-design-result.json`을 생성했는지 확인한다. exit ≠ 0만으로는 부족하다. 선택된 테스트가 1개 이상 실제 실행되고 버그를 드러내는 assertion으로 실패해야 한다. compile·collection·import·fixture 오류는 stdout/stderr 어디에 있어도 올바른 Red가 아니다.
+5. 부모가 `hotfix-red-log.txt`와 schema 1.2 `tdd-test-design-result.json`을 생성했는지 확인한다. exit ≠ 0만으로는 부족하다. 선택된 테스트가 1개 이상 실제 실행되고 버그를 드러내는 assertion으로 실패해야 한다. 식별된 compile·collection·import·fixture 오류는 stdout/stderr 어디에 있어도 올바른 Red가 아니다.
 6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
 7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
    - **서두 약식 seed 3줄**: 목표 / 범위(수정할 한 곳) / 완료기준(단위 테스트 PASS) — T0 예외의 seed 갈음
@@ -94,7 +94,7 @@
 
    부모 CLI가 Green을 수용한 뒤에만 `&&` 후처리가 전체 redacted 출력을 `xcodebuild-green.log`에 보존하고 `hotfix-green-log.txt`를 tail 30줄로 만든다. CLI 실패 시 후처리하지 않는다. 전체 로그와 tail은 진단·표시용이며 JSON 관측값을 수정하지 않는다.
 
-   부모가 schema 1.2 `tdd-sensitivity-result.json`과 `hotfix-green-log.txt`를 생성한다. exit 0, H1에서 선택된 모든 테스트 ID의 실제 PASS, 동일 테스트 hash와 run 결속이 필요하다. `approved_red_revision: true` 자기보고로 테스트 변경을 허용하지 않는다. 테스트가 Green 과정에서 바뀌었거나 결함을 잡지 못하면 `BLOCKED`하고 `:auto`로 에스컬레이션한다. hotfix에서 승인 없는 H1 재시작으로 고정 baseline을 교체하지 않는다. H3 이후 구현이 바뀌면 Green의 `observed.sut_sha256`가 현재 source view와 달라 Gate가 차단하므로 같은 고정 Design으로 `tdd-check green`을 다시 실행한다.
+   부모가 schema 1.2 `tdd-sensitivity-result.json`과 `hotfix-green-log.txt`를 생성한다. exit 0, H1에서 선택된 모든 테스트 ID의 실제 PASS, 동일 테스트 hash와 run 결속이 필요하다. 로컬 상태가 온전할 때 형식이 맞는 외부 기록 없이 테스트 hash를 바꿀 수 없으며, `approved_red_revision: true` 자기보고만으로는 통과하지 않는다. 상태 삭제 초기화·digest 재계산·승인 출처의 절차적 신뢰 한계는 `commands/shared/tdd.md`를 따른다. 테스트가 Green 과정에서 바뀌었거나 결함을 잡지 못하면 `BLOCKED`하고 `:auto`로 에스컬레이션한다. hotfix에서 승인 없는 H1 재시작으로 고정 baseline을 교체하지 않는다. H3 이후 구현이 바뀌면 Green의 `observed.sut_sha256`가 현재 source view와 달라 Gate가 차단하므로 같은 고정 Design으로 `tdd-check green`을 다시 실행한다.
 
 > **Refactor 금지 — 조작적 정의**:
 > - **허용**: H1 Red 테스트를 PASS시키는 데 **직접 필요한** 코드 변경 (새 조건, null 체크, 타입 가드, 수정된 리터럴, 올바른 분기 추가).
@@ -104,6 +104,8 @@
 > 코드 정리가 필요하면 `/hb-ios:maintenance:auto`로 전환한다.
 
 ### [H4] Gate → 검사(Evaluate) → 평가(Review) (부모 runner)
+
+Gate·pack·run은 진행 중인 작업에도 즉시 schema 1.2 관측 쌍을 요구한다. 1.0·1.1 또는 그 버전으로 하향한 증거는 `TDD_OBSERVATION_REQUIRED`로 차단하고 provider를 실행하지 않는다. 기존 작업도 `tdd-check red`·`green`을 재실행해야 한다. 1.0·1.1의 의미 호환은 validator 층에만 남긴다.
 
 1. Production·DB·secret·인증·권한·destructive 변경이면 구현 전에 받은 사용자 승인을 확인한다. 승인이 없으면 `BLOCKED`다.
 2. H1~H3·request·AC 증거를 먼저 완성하고 `hb-eval-review gate --repo <root> --cmd '<실제 검사 argv>' --out <root>/.harness/artifacts/maintenance/{identifier}/eval-review/gate-result.json --issue-type hotfix`로 deterministic Gate를 통과시킨다.

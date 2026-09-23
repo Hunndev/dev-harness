@@ -85,7 +85,8 @@ class TddCheckTests(unittest.TestCase):
         subprocess.run(['git', '-C', str(self.repo), 'commit', '-qm', 'fixture'], check=True)
         self.out = self.repo / '.harness/artifacts/feature/issue-1'
         self.out.mkdir(parents=True)
-        self.design, self.sensitivity = tdd_documents()
+        # Producer metadata remains semantic input; consumer golden fixtures are 1.2.
+        self.design, self.sensitivity = tdd_documents(version='1.1')
         self.design_input = self.repo / 'design-input.json'
         self.sensitivity_input = self.repo / 'sensitivity-input.json'
         self.design_input.write_text(json.dumps(self.design))
@@ -197,7 +198,7 @@ class TddCheckTests(unittest.TestCase):
         # Real subprocess pytest path plus each other stack's owned-report parser;
         # native Gradle/Xcode execution is not claimed by fixture coverage.
         self.red()
-        from hb_eval_review.tdd_reports import prepare_report
+        from hb_eval_review.tdd_reports import prepare_report, parse_report
         commands = [('jest', '--testPathPattern', 'test_behavior'), ('jest', 'test_behavior'),
                     ('./gradlew', 'testDebugUnitTest', '--tests', 'example.TestBehavior'),
                     ('xcodebuild', 'test', '-only-testing:AppTests/TestBehavior')]
@@ -208,6 +209,32 @@ class TddCheckTests(unittest.TestCase):
                 plan = prepare_report(list(command), path)
                 for selector in command[1:]:
                     self.assertIn(selector, plan['argv'])
+                if plan['kind'] == 'jest':
+                    expected_id = 'test_behavior.py::returns expected value'
+                    plan['report_path'].write_text(json.dumps({'testResults': [{
+                        'name': str(self.test_file), 'status': 'failed', 'assertionResults': [{
+                            'fullName': 'returns expected value', 'status': 'failed',
+                            'failureMessages': ['Error: expect(received).toBe(expected)\nExpected: 2\nReceived: 1\n'
+                                '    at Object.<anonymous> (' + str(self.test_file) + ':2:1)\n'
+                                '    at _callCircusTest (/fixture/node_modules/jest-circus/build/run.js:200:1)']}]}]}))
+                elif plan['kind'] == 'gradle':
+                    expected_id = 'example.TestBehavior::returnsExpectedValue'
+                    target = plan['report_path'] / 'test/TEST-TestBehavior.xml'
+                    target.parent.mkdir(parents=True)
+                    target.write_text('<testsuite><testcase classname="example.TestBehavior" name="returnsExpectedValue">'
+                                      '<failure type="java.lang.AssertionError">expected 2, got 1</failure></testcase></testsuite>')
+                else:
+                    expected_id = 'AppTests/TestBehavior/testValue()'
+                    plan['report_path'].mkdir()
+                    plan['report_json_paths'][0].write_text(json.dumps({'testNodes': [{
+                        'nodeType': 'Test Case', 'nodeIdentifier': expected_id, 'result': 'Failed'}]}))
+                    plan['report_json_paths'][1].write_text(json.dumps({'testFailures': [{
+                        'testIdentifierString': 'TestBehavior/testValue()', 'targetName': 'AppTests',
+                        'failureText': 'XCTAssertEqual failed: (1) is not equal to (2)'}]}))
+                cases = parse_report(plan, self.repo)
+                self.assertEqual([(expected_id, 'FAIL', True)],
+                                 [(case['id'], case['outcome'], case['assertion']) for case in cases])
+                self.assertEqual(1, sum(case['outcome'] in ('PASS', 'FAIL') for case in cases))
 
     def test_report_paths_are_runner_owned(self):
         foreign = self.repo / 'old.xml'

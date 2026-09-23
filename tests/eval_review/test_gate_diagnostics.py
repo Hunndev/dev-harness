@@ -25,6 +25,7 @@ class GateDiagnosticsTests(unittest.TestCase):
         self.gate = self.artifacts / 'eval-review/gate-result.json'
         self.gate.parent.mkdir(parents=True)
         self.source_id = 'a' * 64
+        self.snapshot = {'source_snapshot_id': self.source_id, 'manifest': {'files': []}}
         self.gate_data = {
             'schema_version': '1.1', 'stage': 'gate', 'status': 'PASS',
             'source_snapshot_id': self.source_id,
@@ -38,11 +39,13 @@ class GateDiagnosticsTests(unittest.TestCase):
         self.write_documents()
 
     def write_documents(self):
-        for name, document in zip(TDD_NAMES, tdd_documents()):
+        for name, document in zip(TDD_NAMES, tdd_documents(
+                repo=self.repo, artifacts=self.artifacts, snapshot=self.snapshot)):
             (self.artifacts / name).write_text(json.dumps(document))
 
     def validate(self):
-        return validate_gate_file(self.gate, self.repo, source_snapshot_id=self.source_id)
+        return validate_gate_file(self.gate, self.repo, source_snapshot_id=self.source_id,
+                                  source_manifest=self.snapshot['manifest'])
 
     def freeze(self):
         evidence = self.root / 'packet/evidence'
@@ -71,6 +74,8 @@ class GateDiagnosticsTests(unittest.TestCase):
                 self.write_documents()
                 path = self.artifacts / name
                 document = json.loads(path.read_text())
+                document['schema_version'] = '1.1'
+                document.pop('observed')
                 document['status'] = 'BLOCKED'
                 document.pop('baseline')
                 path.write_text(json.dumps(document))
@@ -122,7 +127,7 @@ class GateDiagnosticsTests(unittest.TestCase):
                 (self.artifacts / name).unlink()
             self.assertEqual([], validate_gate_file(frozen / 'gate-result.json', self.repo,
                 evidence_root=frozen, source_snapshot_id=self.source_id, track='feature',
-                artifacts=self.artifacts))
+                artifacts=self.artifacts, source_manifest=self.snapshot['manifest']))
 
     def test_frozen_evidence_rejects_references_to_another_issue(self):
         self.gate_data['tdd_evidence'] = [value.replace('/issue-1/', '/issue-2/')

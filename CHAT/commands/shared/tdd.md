@@ -124,14 +124,14 @@ Green 구현 중 수용기준(AC) 자체가 잘못 서술되었거나 Red 테스
 }
 ```
 
-`--approval-record`는 부모/controller가 명시적으로 전달한다. 부모는 canonical repository·gitdir·artifact output·기존 run·test-file·old/new hash·revision 번호와 파일의 정확한 `revision_line`을 대조하고, 호출 전후 승인 기록의 bytes hash를 확인한다. 저장소 안의 기록, symlink 또는 `..`를 사용한 경로는 거부한다. `approval_source`는 사용자 승인 출처를 기록하는 값이며 암호학적 사용자 신원 검증을 뜻하지 않는다. 직접 Green에 승인 기록을 전달하는 경우에도 이 결속과 선택된 테스트 전체의 PASS 검사는 생략되지 않는다.
+`--approval-record`는 부모/controller가 명시적으로 전달한다. 부모는 canonical repository·gitdir·artifact output·기존 run·test-file·old/new hash·revision 번호와 파일의 정확한 `revision_line`을 대조하고, 호출 전후 승인 기록의 bytes hash를 확인한다. 저장소 안의 기록, symlink 또는 `..`를 사용한 경로는 거부한다. `approval_source`는 사용자 승인 출처를 기록하는 값이며 암호학적 사용자 신원 검증을 뜻하지 않는다. 직접 Green에 승인 기록을 전달하는 경우에도 이 결속과 선택된 테스트 전체의 PASS 검사는 생략되지 않는다. 부모/controller가 명시적으로 전달한 형식이 맞는 외부 기록을 신뢰 입력으로 취급한다. 같은 세션이 기록을 작성하고 명령을 호출할 수 있으므로 사용자 승인 출처의 진위 확인은 절차적 책임이다.
 
 ### Test Sensitivity Check: Green 이후 회귀 검출력 확인
 
 `RED_TO_GREEN`은 Green 이후 Refactor 전에, `PASS_TO_PASS`는 주 변경인 Refactor 완료 후 아래 의미 검수를 수행한다. 회귀·위험도·mutation 결과를 `tdd-sensitivity-metadata.json` 입력으로 준비하고 위 `tdd-check green`을 실행해 schema 1.2 `tdd-sensitivity-result.json`을 생성한다. 부모가 Design과 같은 `baseline`, 관측한 실행 결과와 hash를 기록한다.
 
 1. 같은 test identity와 test-file hash에 대해 `RED_TO_GREEN`은 `red_outcome=FAIL` → `green_outcome=PASS`, `PASS_TO_PASS`는 `red_outcome=PASS` → `green_outcome=PASS`를 확인한다. 필드 이름은 두 경우 모두 유지한다.
-2. hash가 달라졌다면 `tdd-red-revisions.md`의 해당 라인과 실제 사용자 승인에 근거해 부모/controller가 만든 외부 승인 기록이 필요하다. `approved_red_revision: true` 자기보고나 저장소 내부 파일만으로는 승인되지 않으며 `TDD_TEST_IDENTITY_CHANGED`로 `BLOCKED`다. 승인된 Red 재작성은 새 baseline부터 다시 검수한다.
+2. 로컬 상태가 온전할 때 hash가 달라지면 `tdd-red-revisions.md`의 해당 라인과 변경 전후 hash 등에 결속된 형식이 맞는 외부 기록이 필요하다. `approved_red_revision: true` 자기보고나 저장소 내부 파일만으로는 통과하지 않으며 `TDD_TEST_IDENTITY_CHANGED`로 `BLOCKED`다. 실제 사용자 승인에 근거해 기록을 작성하는 것은 부모/controller의 절차적 책임이다. 승인된 Red 재작성은 새 baseline부터 다시 검수한다.
 3. repository가 정의한 관련 회귀 suite가 PASS인지 확인한다.
 4. 인증·권한·결제·DB 무결성·API contract 등 T2/high-risk에서 안전하고 지원되는 경우 격리 worktree의 targeted mutation/revert로 핵심 결함을 되살렸을 때 테스트가 FAIL하는지 확인한다.
 5. 필요한 mutation을 실행할 수 없으면 사유를 명시하고 `BLOCKED` 또는 `NEEDS_HUMAN_REVIEW`로 보낸다. 조용히 PASS하지 않는다.
@@ -226,13 +226,15 @@ Green의 `--design`은 입력 metadata가 아니라 **Red가 생성한 고정 `t
 
 - 부모가 생성하는 두 정본 파일은 `"schema_version": "1.2"`이며 명시적인 `baseline`을 가진다. `observed`의 `argv`, `cwd`, `exit_code`, `selected_tests`, `executed`, `recorded_at`, `test_file_sha256`은 직접 실행과 리포트에서 계산한다. 같은 관측에 `run_id`, `git_dir`, `artifacts`, `test_file`, `source_snapshot_id`, `sut_sha256`를 결속하고, Green에는 고정 Red JSON의 정확한 bytes hash인 `baseline_sha256`도 기록한다. 모델이 이 필드를 만들거나 덮어쓰지 않는다.
 - 리포트 경로는 부모가 만든 임시 디렉터리로 고정한다. pytest의 `--junitxml`, Jest의 `--json --outputFile`, Gradle XML, xcodebuild의 `-resultBundlePath`와 `xcrun xcresulttool`을 통해 실제 테스트 ID·실행 수·결과를 읽는다. 사용자 지정 리포트 출력 경로는 거부한다. 오래된 리포트·stdout marker·exit code만으로는 실행을 증명하지 못한다.
-- Jest Red는 assertion 실패 status나 문구만으로 인정하지 않는다. `failureMessages`에 실제 test body의 circus `_callCircusTest` frame이 있어야 하며, `_callCircusHook` frame은 hook·fixture 실패로 거부한다. phase 증거가 없거나 잘린 리포트도 `TDD_RED_REASON_INVALID`로 `BLOCKED`다. 이 판별은 실제 캐시의 Jest 27.5.1에서 확인했으며 모든 Jest 버전·Jasmine runner의 호환을 보장하지 않는다. repository의 `testEnvironment`·`testRunner`를 덮어써 이 조건을 맞추지 않는다.
-- `RED_TO_GREEN`은 exit ≠ 0, 선택된 테스트 ≥ 1개 실행, assertion 실패를 함께 요구한다. collection·compile·syntax·import·fixture 오류는 stdout/stderr 어디에 있어도 `TDD_RED_REASON_INVALID`다. Green은 exit 0이며 Red에서 선택된 모든 테스트 ID가 실제 실행·PASS해야 한다. 파일 경로가 argv에 들어 있는지, 접두가 특정 문자열인지, Red/Green argv가 글자까지 같은지로 판정하지 않는다.
+- Jest는 부모가 소유한 `--testLocationInResults`를 추가하되 repository의 `testEnvironment`·`testRunner`를 덮어쓰지 않는다. 구체적인 matcher/assertion 실패와 완전한 source stack frame이 있고 `_callCircusHook`이 식별되지 않으면 async 본문·deep helper의 Red를 인정한다. 명시적인 `_callCircusTest` 본문 frame도 인정하며, 식별된 hook frame은 거부한다. 테스트 선언 위치는 callback 범위를 뜻하지 않으므로 실패 줄이 선언 줄보다 앞에 있다는 이유로 helper 실패를 거부하지 않는다. **승인된 한계:** hook frame을 잃은 async hook은 본문과 구분되지 않아 통과할 수 있다. 모든 source/phase frame이 없거나 잘린 경우, 명시적인 `noStackTrace`, 식별 가능한 jasmine runner 설정·frame은 `TDD_JEST_PHASE_UNSUPPORTED`로 차단한다. 실제 Jest 27.5.1·29.7.0 및 ts-jest 보고서로 확인한 범위이며 모든 Jest 설정의 호환을 보장하지 않는다.
+- `RED_TO_GREEN`은 exit ≠ 0, 선택된 테스트 ≥ 1개 실행, assertion 실패를 함께 요구한다. 리포트·출력에서 식별된 collection·compile·syntax·import·fixture 오류는 stdout/stderr 어디에 있어도 `TDD_RED_REASON_INVALID`다. Green은 exit 0이며 Red에서 선택된 모든 테스트 ID가 실제 실행·PASS해야 한다. 파일 경로가 argv에 들어 있는지, 접두가 특정 문자열인지, Red/Green argv가 글자까지 같은지로 판정하지 않는다.
 - maintenance의 refactor만 `--issue-type refactor`를 쓰고 두 산출물의 `baseline`은 `PASS_TO_PASS`가 된다. Design 입력도 `PASS_TO_PASS`로 작성하고 `red_failure_kind`는 생략한다. 전후 실제 PASS와 동일 테스트·hash·회귀·필요한 mutation 검수는 그대로 필요하다. 나머지 유형은 `RED_TO_GREEN`이다.
-- 각 성공한 Red는 이전 관측을 덮어쓰지 않는 새 run으로 고정된다. Green은 같은 repository·gitdir·artifact run·test-file의 baseline에 결속돼야 한다. 다른 run이나 저장소의 Design을 가져오거나 출력 JSON을 편집해 관측값을 바꾸면 `BLOCKED`다.
+- 로컬 상태가 온전할 때 각 성공한 Red는 이전 관측을 덮어쓰지 않는 새 run으로 고정된다. Green은 같은 repository·gitdir·artifact run·test-file의 baseline에 결속돼야 한다. 보존된 로컬 상태와 맞지 않는 다른 run·저장소의 Design이나 관측 JSON 교체는 `BLOCKED`다.
+- 로컬 상태가 온전할 때 제자리 baseline 덮어쓰기·교체와 형식이 맞는 외부 기록 없는 test hash 변경을 차단한다. **상태 디렉터리 삭제**로 `eval-review/tdd-check/`와 `tdd-test-design-result.json`을 함께 삭제하면 baseline이 초기화된다. 이 삭제를 감지하는 외부 원장은 없으며, 승인 없는 초기화는 절차로만 금지한다. schema 1.2의 digest는 로컬에서 재계산할 수 있다. 암호학적 변조 방지나 사용자 신원·승인 출처의 진위를 보장하지 않는다.
 - `source_snapshot_id`는 각 실행의 출력 생성 전 source 관측이다. Red와 Green 사이에는 구현이 바뀌므로 두 값의 동일성을 요구하지 않으며, 이후 로그·산출물이 반영된 Gate snapshot과도 무조건 같아야 하는 값이 아니다. 각 명령을 실행하는 동안에는 source·테스트 hash·고정 baseline/state bytes가 유지돼야 한다.
 - `sut_sha256`는 기존에 검증한 source manifest의 `files` 항목에서 **현재 artifact 디렉터리의 정확한 prefix만 제외한** path·kind·mode·hash 목록으로 계산한다. packet의 기존 source snapshot·열거기·제외 규칙은 변경하지 않는다. Red→Green의 SUT 변경은 허용하지만, Gate에서는 **Green의 `sut_sha256`와 현재 source view**가 일치해야 한다. Green 이후 구현이 바뀌면 오래된 증거로 Gate를 통과할 수 없고 `tdd-check green`을 다시 실행한다. run은 source 복사 후 재검증을 마친 manifest로 같은 검사를 하며 live source를 추가로 다시 읽지 않는다.
-- 기존 1.0은 `RED_TO_GREEN`, 1.1은 명시적 baseline의 **의미 호환용**으로만 유지하며 원본을 덮어쓰지 않는다. 1.0/1.1 자기보고 문서를 1.2 관측 baseline으로 사용할 수 없다. `qa-snapshot.json`의 1.0과 provider envelope의 2.0은 변경하지 않는다.
+- Gate·pack·run은 진행 중인 작업에도 즉시 schema 1.2 관측 쌍을 요구한다. 1.0·1.1 또는 그 버전으로 하향한 증거는 `TDD_OBSERVATION_REQUIRED`로 차단하고 provider를 실행하지 않는다. 기존 작업도 `tdd-check red`·`green`을 재실행해야 한다. 1.0·1.1의 의미 호환은 validator 층에만 남긴다. 기존 1.0은 `RED_TO_GREEN`, 1.1은 명시적 baseline으로 의미만 해석하고 원본을 덮어쓰지 않는다. Red의 1.1 의미 metadata 입력과 소비자가 받는 1.2 실행 증거는 서로 다른 계약이다. `qa-snapshot.json`의 1.0과 provider envelope의 2.0은 변경하지 않는다.
+- `tdd-check`는 셸·인터프리터 inline-code 명령(`bash -c`, `python -c`, `node -e`·`node -p` 등)을 실행 전에 `TDD_COMMAND_INVALID`로 거부한다. 해석하지 못한 옵션의 값은 script 경계로 믿지 않고 뒤의 inline-code 옵션까지 보수적으로 검사하며, 명령 문자열을 다시 실행하는 `env -S`·`npx --call`·`npm exec --call`도 거부한다. 명확한 repository script 경계와 `python -m pytest -c pytest.ini`는 유지한다. 그러나 저장소가 통제하는 conftest·npm script·reporter가 결과 리포트를 위조하는 것은 막지 못한다. 관측은 신뢰한 테스트 도구가 남긴 리포트에 근거하며, 의도적 보고서 위조를 방지하는 경계가 아니다.
 - 실행 관측은 테스트의 의미 품질을 대신하지 않는다. AC 연결·행동 assertion·SUT mock 금지·T2 독립 read-only 검수와 필요한 mutation은 기존 검수 규칙을 따른다.
 
 ---

@@ -46,7 +46,13 @@ BUCCL의 여섯 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅
 
 저장소 루트에서 증거를 모두 작성한 뒤 `gate` → `pack` → `run --from` 순서로 실행한다. 각 명령의 실패는 `BLOCKED`이며 provider 호출 전에 중단한다.
 
-TDD 실행 증거는 먼저 `tdd-check red`와 `tdd-check green`으로 만든다. 두 TDD JSON의 schema 1.2에는 실제 실행한 테스트 ID·수와 결과, 고정한 baseline 및 소스 결속이 들어간다. schema 1.0·1.1의 기존 의미 검증 호환은 유지하지만 실행 관측 증거로 간주하지 않는다. 테스트 파일 변경에는 해당 작업과 변경 전후 hash에 맞는 별도 사용자 승인 기록이 필요하고, GREEN 뒤 소스가 바뀌면 TDD를 다시 실행해야 한다. 명령·의미 메타데이터·승인 기록의 예시는 각 스택의 `commands/shared/tdd.md`와 `commands/maintenance/hotfix.md`를 따른다. Jest RED는 assertion과 Circus 테스트 본문 실행을 확인할 수 있는 전체 stack을 요구하며, hook 실패 또는 phase 근거가 없는 보고서는 BLOCKED한다.
+TDD 실행 증거는 먼저 `tdd-check red`와 `tdd-check green`으로 만든다. 두 TDD JSON의 schema 1.2에는 실행 리포트에서 읽은 테스트 ID·수와 결과, 고정한 baseline 및 소스 결속이 들어간다. Gate·pack·run은 진행 중인 작업에도 즉시 schema 1.2 관측 쌍을 요구한다. 1.0·1.1 또는 그 버전으로 하향한 증거는 `TDD_OBSERVATION_REQUIRED`로 차단하고 provider를 실행하지 않는다. 기존 작업도 `tdd-check red`·`green`을 재실행해야 한다. 1.0·1.1의 의미 호환은 validator 층에만 남긴다. GREEN 뒤 소스가 바뀌면 TDD를 다시 실행해야 한다. 명령·의미 metadata·외부 승인 기록의 예시는 각 스택의 `commands/shared/tdd.md`와 `commands/maintenance/hotfix.md`를 따른다.
+
+로컬 상태가 온전할 때 제자리 baseline 덮어쓰기·교체와 형식이 맞는 외부 기록 없는 test hash 변경을 차단한다. **상태 디렉터리 삭제**로 `eval-review/tdd-check/`와 `tdd-test-design-result.json`을 함께 삭제하면 baseline이 초기화된다. 이 삭제를 감지하는 외부 원장은 없으며, 승인 없는 초기화는 절차로만 금지한다. schema 1.2의 digest는 로컬에서 재계산할 수 있다. 암호학적 변조 방지나 사용자 신원·승인 출처의 진위를 보장하지 않는다.
+
+`tdd-check`는 셸·인터프리터 inline-code 명령(`bash -c`, `python -c`, `node -e`·`node -p` 등)을 실행 전에 `TDD_COMMAND_INVALID`로 거부한다. 해석하지 못한 옵션의 값은 script 경계로 믿지 않고 뒤의 inline-code 옵션까지 보수적으로 검사하며, 명령 문자열을 다시 실행하는 `env -S`·`npx --call`·`npm exec --call`도 거부한다. 명확한 repository script 경계와 `python -m pytest -c pytest.ini`는 유지한다. 그러나 저장소가 통제하는 conftest·npm script·reporter가 결과 리포트를 위조하는 것은 막지 못한다. 관측은 신뢰한 테스트 도구가 남긴 리포트에 근거하며, 의도적 보고서 위조를 방지하는 경계가 아니다.
+
+Jest는 부모가 소유한 `--testLocationInResults`를 추가하되 repository의 `testEnvironment`·`testRunner`를 덮어쓰지 않는다. 구체적인 matcher/assertion 실패와 완전한 source stack frame이 있고 `_callCircusHook`이 식별되지 않으면 async 본문·deep helper의 Red를 인정한다. 명시적인 `_callCircusTest` 본문 frame도 인정하며, 식별된 hook frame은 거부한다. 테스트 선언 위치는 callback 범위를 뜻하지 않으므로 실패 줄이 선언 줄보다 앞에 있다는 이유로 helper 실패를 거부하지 않는다. **승인된 한계:** hook frame을 잃은 async hook은 본문과 구분되지 않아 통과할 수 있다. 모든 source/phase frame이 없거나 잘린 경우, 명시적인 `noStackTrace`, 식별 가능한 jasmine runner 설정·frame은 `TDD_JEST_PHASE_UNSUPPORTED`로 차단한다. 실제 Jest 27.5.1·29.7.0 및 ts-jest 보고서로 확인한 범위이며 모든 Jest 설정의 호환을 보장하지 않는다.
 
 ```bash
 SHARED/bin/hb-eval-review gate --repo "$PWD" \
@@ -61,7 +67,7 @@ SHARED/bin/hb-eval-review run \
   --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol --timeout 480
 ```
 
-`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(현재 줄이 속하는 바깥 목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨긴다. 문단 연속 줄의 들여쓴 inline 주석은 같은 문단 안에서 닫혔을 때만 예시를 숨기며, 빈 줄·새 목록·표 시작(헤더·구분선 모두 같은 목록 컨테이너 기준 0–3칸, escape를 제외한 셀 수가 같고 2셀 이상)·문단을 끊는 HTML 블록·setext 밑줄 같은 문단 경계를 넘어 기준을 숨기지 않는다. 줄 중간·code span의 `<!--`는 기록 문구를 자르지 않는다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 이 비교에서는 code span 밖의 닫힌 inline 주석을 제외하되 기록할 문구는 보존한다. 빈 줄로 끊기지 않은 산문 뒤의 들여쓴 기준 목록은 기존 동작대로 수집하며, 그 안의 과도하게 들여쓴 fence 예시는 짝 fence 또는 바깥 문맥으로 돌아가는 들여쓰기 감소에서 끝낸다. 닫는 fence는 여는 fence보다 최대 3칸 더 깊은 들여쓰기까지 인정한다. 예시 안에서 빈 줄을 만나면 짝 기록을 버리고 들여쓴 코드로 유지하므로, 이후 실제 기준은 들여쓰기를 해제해 코드 밖에 작성한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN, 1.0 기존 증거는 RED_TO_GREEN으로만 호환한다. baseline만 바꿔 작업 유형을 우회할 수 없다.
+`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(현재 줄이 속하는 바깥 목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨긴다. 문단 연속 줄의 들여쓴 inline 주석은 같은 문단 안에서 닫혔을 때만 예시를 숨기며, 빈 줄·새 목록·표 시작(헤더·구분선 모두 같은 목록 컨테이너 기준 0–3칸, escape를 제외한 셀 수가 같고 2셀 이상)·문단을 끊는 HTML 블록·setext 밑줄 같은 문단 경계를 넘어 기준을 숨기지 않는다. 줄 중간·code span의 `<!--`는 기록 문구를 자르지 않는다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 이 비교에서는 code span 밖의 닫힌 inline 주석을 제외하되 기록할 문구는 보존한다. 빈 줄로 끊기지 않은 산문 뒤의 들여쓴 기준 목록은 기존 동작대로 수집하며, 그 안의 과도하게 들여쓴 fence 예시는 짝 fence 또는 바깥 문맥으로 돌아가는 들여쓰기 감소에서 끝낸다. 닫는 fence는 여는 fence보다 최대 3칸 더 깊은 들여쓰기까지 인정한다. 예시 안에서 빈 줄을 만나면 짝 기록을 버리고 들여쓴 코드로 유지하므로, 이후 실제 기준은 들여쓰기를 해제해 코드 밖에 작성한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN이며, 1.0 기존 증거의 RED_TO_GREEN 의미 호환은 validator 층에만 남긴다. 소비자는 1.2 관측 쌍만 받는다. baseline만 바꿔 작업 유형을 우회할 수 없다.
 
 실제 표 바로 뒤의 들여쓴 `<!--`는 문단 연속 주석으로 스캔하지 않고 코드 구간으로 숨긴다. 이 구간은 주석의 `-->`가 있는 줄까지, 또는 비어 있지 않은 줄이 목록 컨테이너+4칸보다 얕아지는 지점의 직전까지 중 먼저 오는 지점에서 끝난다. 한 줄에서 닫힌 주석은 그 다음 줄부터 기존 기준 수집을 재개한다. 닫은 다음 줄이 빈 줄이면 기존 들여쓴 코드 규칙이 먼저 적용되므로 이후 실제 기준은 들여쓰기를 해제해 쓴다. 닫히지 않은 주석은 들여쓰기 감소 전까지 코드로 유지하는 현재 동작을 의도적으로 고정한다(사용자 결정 (b)). 기준이 하나도 남지 않으면 기존 packet 검증이 요청을 차단한다.
 
@@ -504,7 +510,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 548 · tdd_quality 38 · tooling 57 (CI에서 실행)
+├── tests/                        ← eval_review 569 · tdd_quality 38 · tooling 62 (CI에서 실행)
 └── README.md
 ```
 

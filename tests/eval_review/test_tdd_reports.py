@@ -250,15 +250,27 @@ Caused by: java.lang.IllegalStateException: bad value</failure></testcase></test
         self.assertFalse(cases[1]['assertion'])
 
     def test_jest_assertion_red_requires_test_body_phase_and_rejects_hooks(self):
+        # D2 keeps this guard's name and known-hook rejection, while allowing
+        # real source frames when async/deep execution loses the Circus frame.
+        helper = self.repo / 'helper.js'
+        helper.write_text('function h() { expect(1).toBe(2); }\n')
+        outside = self.root / 'outside-helper.js'
+        outside.write_text(helper.read_text())
+        unsupported = 'TDD_JEST_PHASE_UNSUPPORTED'
         messages = {
             'body': (JEST_BODY_FAILURE, True),
             'beforeEach or afterEach': (JEST_ASSERTION + '\n' + JEST_HOOK_FRAME, False),
             'hook plus body': (JEST_BODY_FAILURE + '\n' + JEST_HOOK_FRAME, False),
-            'phase missing': (JEST_ASSERTION, False),
-            'phase trimmed': (JEST_ASSERTION + '\n    at _callCircusTest', False),
-            'name in message': (JEST_ASSERTION + '\nExpected: _callCircusTest', False),
+            'phase missing': (JEST_ASSERTION, unsupported),
+            'phase trimmed': (JEST_ASSERTION + '\n    at _callCircusTest', unsupported),
+            'name in message': (JEST_ASSERTION + '\nExpected: _callCircusTest', unsupported),
             'user function with same name': (
-                JEST_ASSERTION + '\n    at _callCircusTest (/repo/test/helper.js:1:2)', False),
+                JEST_ASSERTION + '\n    at _callCircusTest (/repo/test/helper.js:1:2)', unsupported),
+            'source helper fallback': (JEST_ASSERTION + '\n    at h (' + str(helper) + ':1:16)', True),
+            'missing repository source': (
+                JEST_ASSERTION + '\n    at h (' + str(self.repo / 'missing.js') + ':1:16)', unsupported),
+            'existing source outside repository': (
+                JEST_ASSERTION + '\n    at h (' + str(outside) + ':1:16)', unsupported),
             'body without assertion': ('Error: body failed\n' + JEST_BODY_FRAME, False),
             'runtime message merely mentions assert': ('Error: assert value failed\n' + JEST_BODY_FRAME, False),
         }
@@ -270,9 +282,13 @@ Caused by: java.lang.IllegalStateException: bad value</failure></testcase></test
                         {'fullName': 'returns value', 'status': 'failed', 'failureMessages': [message]},
                     ]}]}))
                 try:
-                    case = parse_report(plan, self.repo)[0]
-                    self.assertEqual('FAIL', case['outcome'])
-                    self.assertEqual(expected, case['assertion'])
+                    if isinstance(expected, str):
+                        with self.assertRaisesRegex(ValueError, '^' + expected + '$'):
+                            parse_report(plan, self.repo)
+                    else:
+                        case = parse_report(plan, self.repo)[0]
+                        self.assertEqual('FAIL', case['outcome'])
+                        self.assertEqual(expected, case['assertion'])
                 finally:
                     plan['report_path'].unlink()
 

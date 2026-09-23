@@ -168,6 +168,12 @@ def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Opti
             continue
         if document.get('status') != 'PASS':
             errors.append('TDD_EVIDENCE_MISSING')
+        # Consumer policy is independent of the document's chosen version.
+        # Legacy contracts remain meaningful to validators, but cannot replace
+        # execution evidence in Gate, pack, or either public run mode.
+        if (document.get('schema_version') != '1.2'
+                or not isinstance(document.get('observed'), dict)):
+            errors.append('TDD_OBSERVATION_REQUIRED')
         documents.append(document)
         if validate_schema(document, relative.name.replace('.json', '.schema.json')):
             errors.append('TDD_SCHEMA_INVALID')

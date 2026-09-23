@@ -38,6 +38,80 @@ def _sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _command_argv(command: str) -> List[str]:
+    """Reject inline shell/interpreter programs before any execution.
+
+    Framework names still only choose a report adapter. This small execution
+    guard is not an executable-prefix proof and cannot authenticate repository
+    scripts, conftest, or a reporter controlled by the caller.
+    """
+    try:
+        argv = _argv(command)
+    except ValueError:
+        _fail('TDD_COMMAND_INVALID')
+    for index, token in enumerate(argv):
+        name = Path(token).name.lower()
+        if name == 'env' and any(option.startswith('-S') or option.split('=', 1)[0] == '--split-string'
+                                 for option in argv[index + 1:]):
+            # env -S expands an opaque string into a second argv. It must not
+            # conceal an inline interpreter from this no-shell execution check.
+            _fail('TDD_COMMAND_INVALID')
+        package_options = argv[index + 1:]
+        if '--' in package_options:
+            package_options = package_options[:package_options.index('--')]
+        package_call = name == 'npx' or (name == 'npm' and 'exec' in package_options)
+        if package_call and any(option.split('=', 1)[0] in ('-c', '--call') for option in package_options):
+            # npm exec/npx --call is another inline shell program, not an
+            # invocation of the repository's declared npm test script.
+            _fail('TDD_COMMAND_INVALID')
+        shell = name in ('sh', 'bash', 'zsh', 'dash', 'ksh')
+        python = re.fullmatch(r'python(?:\d+(?:\.\d+)*)?', name) is not None
+        node = name in ('node', 'nodejs')
+        if not (shell or python or node):
+            continue
+        cursor = index + 1
+        ambiguous_option_value = False
+        while cursor < len(argv):
+            option = argv[cursor]
+            if option == '--':
+                if not ambiguous_option_value:
+                    break  # unambiguous end of interpreter options
+                # An unknown option can consume '--' as its value (Node --title
+                # -- -e ...), so it cannot establish a trustworthy script boundary.
+                cursor += 1
+                continue
+            if not option.startswith('-'):
+                if not ambiguous_option_value:
+                    break  # an unambiguous repository script and its arguments
+                # It may be the value of an unknown runtime option, not a script.
+                # Continue checking every later option instead of trusting it as
+                # an execution boundary (Node --input-type module -e, for example).
+                cursor += 1
+                continue
+            if (shell and ((option.startswith('-') and not option.startswith('--') and 'c' in option[1:])
+                           or option.split('=', 1)[0] == '--command')):
+                _fail('TDD_COMMAND_INVALID')
+            if python:
+                if option == '-m' or option.startswith('-m'):
+                    break  # e.g. python -m pytest -c pytest.ini is not inline code
+                if not option.startswith(('--', '-W', '-X')) and 'c' in option[1:]:
+                    _fail('TDD_COMMAND_INVALID')
+            if node and (option.split('=', 1)[0] in ('--eval', '--print')
+                         or (not option.startswith('--') and option[1:2] in ('e', 'p'))):
+                _fail('TDD_COMMAND_INVALID')
+            takes_value = ((shell and option in ('-o', '-O', '--rcfile', '--init-file'))
+                           or (python and option in ('-W', '-X', '--check-hash-based-pycs'))
+                           or (node and option in ('-r', '--require', '--loader', '--import', '-C', '--conditions')))
+            value_in_option = '=' in option or (python and option.startswith(('-W', '-X')) and len(option) > 2)
+            known_no_value = ((shell and (option in ('--noprofile', '--norc', '--posix', '--restricted', '--login')
+                                         or re.fullmatch(r'-[abefhiklmnprstuvxBCEHPT]+', option)))
+                              or (python and re.fullmatch(r'-[bBdEiIoqsStuUvVx]+', option)))
+            if not (takes_value or value_in_option or known_no_value):
+                ambiguous_option_value = True
+            cursor += 2 if takes_value else 1
+    return argv
+
+
 def _safe(path: Path, root: Optional[Path] = None, *, exists: bool = True) -> Path:
     path = Path(path).absolute()
     if '..' in path.parts or path.resolve() != path:
@@ -211,18 +285,12 @@ def _bound_case(case: Dict[str, Any], test: Path, repo: Path, text: str) -> bool
             full = (package.group(1) + '.' if package else '') + name
             if classname in (full, name) or classname.startswith(full + '$'):
                 return True
-            # xcresult identifiers include the target before the source class.
-            if name in str(case.get('id', '')).split('/')[:-1]:
-                return True
     return False
 
 
 def _observe(command: str, repo: Path, test: Path, track: str, phase: str,
              baseline_kind: str):
-    try:
-        argv = _argv(command)
-    except ValueError:
-        _fail('TDD_COMMAND_INVALID')
+    argv = _command_argv(command)
     with tempfile.TemporaryDirectory(prefix='hb-tdd-report-') as temporary:
         try:
             plan = prepare_report(argv, Path(temporary).resolve())
@@ -262,10 +330,7 @@ def tdd_check(phase: str, repo: Path, test_file: Path, command: str, design_path
               out: Path, *, issue_type: Optional[str] = None,
               sensitivity_path: Optional[Path] = None, approval_path: Optional[Path] = None):
     # Validate the command before even a repository-inspection subprocess runs.
-    try:
-        _argv(command)
-    except ValueError:
-        _fail('TDD_COMMAND_INVALID')
+    _command_argv(command)
     repo = repository_root(repo)
     out = _safe(out, repo, exists=False)
     track, _, out = artifact_layout(repo, out)

@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / 'SHARED' / 'runtime'))
 from hb_eval_review import cli
 from hb_eval_review.snapshot import compute_source_snapshot, compute_evidence_bundle_id, compute_packet_id
 from hb_eval_review.materialize import remove_materialized_packet
+from observed_fixture import observed_pair
 
 
 def sha(data):
@@ -45,6 +46,7 @@ def evidence_fixture(repo, track='feature', issue_type='bug', ignored=False):
     design = {'schema_version':'1.1', 'baseline':baseline, 'stage':'tdd-test-design', 'tier':'T1', 'status':'PASS', 'test_id':'test_behavior', 'acceptance_refs':['AC-1'], 'assertions':[{'kind':'observable_behavior','description':'observed result'}], 'mocked_boundaries':[], 'system_under_test_mocked':False, 'paths':['success','failure'], 'reviewer':{'independent':True,'read_only':True}}
     if baseline == 'RED_TO_GREEN': design['red_failure_kind'] = 'bug_reproduced'
     sensitivity = {'schema_version':'1.1','baseline':baseline,'stage':'tdd-sensitivity','tier':'T1','status':'PASS','test_id':'test_behavior','red_test_hash':'a'*64,'green_test_hash':'a'*64,'red_outcome':'PASS' if baseline=='PASS_TO_PASS' else 'FAIL','green_outcome':'PASS','approved_red_revision':False,'high_risk':False,'mutation':{'required':False,'performed':False,'outcome':'NOT_REQUIRED'},'regression':{'status':'PASS'}}
+    design, sensitivity = observed_pair(design, sensitivity, repo, artifacts)
     write_json(artifacts / 'tdd-test-design-result.json', design)
     write_json(artifacts / 'tdd-sensitivity-result.json', sensitivity)
     gate = {'schema_version':'1.1','stage':'gate','status':'PASS','source_snapshot_id':compute_source_snapshot(repo)['source_snapshot_id'],'commands':[{'name':'test','command':['python3','-m','unittest'],'exit_code':0,'duration_ms':1,'stdout_tail':'PASS','stderr_tail':'','stdout_sha256':sha(b'PASS')}], 'tdd_evidence':[(artifacts/name).relative_to(repo).as_posix() for name in ('tdd-test-design-result.json','tdd-sensitivity-result.json')]}
@@ -138,10 +140,11 @@ class GatePackRunTests(unittest.TestCase):
                 packet=case.pack()
                 request_path=case.artifacts/case.request_name
                 request_path.write_text(request_path.read_text().replace('Type: bug','Type: refactor'))
-                if version=='1.0':
-                    for name in ('tdd-test-design-result.json','tdd-sensitivity-result.json'):
-                        path=case.artifacts/name;data=json.loads(path.read_text())
-                        data['schema_version']='1.0';data.pop('baseline');write_json(path,data)
+                for name in ('tdd-test-design-result.json','tdd-sensitivity-result.json'):
+                    path=case.artifacts/name;data=json.loads(path.read_text())
+                    data['schema_version']=version;data.pop('observed')
+                    if version=='1.0':data.pop('baseline')
+                    write_json(path,data)
                 with self.assertRaises(ContractError) as blocked:case.pack()
                 self.assertIn('TDD_BASELINE_INVALID',blocked.exception.errors)
                 packet['request']['issue_type']='refactor';packet['request']['text']=request_path.read_text()
