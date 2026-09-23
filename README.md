@@ -510,7 +510,7 @@ harness/
 │   └── skills/hb-shared/SKILL.md (Codex 진입점)
 ├── scripts/lint-harness.sh       ← R1~R14 린터
 ├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 569 · tdd_quality 38 · tooling 62 (CI에서 실행)
+├── tests/                        ← eval_review 570 · tdd_quality 38 · tooling 62 (CI에서 실행)
 └── README.md
 ```
 

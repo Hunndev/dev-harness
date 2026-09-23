@@ -34,6 +34,29 @@ class TddReportTests(unittest.TestCase):
             target.parent.mkdir(parents=True)
         target.write_text(body, encoding='utf-8')
 
+    def test_jest_assertion_with_only_node_modules_frame_is_unsupported(self):
+        library = self.repo / 'node_modules/assert-helper/index.js'
+        library.parent.mkdir(parents=True)
+        library.write_text('module.exports = () => { expect(1).toBe(2); };\n')
+        local = self.repo / 'helper.js'
+        local.write_text(library.read_text())
+        for frame, expected in ((library, 'TDD_JEST_PHASE_UNSUPPORTED'), (local, True)):
+            with self.subTest(frame=frame.relative_to(self.repo).as_posix()):
+                plan = self.plan(['jest', 'behavior'])
+                plan['report_path'].write_text(json.dumps({'testResults': [{
+                    'name': 'tests/behavior.test.ts', 'status': 'failed', 'assertionResults': [
+                        {'fullName': 'returns value', 'status': 'failed',
+                         'failureMessages': [JEST_ASSERTION + '\n    at helper (' + str(frame) + ':1:28)']}]}]}))
+                try:
+                    if isinstance(expected, str):
+                        with self.assertRaisesRegex(ValueError, '^' + expected + '$'):
+                            parse_report(plan, self.repo)
+                    else:
+                        self.assertTrue(parse_report(plan, self.repo)[0]['assertion'])
+                finally:
+                    plan['report_path'].unlink()
+
+
     def test_pytest_report_injection_preserves_path_and_python_module_selector(self):
         for argv in (['pytest', 'tests/test_behavior.py::test_value'],
                      ['python3', '-m', 'pytest', 'tests/test_behavior.py', '-k', 'value']):
