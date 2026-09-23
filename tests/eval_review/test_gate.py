@@ -15,9 +15,11 @@ sys.path.insert(0, str(ROOT / 'SHARED' / 'runtime'))
 from hb_eval_review.gate import generate_gate, validate_gate_file, run_gate_command
 from hb_eval_review.schema_validation import validate_schema
 from hb_eval_review.snapshot import compute_source_snapshot
+from hb_eval_review.tdd_quality import validate_test_design, validate_test_sensitivity, validate_observation_pair
+from observed_fixture import observed_pair
 
 
-def tdd_documents(baseline='RED_TO_GREEN', version='1.1'):
+def tdd_documents(baseline='RED_TO_GREEN', version='1.2', *, repo=None, artifacts=None, snapshot=None):
     design = {
         'schema_version': version, 'stage': 'tdd-test-design', 'tier': 'T1',
         'status': 'PASS', 'test_id': 'test_behavior', 'acceptance_refs': ['AC-1'],
@@ -34,11 +36,13 @@ def tdd_documents(baseline='RED_TO_GREEN', version='1.1'):
         'mutation': {'required': False, 'performed': False, 'outcome': 'NOT_REQUIRED'},
         'regression': {'status': 'PASS'},
     }
-    if version == '1.1':
+    if version in ('1.1', '1.2'):
         design['baseline'] = sensitivity['baseline'] = baseline
     if baseline == 'PASS_TO_PASS':
         design.pop('red_failure_kind')
         sensitivity['red_outcome'] = 'PASS'
+    if version == '1.2':
+        return observed_pair(design, sensitivity, repo, artifacts, snapshot)
     return design, sensitivity
 
 
@@ -58,10 +62,10 @@ class GateTests(unittest.TestCase):
         self.gate = self.artifacts / 'eval-review/gate-result.json'
         self.write_tdd()
 
-    def write_tdd(self, baseline='RED_TO_GREEN', version='1.1'):
+    def write_tdd(self, baseline='RED_TO_GREEN', version='1.2'):
         self.artifacts.mkdir(parents=True, exist_ok=True)
         for name, data in zip(('tdd-test-design-result.json', 'tdd-sensitivity-result.json'),
-                              tdd_documents(baseline, version)):
+                              tdd_documents(baseline, version, repo=self.repo, artifacts=self.artifacts)):
             (self.artifacts / name).write_text(json.dumps(data))
 
     def create_gate(self, **kwargs):
@@ -201,7 +205,16 @@ class GateTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(('x' * 70000 + '\n').encode()).hexdigest(), row['stdout_sha256'])
 
     def test_gate_validates_v10_compatibility_and_v11_baseline_pair(self):
-        self.write_tdd(version='1.0')
+        # D1 keeps legacy meaning compatibility at the validator layer only.
+        for version in ('1.0', '1.1'):
+            design, sensitivity = tdd_documents(version=version)
+            self.assertEqual([], validate_test_design(design))
+            self.assertEqual([], validate_test_sensitivity(sensitivity))
+            self.assertEqual([], validate_observation_pair(design, sensitivity))
+            for name, document in zip(('tdd-test-design-result', 'tdd-sensitivity-result'),
+                                      (design, sensitivity)):
+                self.assertEqual([], validate_schema(document, name + '.schema.json'))
+        self.write_tdd()
         self.assertEqual('PASS', self.create_gate()['status'])
         self.assertEqual([], validate_gate_file(self.gate, self.repo))
         self.write_tdd()
@@ -227,6 +240,7 @@ class GateTests(unittest.TestCase):
 
     def test_frozen_evidence_validator_never_reads_live_source(self):
         data = self.create_gate()
+        snapshot = compute_source_snapshot(self.repo)
         frozen = Path(self.temp.name) / 'packet/evidence'
         frozen.mkdir(parents=True)
         (frozen / 'gate-result.json').write_bytes(self.gate.read_bytes())
@@ -236,7 +250,8 @@ class GateTests(unittest.TestCase):
         (self.repo / 'app.py').write_text('changed after frozen copy')
         with patch('hb_eval_review.gate.compute_source_snapshot', side_effect=AssertionError('must not reread live source')):
             self.assertEqual([], validate_gate_file(frozen / 'gate-result.json', self.repo,
-                evidence_root=frozen, source_snapshot_id=data['source_snapshot_id'], track='feature', artifacts=self.artifacts))
+                evidence_root=frozen, source_snapshot_id=data['source_snapshot_id'],
+                source_manifest=snapshot['manifest'], track='feature', artifacts=self.artifacts))
 
     def test_gate_path_and_tdd_reference_cannot_escape_artifact_layout(self):
         data = self.create_gate()

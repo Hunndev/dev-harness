@@ -138,7 +138,7 @@ def _validate(data: Any, schema: Any, path: str = "$") -> List[str]:
 def validate_schema(data: Any, schema_name: str) -> List[str]:
     """Return structural errors for a local contract; an empty list means valid.
 
-    Historical TDD 1.0 evidence retains its original RED_TO_GREEN-only contract.
+    Historical TDD 1.0/1.1 evidence retains its original semantic-only contract.
     Semantic TDD checks remain the responsibility of tdd_quality validators.
     """
     try:
@@ -146,17 +146,21 @@ def validate_schema(data: Any, schema_name: str) -> List[str]:
         errors = _schema_errors(schema)
         if errors:
             return errors
-        if schema_name in _TDD_SCHEMAS and isinstance(data, dict) and data.get("schema_version") == "1.0":
+        if (schema_name in _TDD_SCHEMAS and isinstance(data, dict)
+                and data.get("schema_version") in ("1.0", "1.1")):
             schema = copy.deepcopy(schema)
-            schema["properties"]["schema_version"] = {"const": "1.0"}
-            schema["properties"].pop("baseline", None)
-            schema["required"] = [key for key in schema["required"] if key != "baseline"]
-            schema.pop("allOf", None)
-            if schema_name == "tdd-test-design-result.schema.json":
-                if "red_failure_kind" not in schema["required"]:
-                    schema["required"].append("red_failure_kind")
-            else:
-                schema["properties"]["red_outcome"] = {"const": "FAIL"}
+            schema["properties"]["schema_version"] = {"const": data["schema_version"]}
+            schema["properties"].pop("observed", None)
+            schema["required"] = [key for key in schema["required"] if key != "observed"]
+            if data["schema_version"] == "1.0":
+                schema["properties"].pop("baseline", None)
+                schema["required"] = [key for key in schema["required"] if key != "baseline"]
+                schema.pop("allOf", None)
+                if schema_name == "tdd-test-design-result.schema.json":
+                    if "red_failure_kind" not in schema["required"]:
+                        schema["required"].append("red_failure_kind")
+                else:
+                    schema["properties"]["red_outcome"] = {"const": "FAIL"}
         # Reject values outside JSON, nonfinite numbers, and malformed Unicode.
         json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
         return list(dict.fromkeys(_validate(data, schema)))

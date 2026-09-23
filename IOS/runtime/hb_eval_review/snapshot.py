@@ -52,6 +52,18 @@ def compute_tree_sha256(entries: Iterable[Dict[str, Any]]) -> str:
     return _digest(list(entries))
 
 
+def compute_tdd_sut_sha256(manifest: Dict[str, Any], artifact_relative: Path) -> str:
+    """Bind tested source entries without letting this run's own evidence self-invalidate.
+
+    This is a view of an already verified source manifest, not a new enumerator or
+    a change to packet exclusions. Paths, kinds, modes and content digests remain
+    bound; only the exact current artifact directory is omitted from this view.
+    """
+    prefix = artifact_relative.as_posix().rstrip('/') + '/'
+    return compute_tree_sha256(entry for entry in manifest['files']
+                               if not entry['path'].startswith(prefix))
+
+
 def _git(repo: Path, *args: str) -> bytes:
     return subprocess.run(
         ["git", *args], cwd=str(repo), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE

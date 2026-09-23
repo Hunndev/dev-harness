@@ -1,0 +1,107 @@
+[
+  {
+    "fixture": "jest27/async-loc.json",
+    "source": "logs/jest27/async-loc.json",
+    "original_sha256": "7f7e297862eb43e16f8a7bf4d819a52b954951f54e46d89fea4b51d9fc93564b",
+    "fixture_sha256": "e296e17ed9aa5107696c12e6f81f47c7c659f3331478e3b89c7806ae40d7d25c",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest27/async.json",
+    "source": "logs/jest27/async.json",
+    "original_sha256": "607dbed0be31ca5de8a3e6ee83da3540da31a1388463678b52d2ef221fdca6e2",
+    "fixture_sha256": "ffa08c10ccf4c8006fa158b22484b7bba56e6a284af4a45acf428acdee222029",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest27/asynchook-loc.json",
+    "source": "logs/jest27/asynchook-loc.json",
+    "original_sha256": "22fc316763a302435878fca2b5a213b13727ef23c1c9dee263c93642cbc45cdd",
+    "fixture_sha256": "beefe8aa1803882a3222c79f998434c4a079132bd1985734275c4a5309d78944",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest27/body.json",
+    "source": "logs/jest27/body.json",
+    "original_sha256": "91a529c2b7f6659bd23bbfb09e323f7d24aa596f173b0896411554798e25a4ab",
+    "fixture_sha256": "c0d49e71b321d9c15eb9577730031bf5aa387cc6b42b6ee56c07f556b7424670",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest27/deep.json",
+    "source": "logs/jest27/deep.json",
+    "original_sha256": "df5e62437eb564ad06ae9b90dd759de33b1755e1bd3234040bb8dad7f3bf170e",
+    "fixture_sha256": "18e41b3c5b65f8c69e62f4841e1d15f0b325416fd7bba7f14a95da75129440ce",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest27/hook.json",
+    "source": "logs/jest27/hook.json",
+    "original_sha256": "a5750a6b2cb9a6968e2d3455efb77f6a7177a40890557ceefaf78a8086449276",
+    "fixture_sha256": "e04bbedeab69c22d6b9f2e5655902d10ad5c4271f2f1308ac5b9aed03ff1e2c8",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/async-loc.json",
+    "source": "logs/jest29/async-loc.json",
+    "original_sha256": "3f95cabe0197edae7c41f67e3e6356950e9b6a3c882efa50a59ff269438048f2",
+    "fixture_sha256": "3c6b5035828ad482152908ff94f94a69c583f5ca26b5392512c14724359b33d4",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/async.json",
+    "source": "logs/jest29/async.json",
+    "original_sha256": "b7f8b89636d1ad1ef3a813ebfce957ad388e7d51b66f28ec3bbb4f7b77a0fdea",
+    "fixture_sha256": "e340923cff9c03a75d8de6774560da3e7af81014230a26e5ee531f9eb0a43c56",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/asynchook-loc.json",
+    "source": "logs/jest29/asynchook-loc.json",
+    "original_sha256": "a034cf2473056b58bd71a21ea95aa980176748132f2f6a2c0952a06723c31c52",
+    "fixture_sha256": "4c01e1c6d2201d5cdbddcb2b78334f4238ac89db5ab09b6214eac3639bf20994",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/asynchook.json",
+    "source": "logs/jest29/asynchook.json",
+    "original_sha256": "5d73f802f6e4666cb297c53b27a4f2a543eed42fe294bc53e4b5dcc3b2f9d5c1",
+    "fixture_sha256": "7899255fede952183bc91c9447c151a5117112cf9cfb8db92ec6f9e78cf1e1b3",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/body.json",
+    "source": "logs/jest29/body.json",
+    "original_sha256": "8fb3d4aa5b1a69dc73f0dc8db5c3e43c6bbdd90cd3379d32c0c357971a5b0abb",
+    "fixture_sha256": "5dedca091f17a363a5f50ae86f6a677dcd377392855cc6e3bd35ac3ae9539be2",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/deep.json",
+    "source": "logs/jest29/deep.json",
+    "original_sha256": "fba80cccac1e2a6b935c055d7034f4d77ab102b675a2c0526a1eb4a358debc09",
+    "fixture_sha256": "fdfec913a3abdb6ae613e370b25e96627bbaa5f3bb51a496e3a63c53f568a9c4",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29/hook.json",
+    "source": "logs/jest29/hook.json",
+    "original_sha256": "1ed424dc7ae493fe5db30d8e774bda4c91864e35636f5f0be2823eaf9c9fcd48",
+    "fixture_sha256": "711fd166c71f4397e2ff63d7b9044ac8e947bfd9eec0d0f8f1ae8521952b0759",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29-tsjest/async.json",
+    "source": "logs/jest29-tsjest/async.json",
+    "original_sha256": "817dad264da6c10ed889172990b858265f5b73a0469adda134ab1bd780c16d2b",
+    "fixture_sha256": "236c0f2b93c273da56b0b6851ea1dc7f1c6f9c87c6ea42fdd6ffa3d0b792d3b0",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  },
+  {
+    "fixture": "jest29-tsjest/body.json",
+    "source": "logs/jest29-tsjest/body.json",
+    "original_sha256": "e08c264e72dbd02107996cf0482be4bebd9ec118a81ae0766c93b6a4c1bffbd7",
+    "fixture_sha256": "1a791c43dadd49bab2ace374b9f3145f76cc14c2feb1ced8abbc47309bb4d94e",
+    "normalization": "Original report common lead root replaced with /__jest_fixture__; no other report changes."
+  }
+]

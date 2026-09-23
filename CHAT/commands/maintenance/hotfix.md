@@ -39,23 +39,28 @@
 3. 사용자가 제시한 증상을 **FAIL로 입증하는 최소 테스트**를 작성한다.
    - 파일: `src/__tests__/{module}.hotfix.{identifier}.test.ts`
    - 가장 좁은 범위(단일 함수/핸들러/repository)로 한정
-4. `npm test -- --testPathPattern={module}.hotfix.{identifier}` 로 **FAIL**을 확인한다.
-5. FAIL 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-red-log.txt`에 저장한다. 실패가 **'올바른 이유'(버그 때문)**인지 확인한다 (syntax error나 import error로 fail하면 Red가 아님).
+4. `commands/shared/tdd.md`의 **T0 Test Design Check**로 완료기준·행동 assertion·mock 경계를 확인하고 `tdd-design-metadata.json`을 준비한다. 부모 CLI로 선택한 재현 테스트를 실행한다. `--test-file`에는 3번에서 만든 파일의 저장소 상대 경로를 넣는다.
+
+   ```bash
+   <플러그인 설치 경로>/bin/hb-eval-review tdd-check red --repo <root> --test-file {test-file} --cmd 'npm test -- --testPathPattern={module}.hotfix.{identifier}' --design {artifacts-dir}/tdd-design-metadata.json --out <root>/.harness/artifacts/maintenance/{identifier} --issue-type hotfix
+   ```
+
+5. 부모가 `hotfix-red-log.txt`와 schema 1.2 `tdd-test-design-result.json`을 생성했는지 확인한다. exit ≠ 0만으로는 부족하다. 선택된 테스트가 1개 이상 실제 실행되고 버그를 드러내는 assertion으로 실패해야 한다. 식별된 compile·collection·import·fixture 오류는 stdout/stderr 어디에 있어도 올바른 Red가 아니다.
 6. 재현 불가 시 즉시 중단하고 사용자에게 추가 정보를 요청한다. **재현 안 되는데 고치지 않는다.**
 7. `.harness/artifacts/maintenance/{identifier}/hotfix-reproduction.md`에 기록한다:
    - **서두 약식 seed 3줄**: 목표 / 범위(수정할 한 곳) / 완료기준(단위 테스트 PASS) — T0 예외의 seed 갈음
    - 재현 단계
    - 테스트 파일 경로
    - FAIL 출력 요약
-8. **T0 Test Design Check**를 수행한다: 완료기준과 테스트 연결, 행동 중심 assertion, 올바른 실패 이유, SUT 경계 밖 mock 여부를 확인하고 Red 테스트 파일 SHA-256과 함께 `tdd-test-design-result.json`에 `PASS`를 기록한다. 하나라도 불명확하면 구현하지 않고 `:auto`로 에스컬레이션한다.
+8. 부모가 생성한 `tdd-test-design-result.json`의 Design 검수와 관측 baseline이 모두 통과해야 H2로 진행한다. 관측값·hash·status를 모델이 덮어쓰지 않는다. 하나라도 불명확하면 구현하지 않고 `:auto`로 에스컬레이션한다.
 
 ### [H2] 수정 [TDD Green] (메인)
 
 1. **Red 테스트(H1)가 PASS가 되는 '최소 수정'만** 수행한다. 사용자가 지정한 파일·라인 이외는 수정하지 않는다.
    - **판정 기준**: 이 수정이 아래 "Refactor 금지" 정의의 **허용** 범주인가? "이 변경을 되돌렸을 때 H1 테스트가 다시 FAIL하는가?"의 답이 YES이면 허용, NO이면 Refactor이므로 금지.
    - 금지 범주에 해당하면 즉시 중단하고 `/hb-chat:maintenance:auto`로 에스컬레이션한다.
-2. 수정 즉시 H1 테스트가 **PASS**가 되는지 확인한다.
-3. PASS 확인 후 출력을 `.harness/artifacts/maintenance/{identifier}/hotfix-green-log.txt`에 저장한다.
+2. 수정 즉시 H1의 대상 테스트 명령으로 **PASS**가 되는지 확인한다. 최종 실행 관측과 봉인은 H3의 관련 단위 테스트 검수 후 `tdd-check green`으로 수행한다.
+3. H3의 부모 실행이 생성하는 `hotfix-green-log.txt`를 최종 PASS 로그로 사용한다. 수동 출력이나 테스트 marker로 관측 증거를 대신하지 않는다.
 4. PASS가 아니면 원인을 추정해 다시 시도한다. **2회 실패 시 중단하고 `:auto` 또는 `:deep`으로 전환 제안**.
 5. 수정 내용과 예상되는 side effect를 사용자에게 한 줄로 보고한다.
 
@@ -76,7 +81,13 @@
    - 수정된 파일 목록
    - H1 재현 테스트 파일 경로
    - 단위 테스트 통과/실패 요약
-5. **T0 Test Sensitivity Check**를 수행한다: H1과 동일 테스트 경로·동일 SHA-256인지, Red가 실제 결함 때문에 FAIL했고 수정 후 Green인지 확인한다. 결과를 `tdd-sensitivity-result.json`에 기록한다. 테스트가 Green 과정에서 바뀌었거나 결함을 잡지 못하면 `BLOCKED` 후 H1부터 다시 시작한다.
+5. **T0 Test Sensitivity Check**를 수행한다. 위 관련 단위 테스트 결과와 위험도·mutation 판단을 `tdd-sensitivity-metadata.json`에 기록하고, H1이 생성한 **동일한 고정 Design**을 입력으로 부모 실행을 수행한다.
+
+   ```bash
+   <플러그인 설치 경로>/bin/hb-eval-review tdd-check green --repo <root> --test-file {test-file} --cmd 'npm test -- --testPathPattern={module}.hotfix.{identifier}' --design {artifacts-dir}/tdd-test-design-result.json --sensitivity {artifacts-dir}/tdd-sensitivity-metadata.json --out <root>/.harness/artifacts/maintenance/{identifier} --issue-type hotfix
+   ```
+
+   부모가 schema 1.2 `tdd-sensitivity-result.json`과 `hotfix-green-log.txt`를 생성한다. exit 0, H1에서 선택된 모든 테스트 ID의 실제 PASS, 동일 테스트 hash와 run 결속이 필요하다. 로컬 상태가 온전할 때 형식이 맞는 외부 기록 없이 테스트 hash를 바꿀 수 없으며, `approved_red_revision: true` 자기보고만으로는 통과하지 않는다. 상태 삭제 초기화·digest 재계산·승인 출처의 절차적 신뢰 한계는 `commands/shared/tdd.md`를 따른다. 테스트가 Green 과정에서 바뀌었거나 결함을 잡지 못하면 `BLOCKED`하고 `:auto`로 에스컬레이션한다. hotfix에서 승인 없는 H1 재시작으로 고정 baseline을 교체하지 않는다. H3 이후 구현이 바뀌면 Green의 `observed.sut_sha256`가 현재 source view와 달라 Gate가 차단하므로 같은 고정 Design으로 `tdd-check green`을 다시 실행한다.
 
 > **Refactor 금지 — 조작적 정의**:
 > - **허용**: H1 Red 테스트를 PASS시키는 데 **직접 필요한** 코드 변경 (새 조건, null/undefined 체크, 타입 가드, 수정된 리터럴, 올바른 분기 추가).
@@ -86,6 +97,8 @@
 > 코드 정리가 필요하면 `/hb-chat:maintenance:auto`로 전환한다.
 
 ### [H4] Gate → 검사(Evaluate) → 평가(Review) (부모 runner)
+
+Gate·pack·run은 진행 중인 작업에도 즉시 schema 1.2 관측 쌍을 요구한다. 1.0·1.1 또는 그 버전으로 하향한 증거는 `TDD_OBSERVATION_REQUIRED`로 차단하고 provider를 실행하지 않는다. 기존 작업도 `tdd-check red`·`green`을 재실행해야 한다. 1.0·1.1의 의미 호환은 validator 층에만 남긴다.
 
 1. Production·DB·secret·인증·권한·destructive 변경이면 구현 전에 받은 사용자 승인을 확인한다. 승인이 없으면 `BLOCKED`다.
 2. H1~H3·request·AC 증거를 먼저 완성하고 `hb-eval-review gate --repo <root> --cmd '<실제 검사 argv>' --out <root>/.harness/artifacts/maintenance/{identifier}/eval-review/gate-result.json --issue-type hotfix`로 deterministic Gate를 통과시킨다.
@@ -111,11 +124,11 @@
 ```
 .harness/artifacts/maintenance/{identifier}/
   hotfix-reproduction.md
-  hotfix-red-log.txt      ← NEW
-  hotfix-green-log.txt    ← NEW
+  hotfix-red-log.txt      ← 부모 Red 실행 로그
+  hotfix-green-log.txt    ← 부모 Green 실행 로그
   hotfix-summary.md
-  tdd-test-design-result.json
-  tdd-sensitivity-result.json
+  tdd-test-design-result.json  ← 부모 생성 schema 1.2·고정 baseline
+  tdd-sensitivity-result.json  ← 부모 생성 schema 1.2·Green 관측
   eval-review/gate-result.json
   eval-review/diff.patch
   eval-review/packet/packet.json

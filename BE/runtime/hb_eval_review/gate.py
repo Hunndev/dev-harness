@@ -12,8 +12,9 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 from .process import minimal_environment
 from .redaction import redact_json, redact_text
 from .schema_validation import validate_schema
-from .snapshot import PacketPolicyError, compute_source_snapshot
-from .tdd_quality import effective_baseline, validate_test_design, validate_test_sensitivity
+from .snapshot import PacketPolicyError, compute_source_snapshot, compute_tdd_sut_sha256
+from .tdd_quality import (effective_baseline, validate_test_design, validate_test_sensitivity,
+                          validate_observation_pair)
 
 _TDD_NAMES = ('tdd-test-design-result.json', 'tdd-sensitivity-result.json')
 _TRACKS = {'feature', 'maintenance', 'hotfix'}
@@ -54,28 +55,36 @@ def gate_environment(source: Optional[Mapping[str, str]] = None, *, track: str) 
 
 
 def run_gate_command(command: str, repo: Path, *, track: str,
-                     timeout_seconds: float = 600.0) -> Dict[str, Any]:
+                     timeout_seconds: float = 600.0, capture_output: bool = False) -> Dict[str, Any]:
     """Run one argv without a shell; hash the complete redacted stdout before tailing."""
     argv = _argv(command)
     started = time.monotonic()
+    execution_error = None
     try:
         process = subprocess.run(argv, cwd=str(repo), env=gate_environment(track=track),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  timeout=timeout_seconds, check=False)
         stdout, stderr, exit_code = process.stdout, process.stderr, process.returncode
     except subprocess.TimeoutExpired as error:
+        execution_error = 'timeout'
         stdout, stderr, exit_code = error.stdout or b'', error.stderr or b'', 124
         stderr += b'\nGate command timed out.'
     except OSError as error:
+        execution_error = 'start'
         stdout, stderr, exit_code = b'', str(error).encode('utf-8', 'replace'), 127
     clean_stdout = redact_text(stdout.decode('utf-8', 'replace'))
     clean_stderr = redact_text(stderr.decode('utf-8', 'replace'))
-    return redact_json({
+    result = {
         'name': Path(argv[0]).name, 'command': argv, 'exit_code': exit_code,
         'duration_ms': max(0, int((time.monotonic() - started) * 1000)),
         'stdout_tail': clean_stdout[-_TAIL_LIMIT:], 'stderr_tail': clean_stderr[-_TAIL_LIMIT:],
         'stdout_sha256': hashlib.sha256(clean_stdout.encode('utf-8')).hexdigest(),
-    })
+    }
+    # TDD report extraction and failure classification need complete streams. This
+    # opt-in stays in memory; the ordinary Gate contract still contains tails only.
+    if capture_output:
+        result.update(stdout=clean_stdout, stderr=clean_stderr, execution_error=execution_error)
+    return redact_json(result)
 
 
 def _safe_relative_file(path: Path, root: Path) -> bool:
@@ -118,7 +127,8 @@ def _load_json(path: Path) -> Any:
 
 
 def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Optional[str],
-                evidence_root: Optional[Path] = None, artifacts: Optional[Path] = None) -> List[str]:
+                evidence_root: Optional[Path] = None, artifacts: Optional[Path] = None,
+                source_manifest: Optional[Dict[str, Any]] = None) -> List[str]:
     errors: List[str] = []
     documents = []
     if not isinstance(refs, list) or len(refs) != 2:
@@ -158,6 +168,12 @@ def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Opti
             continue
         if document.get('status') != 'PASS':
             errors.append('TDD_EVIDENCE_MISSING')
+        # Consumer policy is independent of the document's chosen version.
+        # Legacy contracts remain meaningful to validators, but cannot replace
+        # execution evidence in Gate, pack, or either public run mode.
+        if (document.get('schema_version') != '1.2'
+                or not isinstance(document.get('observed'), dict)):
+            errors.append('TDD_OBSERVATION_REQUIRED')
         documents.append(document)
         if validate_schema(document, relative.name.replace('.json', '.schema.json')):
             errors.append('TDD_SCHEMA_INVALID')
@@ -176,11 +192,26 @@ def _tdd_errors(refs: Any, repo: Path, *, track: Optional[str], issue_type: Opti
         errors.append('TDD_BASELINE_INVALID')
     if track == 'maintenance' and issue_type == 'refactor' and baselines != ['PASS_TO_PASS', 'PASS_TO_PASS']:
         errors.append('TDD_BASELINE_INVALID')
+    if len(documents) == 2:
+        errors.extend(validate_observation_pair(documents[0], documents[1]))
+        for document in documents:
+            if document.get('schema_version') == '1.2':
+                observed = document.get('observed')
+                if (not isinstance(observed, dict) or observed.get('cwd') != str(repo.resolve())
+                        or observed.get('artifacts') != str((repo / expected[0].parent).resolve())):
+                    errors.append('TDD_OBSERVATION_INVALID')
+        if documents[1].get('schema_version') == '1.2':
+            observed = documents[1].get('observed')
+            if not isinstance(observed, dict) or source_manifest is None:
+                errors.append('TDD_OBSERVATION_INVALID')
+            elif observed.get('sut_sha256') != compute_tdd_sut_sha256(source_manifest, expected[0].parent):
+                errors.append('TDD_SOURCE_CHANGED')
     return list(dict.fromkeys(errors))
 
 
 def validate_gate_file(path: Path, repo: Path, *, evidence_root: Optional[Path] = None,
                        source_snapshot_id: Optional[str] = None,
+                       source_manifest: Optional[Dict[str, Any]] = None,
                        track: Optional[str] = None, issue_type: Optional[str] = None,
                        artifacts: Optional[Path] = None) -> List[str]:
     """Read real Gate/TDD bytes, using frozen evidence exclusively when supplied.
@@ -226,7 +257,9 @@ def validate_gate_file(path: Path, repo: Path, *, evidence_root: Optional[Path] 
         errors.append('GATE_NOT_PASSED')
     if source_snapshot_id is None:
         try:
-            source_snapshot_id = compute_source_snapshot(repo)['source_snapshot_id']
+            source_snapshot = compute_source_snapshot(repo)
+            source_snapshot_id = source_snapshot['source_snapshot_id']
+            source_manifest = source_snapshot['manifest']
         except PacketPolicyError as error:
             errors.append(error.code)
         except (OSError, subprocess.CalledProcessError, ValueError):
@@ -235,7 +268,7 @@ def validate_gate_file(path: Path, repo: Path, *, evidence_root: Optional[Path] 
         errors.append('GATE_STALE')
     errors.extend(_tdd_errors(data.get('tdd_evidence'), repo, track=track,
                              issue_type=issue_type, evidence_root=root if evidence_root is not None else None,
-                             artifacts=artifacts))
+                             artifacts=artifacts, source_manifest=source_manifest))
     return list(dict.fromkeys(errors))
 
 
@@ -268,15 +301,19 @@ def generate_gate(repo: Path, commands: Sequence[str], out: Path, *,
         rows = [run_gate_command(command, repo, track=track) for command in commands]
         if any(row['exit_code'] != 0 for row in rows):
             errors.append('GATE_NOT_PASSED')
+    after_manifest = None
     try:
-        after = compute_source_snapshot(repo)['source_snapshot_id']
+        after_snapshot = compute_source_snapshot(repo)
+        after = after_snapshot['source_snapshot_id']
+        after_manifest = after_snapshot['manifest']
         if after != before:
             errors.append('GATE_SOURCE_CHANGED')
     except PacketPolicyError as error:
         errors.append(error.code)
     except (OSError, subprocess.CalledProcessError, ValueError):
         errors.append('SOURCE_SNAPSHOT_UNAVAILABLE')
-    errors.extend(_tdd_errors(refs, repo, track=track, issue_type=issue_type, artifacts=artifacts))
+    errors.extend(_tdd_errors(refs, repo, track=track, issue_type=issue_type, artifacts=artifacts,
+                             source_manifest=after_manifest))
     result = {
         'schema_version': '1.1', 'stage': 'gate', 'status': 'BLOCKED' if errors else 'PASS',
         'source_snapshot_id': before, 'commands': rows, 'tdd_evidence': refs,
