@@ -1,519 +1,60 @@
-# BUCCL Dev Harness
+# hb (새 판)
 
-BUCCL의 여섯 레포(메인 BE / 커뮤니티 CM / 프론트엔드 FE / 채팅 CHAT / 모바일 웹뷰 앱 AOS·iOS)를 위한 Claude Code 기반 개발 자동화 파이프라인.
-하나의 마켓플레이스에 **일곱 플러그인**이 들어 있다 — 레포별 6개와 공통 방법론 코어 `hb-shared`.
+계획과 개발, 두 가지만 하는 개발 하네스입니다. AI는 한 번에 하나만 씁니다.
 
-## 일곱 플러그인
+- **계획**: 설명서를 먼저 쓰고, 완료 기준에 번호를 붙이고, 작은 할 일로 나눠 승인받습니다.
+- **개발**: 할 일마다 테스트를 먼저 쓰고 구현합니다. 통과 여부는 작은 프로그램이 직접 검사를 돌려 판정합니다.
 
-| 플러그인 | 대상 레포 | 스택 | 슬래시 prefix |
-|---------|----------|------|--------------|
-| `hb-be` | `BE/` (메인 백엔드) | Django 5.2 + DRF + MySQL + Celery + Redis + Azure Blob | `/hb-be:...` |
-| `hb-cm` | `CM/` (커뮤니티) | Node 18 + TS 5.3 + Express + MySQL + Redis + Socket.io + Jest | `/hb-cm:...` |
-| `hb-fe` | `FE/` (프론트엔드) | React 18 + CRA + React Router + Zustand + MUI/Bootstrap + Capacitor | `/hb-fe:...` |
-| `hb-chat` | `CHAT/` (채팅 MSA) | Node 18 + TS + Express + Socket.io + MySQL + Redis + Azure Blob + Jest | `/hb-chat:...` |
-| `hb-aos` | `AOS/` (Android 웹뷰 앱) | Kotlin + Gradle KTS + WebView + FCM + JUnit | `/hb-aos:...` |
-| `hb-ios` | `IOS/` (iOS 웹뷰 앱) | Swift + Xcode + WKWebView + FCM + XCTest | `/hb-ios:...` |
-| `hb-shared` | (공통) | 스택 무관 방법론 코어 — 6개 플러그인이 공유 | `/hb-shared:...` |
+제품마다 다른 정보(규칙, 검사 명령, 기록)는 그 저장소의 `.harness` 폴더에 둡니다. 이 폴더에는 제품 정보가 없습니다.
 
-`hb-be`/`hb-cm`/`hb-fe`는 **3-track 구조**(기획/신규개발/유지보수)를 공유한다.
-`hb-chat`은 여기에 chat 특성상 **ADR 트랙·Contract 트랙·dual review gate**를 더한다 (계약이 깨지면 FE/BE/앱이 동시에 깨지므로). 스택별로 명령(테스트 명령, 레이어 용어, 컨벤션 ID)이 다르다.
-`hb-aos`/`hb-ios`는 FE 웹을 싣는 **모바일 웹뷰 쌍둥이**다 — 3-track에 **두 모드(shell 기능 / 브리지 계약)**와 **패리티 장치**(전 트랙 완전 미러 + 형제 플랫폼 반영 기록, 설계는 `docs/MOBILE-SHELL-DESIGN.md`)를 더한다.
-`hb-shared`는 6팀 공통 **방법론 순서표**(seed → evaluate → review → evolve)와 공통 보조 명령을 제공한다 (아래 "일하는 순서").
+## 들어 있는 것
 
-## 운영 모드 — 명시 호출 (opt-in)
+```
+.claude-plugin/plugin.json   Claude Code가 읽는 이름표
+skills/plan/SKILL.md         계획 문서
+skills/dev/SKILL.md          개발 문서
+agents/implementer.md        구현자 지침
+agents/reviewer.md           검토자 지침 (읽기 도구만)
+bin/hb.py                    작은 프로그램 (Python 표준 라이브러리만)
+tests/test_hb.py             프로그램의 테스트
+```
 
-이 하네스는 **명시 호출 방식**으로 운용한다. 제품 레포(BE/FE/Community/모바일 AOS·iOS)의 CLAUDE.md·AGENTS.md에는 하네스를 자동 연결하지 않는다 — 2026-06-26에 하네스 기계장치를 의도적으로 제거하고 지식(컨벤션·경계 규칙)만 남겼다. 필요할 때 해당 레포에서 `/hb-*` 트랙 명령을 직접 호출한다. 예외로 **chat 레포만** always-read 연결(CLAUDE.md 규약)을 유지한다.
+## 쓰는 법 (Claude Code)
 
-## 일하는 순서 (hb-shared 공통 방법론)
-
-| 단계 | 명령 | 하는 일 |
-|------|------|--------|
-| ② seed | `/hb-shared:seed` | 주문서 — 목표·범위·제외·완료기준·검증법 한 장 (크기별 약식~전체, 빈틈 점검 내장) |
-| ④ 검사(Evaluate) | `/hb-shared:evaluate` | 동일 packet을 blind fresh Claude+Codex가 독립 검사 — AC·증거·scope·운영 완료 판정 |
-| ⑤ 평가(Review) | `/hb-shared:review` | Dual Evaluate 통과 후 동일 packet을 blind fresh Claude+Codex가 구현·보안·회귀·테스트 품질 평가 |
-| ⑥ evolve | `/hb-shared:evolve` | 반복 문제 → 개선 제안 (제안만, 자동 수정 X) |
-
-- ①interview는 필요 시, ③build는 각 도메인 플러그인(feature/maintenance)이 담당한다.
-- **완료기준·증거·리뷰 렌즈는 각 스택을 따른다.** FE는 **디자인 구현 / API 바인딩**, AOS/IOS는 **shell 기능 / 브리지 계약** 두 모드로 나뉘어 기준이 다르다.
-- 무거운 읽기·검증은 Sub-agent로 내려 메인 컨텍스트를 아끼고 결론·경로만 회수한다. 울트라코드(워크플로우)가 켜지면 병렬+반박으로 더 정밀해지고, 꺼져도 가볍게 작동한다.
-- 공통 보조 명령: `requirements`·`criteria`·`design-intent`·`prior-art`(feature), `convention-check`(maintenance), `feasibility`(planning) 가 `hb-shared`로 모여 있다. `requirements`·`criteria`는 seed에 **흡수**되어 기본 흐름에서는 seed가 대신하고, 나머지는 파이프라인 밖에서 그 단계만 따로 돌릴 때 쓰는 opt-in 명령이다.
-
-## 개발·검사(Evaluate)·평가(Review) 목표 흐름
-
-> **상태: 보안 경계 후보 구현·고장 주입 완료, Shadow 및 설치 전.** 아래 세 그래프는 기존 제품·stack 개발 절차와 운영 안전 경계를 유지하면서 Evaluate와 Review를 fresh·same-snapshot·blind dual-provider 관문으로 개선한 후보 구조다. model semantic result와 parent execution envelope를 분리하고, macOS source write 차단·packet tamper·standalone plugin 시험까지 통과했지만 설치된 operational path의 blocking gate로는 아직 승격하지 않았다. 관문(Gate → blind fresh dual Evaluate → Review)은 어느 tier에서도 생략 불가이며, 여기서 'Shadow'는 이 관문이 설치된 운영 경로의 blocking gate로 승격되기 전이라는 뜻이지 관문을 건너뛴다는 뜻이 아니다.
-
-### 전체 Dual workflow 실행
-
-저장소 루트에서 증거를 모두 작성한 뒤 `gate` → `pack` → `run --from` 순서로 실행한다. 각 명령의 실패는 `BLOCKED`이며 provider 호출 전에 중단한다.
-
-TDD 실행 증거는 먼저 `tdd-check red`와 `tdd-check green`으로 만든다. 두 TDD JSON의 schema 1.2에는 실행 리포트에서 읽은 테스트 ID·수와 결과, 고정한 baseline 및 소스 결속이 들어간다. Gate·pack·run은 진행 중인 작업에도 즉시 schema 1.2 관측 쌍을 요구한다. 1.0·1.1 또는 그 버전으로 하향한 증거는 `TDD_OBSERVATION_REQUIRED`로 차단하고 provider를 실행하지 않는다. 기존 작업도 `tdd-check red`·`green`을 재실행해야 한다. 1.0·1.1의 의미 호환은 validator 층에만 남긴다. GREEN 뒤 소스가 바뀌면 TDD를 다시 실행해야 한다. 명령·의미 metadata·외부 승인 기록의 예시는 각 스택의 `commands/shared/tdd.md`와 `commands/maintenance/hotfix.md`를 따른다.
-
-로컬 상태가 온전할 때 제자리 baseline 덮어쓰기·교체와 형식이 맞는 외부 기록 없는 test hash 변경을 차단한다. **상태 디렉터리 삭제**로 `eval-review/tdd-check/`와 `tdd-test-design-result.json`을 함께 삭제하면 baseline이 초기화된다. 이 삭제를 감지하는 외부 원장은 없으며, 승인 없는 초기화는 절차로만 금지한다. schema 1.2의 digest는 로컬에서 재계산할 수 있다. 암호학적 변조 방지나 사용자 신원·승인 출처의 진위를 보장하지 않는다.
-
-`tdd-check`는 셸·인터프리터 inline-code 명령(`bash -c`, `python -c`, `node -e`·`node -p` 등)을 실행 전에 `TDD_COMMAND_INVALID`로 거부한다. 해석하지 못한 옵션의 값은 script 경계로 믿지 않고 뒤의 inline-code 옵션까지 보수적으로 검사하며, 명령 문자열을 다시 실행하는 `env -S`·`npx --call`·`npm exec --call`도 거부한다. 명확한 repository script 경계와 `python -m pytest -c pytest.ini`는 유지한다. 그러나 저장소가 통제하는 conftest·npm script·reporter가 결과 리포트를 위조하는 것은 막지 못한다. 관측은 신뢰한 테스트 도구가 남긴 리포트에 근거하며, 의도적 보고서 위조를 방지하는 경계가 아니다.
-
-Jest는 부모가 소유한 `--testLocationInResults`를 추가하되 repository의 `testEnvironment`·`testRunner`를 덮어쓰지 않는다. 구체적인 matcher/assertion 실패와 완전한 source stack frame이 있고 `_callCircusHook`이 식별되지 않으면 async 본문·deep helper의 Red를 인정한다. 명시적인 `_callCircusTest` 본문 frame도 인정하며, 식별된 hook frame은 거부한다. 테스트 선언 위치는 callback 범위를 뜻하지 않으므로 실패 줄이 선언 줄보다 앞에 있다는 이유로 helper 실패를 거부하지 않는다. **승인된 한계:** hook frame을 잃은 async hook은 본문과 구분되지 않아 통과할 수 있다. 모든 source/phase frame이 없거나 잘린 경우, 명시적인 `noStackTrace`, 식별 가능한 jasmine runner 설정·frame은 `TDD_JEST_PHASE_UNSUPPORTED`로 차단한다. 실제 Jest 27.5.1·29.7.0 및 ts-jest 보고서로 확인한 범위이며 모든 Jest 설정의 호환을 보장하지 않는다.
+설치하지 않고 이 폴더를 불러옵니다.
 
 ```bash
-SHARED/bin/hb-eval-review gate --repo "$PWD" \
-  --cmd 'python3 -m unittest discover -s tests' \
-  --out "$PWD/.harness/artifacts/maintenance/<id>/eval-review/gate-result.json"
-SHARED/bin/hb-eval-review pack --repo "$PWD" \
-  --artifacts "$PWD/.harness/artifacts/maintenance/<id>" \
-  --request-source seed.md --base main \
-  --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol
-SHARED/bin/hb-eval-review run \
-  --from "$PWD/.harness/artifacts/maintenance/<id>/eval-review/packet" \
-  --claude-model claude-fable-5-1 --codex-model gpt-5.6-sol --timeout 480
+cd <제품 저장소>
+claude --plugin-dir <이 폴더의 경로>
 ```
 
-`--cmd`는 저장소가 정한 실제 검사 argv로 바꾸고 여러 개면 반복한다. Gate가 직접 해석하는 셸 연산자(파이프·리다이렉션·연결)를 거부한다. 셸 래퍼·스크립트·npm script·make target 내부의 종료 코드 마스킹까지 검증하지 않으므로 기록된 argv와 해당 검사 내용을 검토한다. `--request-source`는 해당 작업 폴더의 `seed.md`, `requirements.md`, `hotfix-reproduction.md` 중 하나이며 실제 AC 문장(목록·표 행 선두의 AC-ID 또는 완료기준/Acceptance criteria의 목록)을 포함한다. 줄 선두(현재 줄이 속하는 바깥 목록 컨테이너 기준 0–3칸)의 HTML 주석 블록은 닫는 줄 전체까지 숨긴다. 문단 연속 줄의 들여쓴 inline 주석은 같은 문단 안에서 닫혔을 때만 예시를 숨기며, 빈 줄·새 목록·표 시작(헤더·구분선 모두 같은 목록 컨테이너 기준 0–3칸, escape를 제외한 셀 수가 같고 2셀 이상)·문단을 끊는 HTML 블록·setext 밑줄 같은 문단 경계를 넘어 기준을 숨기지 않는다. 줄 중간·code span의 `<!--`는 기록 문구를 자르지 않는다. fenced code와 들여쓴 코드 예시, 짧은 GFM 구분선을 포함한 표 헤더는 기준으로 세지 않는다. seed 템플릿의 `AC-01: ...`와 수용 기준 제목 아래 목록처럼 기준 문구가 `...`만인 행도 제외한다. 이 비교에서는 code span 밖의 닫힌 inline 주석을 제외하되 기록할 문구는 보존한다. 빈 줄로 끊기지 않은 산문 뒤의 들여쓴 기준 목록은 기존 동작대로 수집하며, 그 안의 과도하게 들여쓴 fence 예시는 짝 fence 또는 바깥 문맥으로 돌아가는 들여쓰기 감소에서 끝낸다. 닫는 fence는 여는 fence보다 최대 3칸 더 깊은 들여쓰기까지 인정한다. 예시 안에서 빈 줄을 만나면 짝 기록을 버리고 들여쓴 코드로 유지하므로, 이후 실제 기준은 들여쓰기를 해제해 코드 밖에 작성한다. maintenance refactor는 Gate와 pack에 `--issue-type refactor`를 명시하고 두 TDD JSON에 `baseline: PASS_TO_PASS`를 기록한다. 다른 유형은 RED_TO_GREEN이며, 1.0 기존 증거의 RED_TO_GREEN 의미 호환은 validator 층에만 남긴다. 소비자는 1.2 관측 쌍만 받는다. baseline만 바꿔 작업 유형을 우회할 수 없다.
+세션 안에서 `/hb:plan`으로 계획을, `/hb:dev`로 개발을 시작합니다.
 
-실제 표 바로 뒤의 들여쓴 `<!--`는 문단 연속 주석으로 스캔하지 않고 코드 구간으로 숨긴다. 이 구간은 주석의 `-->`가 있는 줄까지, 또는 비어 있지 않은 줄이 목록 컨테이너+4칸보다 얕아지는 지점의 직전까지 중 먼저 오는 지점에서 끝난다. 한 줄에서 닫힌 주석은 그 다음 줄부터 기존 기준 수집을 재개한다. 닫은 다음 줄이 빈 줄이면 기존 들여쓴 코드 규칙이 먼저 적용되므로 이후 실제 기준은 들여쓰기를 해제해 쓴다. 닫히지 않은 주석은 들여쓰기 감소 전까지 코드로 유지하는 현재 동작을 의도적으로 고정한다(사용자 결정 (b)). 기준이 하나도 남지 않으면 기존 packet 검증이 요청을 차단한다.
+## 제품 저장소에 있어야 하는 것
 
-> **알려진 한계:** 예시 fence 안에 빈 줄(공백·탭만 있는 줄 포함)을 넣으면 그 뒤 들여쓴 실제 기준도 packet에서 조용히 빠질 수 있다. 코드 밖에 다른 기준이 있으면 요청 자체는 통과할 수 있다. 실제 기준은 들여쓰기를 해제해 코드 밖에 써라. 이 동작은 사용자 결정 (b)에 따라 유지한다.
+- `.harness/README.md` (안내문)과 규칙 문서
+- `.harness/docs/checks.json` (검사 계약)
 
-standalone plugin에서는 `SHARED/bin/...` 대신 `BE/bin/...`, `CM/bin/...`, `FE/bin/...`, `CHAT/bin/...`, `AOS/bin/...`, `IOS/bin/...`를 사용한다. packet source는 항상 `.git`이 있는 저장소 루트다. output은 저장소 밖의 `${HB_EVAL_REVIEW_HOME:-~/.hb-eval-review}/<repo-slug>/<id>/run-<n>/`이며 `--output-root`로 새 빈 외부 디렉토리를 지정할 수 있다. slug는 이름과 저장소 경로·remote의 hash를 함께 써 같은 이름의 저장소를 구별한다. 모델은 명시 옵션 또는 `CLAUDE_MODEL_ID`·`CODEX_MODEL_ID`로 받고 packet에 기록한 값과 대조한다. 기존 `run --packet` 방식도 동일한 Gate·TDD 검증을 통과해야 하며 기존 7개 인자를 모두 제공한다. `GIT_DIR`·`GIT_COMMON_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES`가 export되어 있으면 빈 값이어도 pack/run은 첫 Git 사용 전에 `GIT_REDIRECT_ENV_UNSUPPORTED`로 BLOCKED한다. `variables`에는 설정된 대상 이름만 정렬해 기록하고 값은 기록하지 않는다. 환경을 자동 정화하지 않으며, 정상 환경으로 정리한 뒤 Gate부터 다시 실행한다. Git 전 층의 환경 정화는 이 변경의 범위 밖이다.
-
-Gate 1.1에는 source ID와 실제 명령 결과만 결속하며 순환하는 evidence/packet ID는 넣지 않는다. pack은 필수 Gate·TDD·로그·전체 diff의 hash와 요청·AC·모델·프롬프트를 결속한다. diff는 `.harness/artifacts/**`만 제외하며 `.harness/docs/**` 변경은 포함한다. diff는 Gate에 결속한 source manifest와 hash·mode·link가 일치하는 실제 사본 bytes를 고정한 뒤 고정 merge-base와 비교한다. live source가 생성 도중 바뀌었다 원복되어도 다른 bytes를 diff에 결속하지 않는다. 기존 diff 범위를 유지하기 위해 Git에 보이는 미추적 cache 파일도 별도 read-once 사본으로 포함한다. 미추적 이름은 snapshot과 같은 설정·환경에서 운영자 Git이 열거하는 결과를 사용하며, 운영자 Git이 무시한 파일은 추가 cache 증거에도 넣지 않는다. 이 frozen-diff 열거에서는 fsmonitor와 누락 객체의 lazy fetch를 끈다. base 객체 읽기도 lazy fetch를 끄며, 최종 diff는 격리 설정으로 임시 사본을 비교한다. 앞서 실행되는 snapshot 단계의 helper 호출까지 차단하는 것은 이 변경의 범위 밖이다. 이 추가 cache 증거는 diff/packet hash에 결속되지만 원래 source snapshot에서 제외되므로 Gate/source ID 검증을 받았다고 주장하지 않는다. 추가 경로도 기존 secret·symlink 경로 정책을 통과해야 한다. 긴 diff는 프롬프트의 절단 표기·전체 hash·전체 사본 경로를 통해 확인한다. run은 source 복사·재검증 뒤 Gate·TDD·diff를 `materialized-packet/evidence/`에 읽기 전용 사본으로 고정한다. gitignore와 무관하게 사본 bytes의 hash를 대조하고 이후 live 증거는 다시 읽지 않는다. run은 필수 6개 증거의 정확한 목록과 원래 artifact ID·Gate 참조 경로를 읽기 전에 대조하며 임의 추가 증거는 거부한다. 존재하지만 손상된 TDD는 누락/사용 불가 코드와 schema·baseline·의미 원인 코드를 함께 보존한다. 증거 준비/검증 실패도 provider 0회로 BLOCKED하며 packet을 정리하고 정리 실패 코드는 원인 뒤에 보존한다.
-
-모든 필수 증거와 request는 Gate 전에 완성하고 pack 직후 run한다. 증거를 수정했다면 `gate` → `pack`을 다시 실행하여 새 결속을 만든 뒤 run한다. 중간에 TDD 로그 등 산출물을 쓰면 source 결속이 달라진다. 완료 후 런타임이 `final-result.json`과 `execution-manifest.json`의 실제 사본을 `.harness/artifacts/<track>/<id>/eval-review/run-<n>/`에 기록한다. 실행 manifest는 repo·id·외부 output 경로와 복사 크기·소요 시간을 남긴다. 나머지 provider·봉인 결과는 외부 output에 있으며 설치된 operational path의 blocking gate로 자동 승격하지 않는다.
-
-#### 실행 전 보안 조건
-
-- macOS runner는 `(deny default)` Seatbelt profile에서 provider를 실행한다. materialized packet은 읽기 전용이고, 현재 provider output만 쓰기 가능하다. 사용자 HOME, sibling output, SSH/GH/Keychain CLI는 접근할 수 없다.
-- Claude는 사용자 Keychain/HOME을 재사용하지 않는다. `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` 중 하나를 process 환경에 최소 주입해야 하며 없으면 `CLAUDE_MINIMAL_AUTH_MISSING`으로 중단한다.
-- Codex는 `HB_CODEX_AUTH_FILE`로 지정한 `auth.json` 한 파일만 provider별 임시 HOME에 복사한다. 생략 시 `$HOME/.codex/auth.json`을 parent가 복사하지만 provider에게 원래 HOME 경로는 열지 않는다.
-- provider별 임시 HOME은 해당 stage가 끝나면 성공·실패·timeout과 관계없이 삭제한다.
-- `packet.json`은 `request`, `evidence_entries`, 세 identity를 포함해야 한다. runner가 source bytes와 evidence hash를 다시 계산하고 prompt digest까지 일치할 때만 provider를 시작한다.
-- oracle과 A/B mapping은 provider sandbox의 readable root 밖에 두고, raw 결과를 hash·봉인하기 전에는 provider prompt/source에 넣지 않는다.
-
-### 1. 개발 — 안전하게 구현하고 테스트
-
-```mermaid
-flowchart TB
-    subgraph ENTRY["실행 환경 — 개발·조정 방식은 환경별로 다름"]
-        CC["Claude Code<br/>Claude가 개발·조정"]
-        CX["Codex<br/>Codex가 개발·조정"]
-        HM["Hermes<br/>stack·개발 agent 선택<br/>승인·운영 상태 조정"]
-    end
-
-    CC --> PLUGIN
-    CX --> PLUGIN
-    HM --> PLUGIN
-
-    PLUGIN["독립 실행 가능한 hb-* stack plugin<br/>BE · CM · FE · CHAT · AOS · IOS"]
-    PLUGIN --> PRE["Pre-flight<br/>repo · branch · base · 기존 변경 · test runner 확인"]
-    PRE --> SEED["Seed<br/>목표 · 범위 · 제외 · 완료조건 · 검증법 동결"]
-    SEED --> SELECT{"track · tier 선택"}
-    SELECT --> PROTECT{"구현 전 보호 경계 확인<br/>Production · DB · secret<br/>인증 · 권한 · destructive 변경?"}
-    PROTECT -->|예| APPROVE["명시적 사용자 승인<br/>없으면 구현 시작 금지"]
-    PROTECT -->|아니오| READY["개발 시작 가능"]
-    APPROVE --> READY
-
-    subgraph PLAN["Planning track — 무엇을 만들지 결정"]
-        P1["scope · stakeholder · 요구 인터뷰"] --> P2["외부 조사 · 기존 ADR/architecture 확인"]
-        P2 -. "T2 deep" .-> PT["선택적 Agent Team<br/>여러 대안 병렬 분석"]
-        P2 --> P3["타당성 · 위험 · 대안 비교"]
-        PT --> P3
-        P3 --> P4["decision draft"]
-        P4 --> P5["사용자 승인 후 ADR/docs 반영"]
-    end
-
-    subgraph FEATURE["Feature track — TDD로 신규 기능 구현"]
-        F1["requirements · design intent"] --> F2["TDD Red<br/>완료조건별 실패 테스트"]
-        F1 -. "prior-art/기준 조사" .-> FS["선택적 Sub-agent<br/>기존 구현 · ADR · convention"]
-        FS --> F2
-        F2 --> FTQ["Test Design Check<br/>AC 추적 · 행동 assertion · 실패/경계<br/>SUT 과도한 mock 금지"]
-        FTQ --> F3["단일 구현 owner<br/>TDD Green 최소 구현"]
-        F3 --> FTS["Test Sensitivity Check<br/>동일 테스트 Red→Green · hash 확인<br/>고위험은 선택적 mutation"]
-        FTS --> F4["Refactor<br/>새 기능·테스트 변경 금지"]
-        F4 --> F5["stack QA<br/>BE/CM/CHAT test · FE visual/API/a11y"]
-    end
-
-    subgraph MAINT["Maintenance track — 재현부터 회귀까지"]
-        M1["재현 · TDD Red"] --> MTQ["Test Design Check<br/>버그를 올바른 이유로 재현<br/>행동 assertion · 실패/경계 확인"]
-        MTQ --> M2["RCA Sub-agent<br/>근본 원인 추적"]
-        M2 -. "T2 deep" .-> MT["선택적 Agent Team<br/>호출자 · 데이터 · 외부 영향 병렬 조사"]
-        M2 --> M3["fix plan · 범위 · 보호 경계 확인"]
-        MT --> M3
-        M3 --> M4["단일 구현 owner<br/>최소 수정 · TDD Green"]
-        M4 --> MTS["Test Sensitivity Check<br/>수정 전 FAIL → 수정 후 PASS<br/>고위험은 선택적 mutation"]
-        MTS --> M5["회귀 test · lint · build · 운영 증거"]
-    end
-
-    READY -->|planning| P1
-    READY -->|feature| F1
-    READY -->|maintenance T0/T1/T2| M1
-
-    P5 --> EVIDENCE["공통 evidence bundle"]
-    F5 --> EVIDENCE
-    M5 --> EVIDENCE
-    EVIDENCE --> SNAP["검증 입력 동결<br/>요청 · 완료조건 · 제외범위 · diff · evidence · snapshot_id"]
-    SNAP --> GATE["Deterministic Gate"]
-
-    GATE -->|실패| DEV_BLOCK["BLOCKED<br/>개발 단계로 복귀"]
-    GATE -->|통과| EVAL_READY["Evaluate Packet 준비 완료"]
+```json
+{
+  "version": 1,
+  "runner": "pytest",
+  "full_args": ["-rA"],
+  "timeout_seconds": 1200,
+  "test_globs": ["test_*.py", "*_tests.py", "tests.py", "conftest.py", "pytest.ini", "*/tests/*"]
+}
 ```
 
-- 개발은 planning·feature·maintenance로 나뉘며 각 track의 실제 산출물과 검증 단계를 거친다.
-- 코드 구현은 하나의 owner가 최종 책임을 갖고, Sub-agent/Agent Team은 prior-art·대안·영향도처럼 독립 탐색이 가능한 작업에만 사용한다.
-- Test Design Check는 Green 구현 전에 AC-테스트 추적성, 행동 중심 assertion, 실패·경계 조건, mock 범위를 점검한다. 실패하면 구현을 시작하지 않는다.
-- Test Sensitivity Check는 동일 테스트의 Red→Green과 테스트 파일 hash를 확인한다. 인증·권한·결제·DB 무결성 등 고위험 변경은 격리 환경에서 선택적 mutation으로 테스트가 실제 결함을 잡는지 확인한다.
-- 기존 개발 하네스의 제품 지식, stack별 TDD, 승인, Production 안전 경계는 유지한다.
-- 개발 결과가 바뀌면 새로운 `snapshot_id`를 만들고 이후 검증을 처음부터 다시 시작한다.
+- `.gitignore`에 `logs/`
 
-### 2. 검사(Evaluate) — 주문대로 완료됐는지 확인
+## 프로그램의 테스트
 
-```mermaid
-flowchart TB
-    INPUT["동일 Evaluate Packet<br/>요청 · 완료조건 · 제외범위 · diff<br/>Gate evidence · snapshot_id<br/>구현 대화·자기평가 제외"]
+pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다).
 
-    subgraph EVAL["Blind Dual Evaluate — provider 간 필수 병렬"]
-        direction LR
-        CE["Fresh Claude Code Evaluate<br/>완료조건 · 증거 · scope · snapshot"]
-        XE["Fresh Codex Evaluate<br/>완료조건 · 증거 · scope · snapshot"]
-    end
-
-    INPUT --> CE
-    INPUT --> XE
-
-    CE -. "대형·고위험일 때만" .-> CET["선택적 Claude 내부 Sub-agent/Team<br/>완료조건·증거 영역 분담"]
-    XE -. "지원 환경·고위험일 때만" .-> XET["선택적 Codex 내부 worker/team<br/>완료조건·증거 영역 분담"]
-    CET --> CER["Claude sealed result 1개"]
-    CE --> CER
-    XET --> XER["Codex sealed result 1개"]
-    XE --> XER
-
-    CER --> EJOIN["Deterministic Evaluate Join<br/>schema · fresh · 동일 snapshot 검증"]
-    XER --> EJOIN
-
-    EJOIN -->|둘 다 PASS| REVIEW_READY["Review Packet 준비 완료<br/>Evaluate 결론은 reviewer에게 비공개"]
-    EJOIN -->|완료조건·scope·증거 blocker| E_FIX["개발 또는 증거 보완<br/>새 packet 생성"]
-    E_FIX --> E_RESTART["개발 그래프의 Gate부터 재실행<br/>Claude+Codex Evaluate 모두 다시 실행"]
-    EJOIN -->|일시적 timeout·process 실패| E_RETRY{"fresh dual retry<br/>최대 1회"}
-    E_RETRY -->|재시도| INPUT
-    E_RETRY -->|재시도 소진| E_BLOCK["BLOCKED<br/>운영자에게 실패 증거 보고"]
-    EJOIN -->|auth·schema 오류| E_BLOCK
-    EJOIN -->|snapshot mismatch·repository mutation| E_STALE["기존 결과 무효"]
-    E_STALE --> E_RESTART
-    EJOIN -->|고위험 결론 충돌| E_HUMAN["NEEDS_HUMAN_REVIEW"]
+```bash
+<파이썬> -m unittest discover -s tests
 ```
 
-- Claude Code와 Codex Evaluate는 항상 fresh process/session에서 동시에 독립 실행한다.
-- 두 evaluator는 상대 결과를 보기 전에 provider별 결과 하나를 봉인한다.
-- Evaluate는 “주문대로 완성됐는가?”만 판정하며 버그·설계 전반 Review를 반복하지 않는다.
-- 내용상 blocker이면 개발·증거를 보완한 뒤 Gate와 Claude+Codex Evaluate를 모두 다시 실행한다.
-- 일시적 timeout·process 실패만 같은 packet으로 fresh dual retry를 최대 1회 허용한다.
-- 인증·schema 오류는 즉시 `BLOCKED`하며 원인을 수정한 뒤 다시 실행한다. snapshot 불일치나 repository mutation은 Gate부터 재실행한다.
+## 이번 판에 없는 것
 
-### 3. 평가(Review) — 구현과 테스트가 정확하고 안전한지 확인
-
-```mermaid
-flowchart TB
-    INPUT["동일 Review Packet<br/>요청 · 완료조건 · diff · 주변 코드<br/>Gate evidence · snapshot_id<br/>Evaluate 결론·상대 finding 비공개"]
-
-    subgraph REVIEW["Blind Dual Review — provider 간 필수 병렬"]
-        direction LR
-        CR["Fresh Claude Code Review<br/>정확성 · 보안 · 설계 · 회귀 · 운영"]
-        XR["Fresh Codex Review<br/>정확성 · 보안 · 설계 · 회귀 · 운영"]
-    end
-
-    INPUT --> CR
-    INPUT --> XR
-
-    CR -. "대형·고위험일 때만" .-> CRT["선택적 Claude 내부 Agent Team<br/>correctness · security · regression · operations"]
-    XR -. "지원 환경·고위험일 때만" .-> XRT["선택적 Codex 내부 worker/team<br/>correctness · security · regression · operations"]
-    CRT --> CRR["Claude sealed result 1개"]
-    CR --> CRR
-    XRT --> XRR["Codex sealed result 1개"]
-    XR --> XRR
-
-    CRR --> RJOIN["Deterministic Review Join<br/>schema · fresh · 동일 snapshot · read-only 검증"]
-    XRR --> RJOIN
-
-    RJOIN -->|둘 다 blocker 없음| FINAL["Deterministic Finalize<br/>Evaluate 2개 + Review 2개 존재<br/>timeout/auth/mutation 없음"]
-    RJOIN -->|코드·보안·회귀 blocker| R_FIX["개발 단계에서 코드 수정<br/>기존 snapshot 결과 전체 무효"]
-    R_FIX --> R_RESTART["Gate → Claude+Codex Evaluate<br/>→ Claude+Codex Review 모두 재실행"]
-    RJOIN -->|일시적 timeout·process 실패| R_RETRY{"fresh dual retry<br/>최대 1회"}
-    R_RETRY -->|재시도| INPUT
-    R_RETRY -->|재시도 소진| R_BLOCK["BLOCKED<br/>운영자에게 실패 증거 보고"]
-    RJOIN -->|auth·schema 오류| R_BLOCK
-    RJOIN -->|snapshot mismatch·repository mutation| R_STALE["기존 결과 무효"]
-    R_STALE --> R_RESTART
-    RJOIN -->|고위험 결론 충돌| R_HUMAN["NEEDS_HUMAN_REVIEW"]
-
-    FINAL -->|모든 계약 충족| PASS["PASS 후보"]
-    FINAL -->|누락·stale·오류| R_BLOCK
-    PASS --> OPS["실행 환경이 결과 표시<br/>Hermes는 PR · merge · deploy · runtime 상태까지 확인"]
-```
-
-- Claude Code와 Codex Review는 항상 같은 snapshot을 blind-first 방식으로 병렬 검토한다.
-- provider 내부 Agent Team은 다중 모듈·인증·권한·DB·Production처럼 관점을 나눌 가치가 있을 때만 사용한다.
-- 같은 provider의 여러 agent는 coverage를 넓히지만 Claude/Codex 독립 검증을 대체하지 않는다.
-- 내용상 blocker를 수정하면 snapshot이 바뀌므로 Gate부터 Dual Evaluate와 Dual Review를 모두 다시 실행한다.
-- 일시적 timeout·process 실패만 같은 Review Packet으로 fresh dual retry를 최대 1회 허용한다.
-- 인증·schema 오류는 즉시 `BLOCKED`하며 원인을 수정한 뒤 다시 실행한다.
-- reviewer는 repository read-only이며, reviewer mutation이나 예상하지 않은 snapshot 변화가 발견되면 즉시 `BLOCKED`다.
-
-### 환경별 동일 관문
-
-| 실행 환경 | 개발·조정 주체 | Evaluate | Review | 최종 역할 |
-|---|---|---|---|---|
-| Claude Code | Claude Code | Fresh Claude Code ∥ Fresh Codex | Fresh Claude Code ∥ Fresh Codex | 결과 통합·표시 |
-| Codex | Codex | Fresh Codex ∥ Fresh Claude Code | Fresh Codex ∥ Fresh Claude Code | 결과 통합·표시 |
-| Hermes | Hermes가 stack·개발 agent 선택 | Fresh Claude Code ∥ Fresh Codex | Fresh Claude Code ∥ Fresh Codex | 결과 조정 + PR·merge·deploy·runtime 확인 |
-
-## 트랙 비교 (공통)
-
-| 트랙 | 언제 쓰나 | 코드 수정 | 최종 출력 |
-|------|----------|----------|---------|
-| `planning` | 무엇을 만들지 확정 전 | 없음 (문서만) | ADR 드래프트 → adr.yaml 편입 |
-| `maintenance` | 버그, 리팩토링, 성능 개선 | 있음 (범위 제한적) | 수정 커밋 + 회귀 리포트 |
-| `feature` | 새 기능/서비스 추가 | 있음 (범위 큼) | PR + 리뷰 반영 완료 코드 |
-
-## tier 체계 (공통)
-
-각 트랙은 3개 tier로 운용된다. **기본값은 T1 `auto` — lightweight**.
-full ceremony가 필요한 경우에만 명시적으로 `:deep`을 호출한다.
-
-| tier | 이름 | 용도 | 사용자 핑퐁 | Agent Team |
-|------|------|------|------------|------------|
-| T0 | `hotfix` (maintenance 전용) | 오타, 한 줄 fix, 긴급 수정 | 최소 | 없음 |
-| T1 | `auto` (기본값) | 일상 작업 | 중간 | 없음 |
-| T2 | `deep` | 아키텍처급 결정, 복잡 기능, 심층 진단 | 많음 | 있음 (planning/maintenance만) |
-
-- `auto` 산출물은 `deep` 산출물의 **부분집합**이다. 동일 트랙에서 tier 전환이 안전하다.
-- `hotfix`는 독립 경로로, 다른 tier를 선행하지 않는다.
-- 트랙 간 전이(planning↔feature↔maintenance)는 tier와 무관하게 동일하게 작동한다.
-
-## 실행 모드 분포 (공통)
-
-| 트랙 | Fork | Sub-agent | Agent Team |
-|------|------|-----------|------------|
-| 기획 | P1, P2, P5, P6 | P3 | P4 (대안 분석) |
-| 유지보수 | M2, M6, M7, M7.5 | M3, M5, M9 | M4 (영향도), M8 (회귀) |
-| 신규개발 | F2, F4, F6~F9, F11 | F3, F5, F10 | — |
-
-(BE deep 기준. M9는 Sub-agent+Fork 혼합. FE/CHAT feature는 검증·계약 스텝이 추가되어 번호가 밀린다 — FE는 F12까지.)
-
-## 트랙 간 전이 (각 플러그인 안에서)
-
-```
-기획 → /<plugin>:shared:update-docs adr (승인 게이트) → 신규개발 → 유지보수
-                                                    ↑                |
-                                                    └── 에스컬레이션 ←┘
-```
-
-## 산출물 구조 (공통)
-
-```
-.harness/artifacts/
-  planning/{plan-YYYYMMDD-slug}/
-    scope.md, stakeholders.md, requirements-interview.md,
-    external-research.md, alternatives.md, feasibility.md,
-    decision-draft.md, INDEX.md
-  maintenance/{issue-id}/
-    reproduction.md, root-cause.md, impact-analysis.md,
-    convention-check.md, fix-plan.md, regression-report.md,
-    review-comments.md, INDEX.md
-  feature/{branch-name}/
-    requirements.md, prior-art.md, design-intent.md,
-    code-quality-guide.md, pr-body.md, review-comments.md, INDEX.md
-
-  각 트랙 공통(해당 시): seed.md,
-    tdd-baseline-log.txt, tdd-green-log.txt, tdd-refactor-notes.md
-```
-
-FE feature/maintenance는 필요 시 design-source.md, visual-check.md,
-responsive-check.md, accessibility-notes.md, api-binding-check.md,
-visual-regression.md를 추가로 남긴다.
-AOS/IOS feature/maintenance는 필요 시 device-check.md, permission-check.md,
-release-check.md, bridge-check.md, parity-proposal.md(형제 플랫폼 반영 제안)를 추가로 남긴다.
-
-## Repository 주제별 진실의 원천과 `.harness/docs/`
-
-하네스가 모든 사실의 우선순위를 임의로 정하지 않는다. 먼저 repository의 `AGENTS.md` / `CLAUDE.md` / `.harness/README.md`가 **어떤 주제의 진실의 원천이 어디인지** 선언했는지 확인한다.
-
-1. 코딩 규칙·ADR·목표 architecture·모듈 경계·제품 계약은 repository가 선언한 canonical 문서를 사용한다.
-2. BUCCL처럼 `.harness/docs/*.yaml`을 canonical로 선언한 repository에서는 해당 YAML이 그 주제의 진실의 원천이다.
-3. 실제 실행 명령과 dependency는 checked-in CI·script·manifest를 사용한다.
-4. 현재 구현 상태는 source·migration·실제 test/lint/build 결과로 확인한다.
-5. 문서와 구현이 충돌하면 어느 한쪽을 자동으로 무시하지 않고 `BLOCKED` 후 코드 위반인지 문서 drift인지 판정한다.
-
-portable workflow는 `.harness/docs`를 사용하지 않는 외부 repository에 복사본을 강제하지 않는다. 그러나 repository가 이를 canonical로 채택했다면 단순 보조 cache로 낮추거나 실제 코드가 다르다는 이유로 무시하지 않는다.
-
-```
-.harness/
-  README.md                 ← 주제별 ownership과 충돌 정책
-  docs/                     ← repository가 선언한 canonical 문서
-    code-convention.yaml
-    adr.yaml
-    architecture.yaml
-    module-registry.yaml
-    bridge-contract.yaml    ← AOS/IOS
-  artifacts/                ← 작업별 실행 증거
-```
-
-## Quick Start
-
-1. 이 디렉토리(harness/)를 Claude Code 마켓플레이스로 등록한다.
-2. 각 레포에서 해당 플러그인을 활성화한다 — BE=`hb-be`, Community=`hb-cm`, FE=`hb-fe`, chat=`hb-chat`, Android=`hb-aos`, iOS=`hb-ios`. 방법론 코어 `hb-shared`는 **모든 레포에서 함께 활성화**한다.
-3. repository의 `AGENTS.md` / `CLAUDE.md` / `.harness/README.md`에서 주제별 진실의 원천을 확인한다. `.harness/docs/`가 canonical로 선언된 repository에서는 코드·계약 변경과 함께 해당 YAML을 갱신하고, 충돌 시 자동으로 한쪽을 무시하지 말고 `BLOCKED`한다.
-4. 작업 레포 `.gitignore`는 canonical 문서를 추적하고 raw artifact 정책만 repository별로 정한다. `.harness/` 전체를 ignore하지 않는다. 대용량 raw log를 제외할 때도 최종 판정과 hash manifest는 보존한다.
-5. Claude Code에서 작업 유형에 맞는 트랙을 실행한다.
-
-```
-# BE 레포에서 — 일상 기본값 (T1, lightweight)
-/hb-be:planning:auto         # 간이 기획 → ADR 드래프트
-/hb-be:feature:auto          # 일반 신규 기능
-/hb-be:maintenance:auto      # 일반 유지보수
-
-# BE 레포에서 — 심층 모드 (T2, full ceremony)
-/hb-be:planning:deep         # 3관점 대안 분석 + 인터뷰 + 외부조사
-/hb-be:feature:deep          # prior-art + quality-guide + PR본문 Fork
-/hb-be:maintenance:deep      # 영향도 3방향 Team + ADR 충돌 체크
-
-# BE 레포에서 — 긴급 수정 (T0, hotfix)
-/hb-be:maintenance:hotfix    # 경량 개발 + 최소 테스트 품질검사 + 최종 Dual 관문
-
-# CM 레포에서 — 동일 tier 구조
-/hb-cm:planning:auto
-/hb-cm:planning:deep
-/hb-cm:feature:auto
-/hb-cm:feature:deep
-/hb-cm:maintenance:hotfix
-/hb-cm:maintenance:auto
-/hb-cm:maintenance:deep
-
-# FE 레포에서 — 디자인/시각 검증 포함
-/hb-fe:planning:auto
-/hb-fe:planning:deep
-/hb-fe:feature:auto
-/hb-fe:feature:deep
-/hb-fe:maintenance:hotfix
-/hb-fe:maintenance:auto
-/hb-fe:maintenance:deep
-
-# chat 레포에서 — ADR/Contract 트랙 + dual review gate 포함
-/hb-chat:planning:auto
-/hb-chat:feature:auto
-/hb-chat:maintenance:auto
-/hb-chat:adr:new
-/hb-chat:contract:websocket
-/hb-chat:contract:api
-
-# 모바일 웹뷰 앱 레포에서 — 두 모드(shell 기능/브리지 계약) + 형제 플랫폼 패리티 기록
-/hb-aos:feature:auto         # buccl-aos 레포에서
-/hb-aos:maintenance:auto
-/hb-ios:feature:auto         # ios-buccl 레포에서
-/hb-ios:maintenance:auto
-
-# 모든 레포 공통 — 방법론 코어 (한 바퀴: seed → build → evaluate → review → evolve)
-/hb-shared:seed              # 주문서
-/hb-shared:evaluate          # 검사
-/hb-shared:review            # mandatory blind fresh Claude+Codex Review
-/hb-shared:evolve            # 개선 제안
-```
-
-## Codex 사용
-
-일곱 플러그인(`BE/`, `CM/`, `FE/`, `CHAT/`, `SHARED/`, `AOS/`, `IOS/`) 모두 Codex용 `.codex-plugin/plugin.json`과 `skills/<plugin>/SKILL.md`를 포함한다.
-repo-local Codex marketplace는 `.agents/plugins/marketplace.json`에 있으며 `./BE`, `./CM`, `./FE`, `./CHAT`, `./SHARED`, `./AOS`, `./IOS` 일곱 플러그인을 모두 가리킨다.
-Codex는 Claude slash command를 직접 실행하지 않으므로, `hb-be feature auto로 이 API 구현해줘`처럼 자연어 alias로 사용한다.
-Codex skill은 각 플러그인의 `<plugin>/commands/` 문서를 source of truth로 읽고 동일한 `.harness/artifacts/` 산출물 규약을 따른다.
-
-사용자의 `~/.codex/config.toml`에서 marketplace를 등록한 뒤 일곱 플러그인을 활성화한다:
-
-```toml
-[plugins."hb-be@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-cm@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-fe@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-chat@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-shared@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-aos@buccl-dev-harness-codex"]
-enabled = true
-
-[plugins."hb-ios@buccl-dev-harness-codex"]
-enabled = true
-```
-
-> marketplace를 git source로 등록한 경우 머지 직후 캐시가 stale일 수 있다.
-> `~/.codex/.tmp/marketplaces/<name>` 과 `~/.codex/plugins/cache/<name>` 을 비우고 Codex를 재시작하면 일곱 플러그인이 새로 설치된다.
-
-## 업데이트 반영 확인 (버전 범프 후)
-
-1. **Claude Code**: `/plugin`에서 marketplace를 업데이트하고, 설치된 플러그인 버전이 `marketplace.json`의 버전과 일치하는지 확인한다.
-2. **Codex**: 위 캐시 두 곳을 비우고 재시작한다 (git source 캐시는 자동 갱신되지 않는다).
-3. **동작 확인**: 새 세션에서 `/hb-shared:seed` 등 코어 명령이 자동완성 목록에 보이면 반영 완료다.
-4. **설치 진단(읽기 전용)**: `bash scripts/check-install.sh`가 플러그인 7개의 저장소 버전과 Claude Code 설치 등록(`~/.claude/plugins/installed_plugins.json`)·Codex 캐시(`~/.codex/plugins/cache`) 버전을 표로 비교한다. 현재 세션에 로드된 버전은 디스크에서 알 수 없어 `loaded`는 항상 UNKNOWN이다. 확정된 버전 불일치가 있으면 exit 1이고, `--require hb-be,hb-cm`처럼 두 CLI 모두에 있어야 하는 플러그인을 지정할 수 있다(목록에 없는 이름도 exit 1). 한 플러그인이 여러 scope로 등록돼 있으면 그중 하나라도 저장소 버전과 같을 때 MATCH다. `--json`으로 기계 판독 출력을 낸다(`loaded`·미확인 `enabled`는 null).
-
-## 디렉토리 구조
-
-```
-harness/
-├── .claude-plugin/
-│   └── marketplace.json          ← 일곱 플러그인 등록
-├── .agents/plugins/
-│   └── marketplace.json          ← Codex용 일곱 플러그인 등록
-├── BE/                           ← Django 플러그인
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
-│   └── skills/hb-be/SKILL.md     (Codex 진입점)
-├── CM/                           ← Node.js 플러그인
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
-│   └── skills/hb-cm/SKILL.md     (Codex 진입점)
-├── FE/                           ← React 프론트엔드 플러그인
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
-│   └── skills/hb-fe/SKILL.md     (Codex 진입점)
-├── CHAT/                         ← 채팅 MSA 플러그인 (+ADR/Contract 트랙, dual review gate)
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, feature/, maintenance/, adr/, contract/, shared/)
-│   └── skills/hb-chat/SKILL.md   (Codex 진입점)
-├── AOS/                          ← Android 웹뷰 앱 플러그인 (두 모드 + iOS 패리티)
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
-│   └── skills/hb-aos/SKILL.md    (Codex 진입점)
-├── IOS/                          ← iOS 웹뷰 앱 플러그인 (AOS와 전 트랙 완전 미러)
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (planning/, maintenance/, feature/, shared/)
-│   └── skills/hb-ios/SKILL.md    (Codex 진입점)
-├── SHARED/                        ← 공통 방법론 코어 (hb-shared)
-│   ├── .claude-plugin/plugin.json
-│   ├── .codex-plugin/plugin.json
-│   ├── CLAUDE.md
-│   ├── commands/                 (seed, evaluate, review, evolve + 공통 보조)
-│   └── skills/hb-shared/SKILL.md (Codex 진입점)
-├── scripts/lint-harness.sh       ← R1~R14 린터
-├── scripts/check-install.sh      ← 설치 버전 진단 (읽기 전용)
-├── tests/                        ← eval_review 570 · tdd_quality 38 · tooling 62 (CI에서 실행)
-└── README.md
-```
-
-## License
-
-MIT
+Codex 입구, 검수와 평가 도구, 코드 정리와 손으로 확인하는 할 일, 결제·권한·데이터를 건드리는 일의 추가 확인, 끊긴 뒤 자동 대조, 횟수 자동 집계. 이것들은 문서의 절차로 대신하며, 실제로 막히면 그때 만듭니다.

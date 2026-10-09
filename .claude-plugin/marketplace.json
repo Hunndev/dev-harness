@@ -1,50 +1,15 @@
 {
   "name": "buccl-dev-harness",
+  "description": "BUCCL 개발 하네스. 계획과 개발 도구를 담은 플러그인 하나.",
   "owner": {
     "name": "buccl"
   },
   "plugins": [
     {
-      "name": "hb-be",
-      "source": "./BE",
-      "description": "BUCCL 메인 백엔드(Django) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
-      "version": "0.8.3"
-    },
-    {
-      "name": "hb-cm",
-      "source": "./CM",
-      "description": "BUCCL 커뮤니티(Node.js) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 파이프라인.",
-      "version": "0.8.3"
-    },
-    {
-      "name": "hb-fe",
-      "source": "./FE",
-      "description": "BUCCL 프론트엔드(React) 3-track 개발 하네스. 기획 → 신규개발 → 유지보수 + 디자인 검증 파이프라인.",
-      "version": "0.8.3"
-    },
-    {
-      "name": "hb-chat",
-      "source": "./CHAT",
-      "description": "BUCCL chat MSA 개발 하네스. Planning, Feature, Maintenance, ADR, Contract, Review 파이프라인.",
-      "version": "0.4.3"
-    },
-    {
-      "name": "hb-aos",
-      "source": "./AOS",
-      "description": "BUCCL Android 웹뷰 앱(buccl-aos) 3-track 개발 하네스. shell 기능/브리지 계약 두 모드 + iOS 형제 플랫폼 패리티 기록.",
+      "name": "hb",
+      "source": "./",
+      "description": "개발 하네스(새 판): 계획과 개발. 통과 여부는 작은 프로그램이 직접 검사를 돌려 판정한다.",
       "version": "0.1.0"
-    },
-    {
-      "name": "hb-ios",
-      "source": "./IOS",
-      "description": "BUCCL iOS 웹뷰 앱(ios-buccl) 3-track 개발 하네스. shell 기능/브리지 계약 두 모드 + AOS 형제 플랫폼 패리티 기록.",
-      "version": "0.1.0"
-    },
-    {
-      "name": "hb-shared",
-      "source": "./SHARED",
-      "description": "BUCCL dev-harness 공통 개발 방법론 코어. 방법론 순서표(seed 주문서 → evaluate 검사 → review 5단계 관문 → evolve 개선)와 스택 무관 보조 명령(요구사항·완료기준·설계의도·선행조사·컨벤션 점검·타당성)을 BE/CM/FE/CHAT/AOS/IOS가 공유한다.",
-      "version": "0.5.0"
     }
   ]
 }

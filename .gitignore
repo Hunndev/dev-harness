@@ -1,6 +1,4 @@
-.harness/
+__pycache__/
+*.pyc
+.pytest_cache/
 .DS_Store
-.omc/state/*.json
-*.tar.gz
-*.tgz
-*.zip
