@@ -18,6 +18,7 @@ agents/reviewer.md           검토자 지침 (읽기 도구만)
 bin/hb.py                    작은 프로그램 (Python 표준 라이브러리만)
 tests/test_hb.py             프로그램의 테스트 (pytest 쪽)
 tests/test_hb_jest.py        프로그램의 테스트 (jest 쪽)
+tests/test_hb_gradle.py      프로그램의 테스트 (gradle 쪽)
 ```
 
 ## 쓰는 법 (Claude Code)
@@ -59,11 +60,25 @@ claude --plugin-dir <이 폴더의 경로>
 }
 ```
 
+  Gradle로 테스트를 돌리는 저장소(Android 등)는 `runner`를 `gradle`로 하고, 돌리는 명령을 `command`에, Gradle이 결과 파일을 쓰는 폴더를 `report_dir`에 적습니다. Gradle은 결과를 늘 같은 폴더에 쓰고, 컴파일이 안 되거나 바뀐 게 없다고 보면 예전 결과를 그대로 둡니다. 그래서 프로그램이 돌리기 전에 그 폴더 바로 아래의 `.xml` 파일을 지우고, 돌린 뒤 새로 생긴 것만 모아 읽습니다. `report_dir`은 저장소 안의 git 제외 폴더여야 합니다.
+
+```json
+{
+  "version": 1,
+  "runner": "gradle",
+  "command": ["./gradlew", "--console=plain", ":app:testDebugUnitTest", "--rerun"],
+  "report_dir": "app/build/test-results/testDebugUnitTest",
+  "full_args": [],
+  "timeout_seconds": 1800,
+  "test_globs": ["app/src/test/*"]
+}
+```
+
 - `.gitignore`에 `logs/`
 
 ## 프로그램의 테스트
 
-pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다). jest 쪽은 같은 모양의 보고서를 내는 가짜 실행기로 검사하므로 Node가 없어도 됩니다.
+pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다). jest와 gradle 쪽은 같은 모양의 결과를 내는 가짜 실행기로 검사하므로 Node, JDK, Android SDK가 없어도 됩니다.
 
 ```bash
 <파이썬> -m unittest discover -s tests

@@ -31,7 +31,7 @@ description: 승인된 계획을 할 일 하나씩 개발할 때 쓴다. 할 일
 <파이썬> <하네스 폴더>/bin/hb.py --repo <제품 저장소> done --work <작업 이름> --task <번호>
 ```
 
-- `<파이썬>`은 이 프로그램을 돌리는 파이썬이다. 검사 계약의 `runner`가 pytest면 그 저장소의 테스트가 도는 파이썬이어야 한다(모르면 사용자에게 한 번 묻고 `INDEX.md`에 적어 둔다). jest면 아무 python3이면 되고, 테스트는 계약의 `command`로 돈다.
+- `<파이썬>`은 이 프로그램을 돌리는 파이썬이다. 검사 계약의 `runner`가 pytest면 그 저장소의 테스트가 도는 파이썬이어야 한다(모르면 사용자에게 한 번 묻고 `INDEX.md`에 적어 둔다). 아니면 아무 python3이면 되고, 테스트는 계약의 `command`로 돈다.
 - 출력의 마지막 줄은 JSON 한 줄이다. `verdict`가 판정이다.
 
 | verdict | 뜻 | 지휘가 할 일 |
@@ -74,7 +74,7 @@ git ls-files -o --exclude-standard -z | xargs -0 shasum | shasum
 2. `INDEX.md`에 이 할 일의 결과를 적는다(프로그램의 `summary` 그대로, 위 명령들과 종료 코드, 남은 "권장" 지적, 고쳐 다시 받은 횟수).
 3. 이 할 일의 파일만 지정해서 올린다: `git add <파일> <파일>`. `git add -A`와 `git add .`은 쓰지 않는다.
 4. `done`을 돌린다. `ok`가 아니면 커밋하지 않는다.
-5. 작업 폴더를 올린다: `git add .harness/artifacts/work/<작업 이름>`.
+5. 작업 폴더를 올린다: `git add .harness/artifacts/work/<작업 이름>`. 그 저장소가 작업 폴더를 git 제외로 정해 두었으면 올리지 않고(`-f`로 밀어 넣지 않는다), 그렇게 했다고 `INDEX.md`에 적는다.
 6. 저장소의 커밋 메시지 규칙을 따라 커밋한다.
 
 커밋 뒤에는 작업 폴더에 아무것도 쓰지 않고 다음 할 일로 간다. 합치기, 올리기(push), 배포는 하지 않는다.

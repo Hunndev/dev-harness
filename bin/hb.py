@@ -12,6 +12,8 @@
 테스트 도구는 검사 계약의 runner로 고른다.
   pytest  이 프로그램을 돌리는 파이썬의 pytest를 쓴다. 보고서는 JUnit.
   jest    계약의 command(명령 목록) 뒤에 인자와 --json --outputFile 을 붙여 돌린다.
+  gradle  계약의 command 뒤에 인자를 붙여 돌린다. 결과는 Gradle이 늘 같은 폴더(계약의 report_dir)에
+          클래스마다 한 파일씩 쓰므로, 돌리기 전에 그 폴더의 결과 파일을 치우고 돌린 뒤 모아 읽는다.
 Python 표준 라이브러리만 쓴다.
 """
 import argparse
@@ -28,7 +30,7 @@ WORK_ROOT = ".harness/artifacts/work"
 CONTRACT = ".harness/docs/checks.json"
 CONTRACT_KEYS = ("runner", "full_args", "timeout_seconds", "test_globs")
 TASK_KEYS = ("id", "kind", "allowed_files", "check_args")
-RUNNERS = ("pytest", "jest")
+RUNNERS = ("pytest", "jest", "gradle")
 RANK = {"passed": 0, "skipped": 1, "failure": 2, "error": 3}
 JEST_KIND = {"passed": "passed", "failed": "failure", "pending": "skipped", "skipped": "skipped",
              "todo": "skipped", "disabled": "skipped"}
@@ -140,6 +142,25 @@ def parse_jest(path, repo):
     return list(cases.values())
 
 
+def junit_files(folder):
+    """폴더 바로 아래의 결과 파일(.xml). 하위 폴더는 보지 않는다."""
+    try:
+        names = sorted(os.listdir(folder))
+    except FileNotFoundError:
+        return []
+    return [p for p in (os.path.join(folder, n) for n in names if n.endswith(".xml")) if os.path.isfile(p)]
+
+
+def gather_junit(folder, report):
+    """폴더의 결과 파일들을 보고서 한 파일로 모은다. 하나도 없으면 보고서를 만들지 않는다(미실행으로 읽힌다)."""
+    files = junit_files(folder)
+    if files:
+        root = ET.Element("testsuites")
+        for p in files:  # extend에 넘기면 읽기 오류가 다른 오류로 바뀌어 나온다
+            root.append(ET.parse(p).getroot())
+        ET.ElementTree(root).write(report, encoding="utf-8", xml_declaration=True)
+
+
 def broken_ids(cases):
     return sorted(c[0] for c in cases if c[1] in ("failure", "error"))
 
@@ -173,6 +194,10 @@ def run_check(ctx, label, args):
     if runner == "jest":
         command = [*ctx.contract["command"], *args, "--json", "--outputFile=" + report]
         env = dict(os.environ, CI="true")  # 지켜보기(watch) 모드로 들어가 멈춰 있지 않게
+    elif runner == "gradle":
+        command, env = [*ctx.contract["command"], *args], None
+        for old in junit_files(ctx.report_dir):  # 남아 있던 결과를 이번 결과로 읽지 않게
+            os.remove(old)
     else:
         command, env = [sys.executable, "-m", "pytest", *args, "--junitxml=" + report], None
     try:
@@ -186,6 +211,8 @@ def run_check(ctx, label, args):
         ran = "not_run"  # 명령을 찾지 못했거나 실행할 수 없음
     if ran == "ran":
         try:
+            if runner == "gradle":
+                gather_junit(ctx.report_dir, report)
             cases = parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
         except (FileNotFoundError, ValueError, ET.ParseError):
             cases = []
@@ -230,17 +257,32 @@ class Ctx:
         missing = [k for k in CONTRACT_KEYS if k not in self.contract]
         if missing:
             raise Stop("stop", "검사 계약에 빠진 항목: " + ", ".join(missing))
-        if self.contract["runner"] not in RUNNERS:
-            raise Stop("stop", "이번 판은 pytest와 jest 보고서만 읽음")
+        runner = self.contract["runner"]
+        if runner not in RUNNERS:
+            raise Stop("stop", "이번 판은 pytest, jest, gradle의 결과만 읽음")
         command = self.contract.get("command")
-        if self.contract["runner"] == "jest" and not (
+        if runner != "pytest" and not (
                 isinstance(command, list) and command and all(isinstance(c, str) for c in command)):
-            raise Stop("stop", "검사 계약에 빠진 항목: command (jest를 돌리는 명령 목록)")
+            raise Stop("stop", "검사 계약에 빠진 항목: command (테스트를 돌리는 명령 목록)")
+        if runner == "gradle":
+            self.report_dir = self.safe_report_dir()
         self.work_rel = WORK_ROOT + "/" + args.work
         self.work = os.path.join(self.repo, self.work_rel)
         if not os.path.isdir(self.work):
             raise Stop("stop", "작업 폴더가 없음: " + self.work_rel)
         self.state_path = os.path.join(self.work, "state.json")
+
+    def safe_report_dir(self):
+        """Gradle이 결과를 쓰는 폴더. 그 안의 결과 파일을 지우므로, 저장소 안의 git 제외 폴더일 때만 받는다."""
+        rel = self.contract.get("report_dir")
+        if not isinstance(rel, str) or not rel:
+            raise Stop("stop", "검사 계약에 빠진 항목: report_dir (Gradle이 테스트 결과를 쓰는 폴더)")
+        full = os.path.realpath(os.path.join(self.repo, rel))
+        inside = full.startswith(os.path.realpath(self.repo) + os.sep)  # git도 밖의 경로를 거절하지만 지우는 일이라 한 번 더 본다
+        if not inside or subprocess.run(["git", "check-ignore", "-q", os.path.join(rel, "x.xml")],
+                                        cwd=self.repo, capture_output=True).returncode != 0:
+            raise Stop("stop", "검사 계약의 report_dir이 저장소 안의 git 제외 폴더가 아님")
+        return full
 
     def state(self):
         if not os.path.exists(self.state_path):
