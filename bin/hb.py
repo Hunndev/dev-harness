@@ -14,6 +14,8 @@
   jest    계약의 command(명령 목록) 뒤에 인자와 --json --outputFile 을 붙여 돌린다.
   gradle  계약의 command 뒤에 인자를 붙여 돌린다. 결과는 Gradle이 늘 같은 폴더(계약의 report_dir)에
           클래스마다 한 파일씩 쓰므로, 돌리기 전에 그 폴더의 결과 파일을 치우고 돌린 뒤 모아 읽는다.
+  xcodebuild  계약의 command 뒤에 인자와 -resultBundlePath 를 붙여 돌린다. 결과 묶음(.xcresult)은
+          Xcode에 든 xcresulttool로 읽는다.
 Python 표준 라이브러리만 쓴다.
 """
 import argparse
@@ -30,10 +32,12 @@ WORK_ROOT = ".harness/artifacts/work"
 CONTRACT = ".harness/docs/checks.json"
 CONTRACT_KEYS = ("runner", "full_args", "timeout_seconds", "test_globs")
 TASK_KEYS = ("id", "kind", "allowed_files", "check_args")
-RUNNERS = ("pytest", "jest", "gradle")
+RUNNERS = ("pytest", "jest", "gradle", "xcodebuild")
 RANK = {"passed": 0, "skipped": 1, "failure": 2, "error": 3}
 JEST_KIND = {"passed": "passed", "failed": "failure", "pending": "skipped", "skipped": "skipped",
              "todo": "skipped", "disabled": "skipped"}
+XC_KIND = {"Passed": "passed", "Failed": "failure", "Skipped": "skipped", "Expected Failure": "skipped"}
+XC_BUNDLES = ("Unit test bundle", "UI test bundle")
 FILE_FAILED = "(파일 실행 실패)"
 SETUP_ERRORS = ("ImportError", "ModuleNotFoundError", "SyntaxError", "Error: Cannot find module")
 NOT_RAN = {
@@ -142,6 +146,47 @@ def parse_jest(path, repo):
     return list(cases.values())
 
 
+def xcresult_cases(data):
+    """xcresulttool이 낸 테스트 나무에서 "Test Case" 마디를 (이름, 결과, 메시지 첫 줄) 목록으로 낸다.
+
+    이름은 "테스트 묶음 이름/묶음 안의 식별자"로, -only-testing 에 적는 모양과 같다. 화면에 보이는 이름은
+    서로 겹칠 수 있어 쓰지 않는다. 인자가 여럿인 테스트는 테스트 하나로 읽는다. 같은 이름이 둘이면 나쁜 쪽을 남긴다.
+    """
+    cases = {}
+
+    def message(node):
+        for child in node.get("children") or []:
+            found = first_line(child.get("name")) if child.get("nodeType") == "Failure Message" else message(child)
+            if found:
+                return found
+        return ""
+
+    def walk(node, bundle, suites):
+        node_type, name = node.get("nodeType"), node.get("name") or ""
+        if node_type == "Test Case":
+            tid = "%s/%s" % (bundle, node.get("nodeIdentifier") or "/".join(suites + [name]))
+            kind = XC_KIND.get(node.get("result"), "error")  # 모르는 결과는 통과로 치지 않는다
+            if tid not in cases or RANK[kind] > RANK[cases[tid][1]]:
+                cases[tid] = (tid, kind, message(node))
+            return
+        for child in node.get("children") or []:
+            walk(child, name if node_type in XC_BUNDLES else bundle,
+                 suites + [name] if node_type == "Test Suite" else suites)
+
+    for node in data.get("testNodes") or []:
+        walk(node, "", [])
+    return list(cases.values())
+
+
+def parse_xcresult(bundle, timeout):
+    """결과 묶음(.xcresult)을 Xcode에 든 xcresulttool로 읽는다. 뽑은 것은 파일로 남기지 않는다."""
+    r = subprocess.run(["xcrun", "xcresulttool", "get", "test-results", "tests", "--path", bundle, "--compact"],
+                       capture_output=True, text=True, timeout=timeout)
+    if r.returncode != 0:
+        raise ValueError("xcresulttool이 실패함")
+    return xcresult_cases(json.loads(r.stdout))
+
+
 def junit_files(folder):
     """폴더 바로 아래의 결과 파일(.xml). 하위 폴더는 보지 않는다."""
     try:
@@ -170,7 +215,7 @@ def now():
 
 
 def report_ext(ctx):
-    return ".json" if ctx.contract["runner"] == "jest" else ".xml"
+    return {"jest": ".json", "xcodebuild": ".xcresult"}.get(ctx.contract["runner"], ".xml")
 
 
 def run_check(ctx, label, args):
@@ -198,6 +243,8 @@ def run_check(ctx, label, args):
         command, env = [*ctx.contract["command"], *args], None
         for old in junit_files(ctx.report_dir):  # 남아 있던 결과를 이번 결과로 읽지 않게
             os.remove(old)
+    elif runner == "xcodebuild":
+        command, env = [*ctx.contract["command"], *args, "-resultBundlePath", report], None
     else:
         command, env = [sys.executable, "-m", "pytest", *args, "--junitxml=" + report], None
     try:
@@ -213,8 +260,11 @@ def run_check(ctx, label, args):
         try:
             if runner == "gradle":
                 gather_junit(ctx.report_dir, report)
-            cases = parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
-        except (FileNotFoundError, ValueError, ET.ParseError):
+            if runner == "xcodebuild":
+                cases = parse_xcresult(report, ctx.contract["timeout_seconds"])
+            else:
+                cases = parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
+        except (FileNotFoundError, ValueError, ET.ParseError, subprocess.TimeoutExpired):
             cases = []
         if not cases:
             ran = "not_run"
@@ -259,7 +309,7 @@ class Ctx:
             raise Stop("stop", "검사 계약에 빠진 항목: " + ", ".join(missing))
         runner = self.contract["runner"]
         if runner not in RUNNERS:
-            raise Stop("stop", "이번 판은 pytest, jest, gradle의 결과만 읽음")
+            raise Stop("stop", "이번 판은 pytest, jest, gradle, xcodebuild의 결과만 읽음")
         command = self.contract.get("command")
         if runner != "pytest" and not (
                 isinstance(command, list) and command and all(isinstance(c, str) for c in command)):

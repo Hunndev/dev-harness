@@ -19,6 +19,7 @@ bin/hb.py                    작은 프로그램 (Python 표준 라이브러리�
 tests/test_hb.py             프로그램의 테스트 (pytest 쪽)
 tests/test_hb_jest.py        프로그램의 테스트 (jest 쪽)
 tests/test_hb_gradle.py      프로그램의 테스트 (gradle 쪽)
+tests/test_hb_xcodebuild.py  프로그램의 테스트 (xcodebuild 쪽)
 ```
 
 ## 쓰는 법 (Claude Code)
@@ -74,11 +75,26 @@ claude --plugin-dir <이 폴더의 경로>
 }
 ```
 
+  Xcode로 테스트를 돌리는 저장소(iOS 등)는 `runner`를 `xcodebuild`로 하고, 돌리는 명령을 `command`에 적습니다. 프로그램이 그 뒤에 인자와 `-resultBundlePath <결과 묶음>`을 붙이고, 돌린 뒤 Xcode에 든 `xcrun xcresulttool`로 그 묶음을 읽습니다. xcodebuild는 고른 이름에 맞는 테스트가 하나도 없어도 성공으로 끝나므로, 읽은 테스트 항목이 0개면 실행되지 않은 것으로 칩니다. 같은 이름의 시뮬레이터가 여럿이면 `-destination`에 OS 버전까지 적습니다. `-collect-test-diagnostics never`를 넣어 두면 테스트가 실패할 때마다 결과 묶음이 수십 MB가 되는 것을 막습니다.
+
+```json
+{
+  "version": 1,
+  "runner": "xcodebuild",
+  "command": ["xcodebuild", "test", "-project", "App.xcodeproj", "-scheme", "App",
+              "-destination", "platform=iOS Simulator,name=iPhone 17,OS=26.5",
+              "-collect-test-diagnostics", "never"],
+  "full_args": [],
+  "timeout_seconds": 1800,
+  "test_globs": ["AppTests/*"]
+}
+```
+
 - `.gitignore`에 `logs/`
 
 ## 프로그램의 테스트
 
-pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다). jest와 gradle 쪽은 같은 모양의 결과를 내는 가짜 실행기로 검사하므로 Node, JDK, Android SDK가 없어도 됩니다.
+pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다). jest, gradle, xcodebuild 쪽은 같은 모양의 결과를 내는 가짜 실행기로 검사하므로 Node, JDK, Android SDK, Xcode가 없어도 됩니다.
 
 ```bash
 <파이썬> -m unittest discover -s tests
