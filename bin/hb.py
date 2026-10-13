@@ -6,9 +6,13 @@
   check     할 일의 검사. --phase red 는 "제대로 실패하는가", green 은 "통과했고 새로 깨진 것이 없는가".
   done      완료. 통과한 그 코드가 그대로 커밋에 올라가 있을 때만 완료로 표시한다.
 
-판정은 테스트 도구가 낸 보고서 파일(JUnit)의 테스트 항목을 이름으로 읽어서 한다.
-합계 숫자나 화면 출력은 읽지 않는다. 뜻이나 품질은 판단하지 않는다.
-이 프로그램을 돌리는 파이썬의 pytest를 쓴다. Python 표준 라이브러리만 쓴다.
+판정은 테스트 도구가 낸 보고서 파일의 테스트 항목을 이름으로 읽어서 한다.
+합계 숫자, 종료 코드, 화면 출력은 읽지 않는다. 뜻이나 품질은 판단하지 않는다.
+
+테스트 도구는 검사 계약의 runner로 고른다.
+  pytest  이 프로그램을 돌리는 파이썬의 pytest를 쓴다. 보고서는 JUnit.
+  jest    계약의 command(명령 목록) 뒤에 인자와 --json --outputFile 을 붙여 돌린다.
+Python 표준 라이브러리만 쓴다.
 """
 import argparse
 import fnmatch
@@ -24,8 +28,12 @@ WORK_ROOT = ".harness/artifacts/work"
 CONTRACT = ".harness/docs/checks.json"
 CONTRACT_KEYS = ("runner", "full_args", "timeout_seconds", "test_globs")
 TASK_KEYS = ("id", "kind", "allowed_files", "check_args")
+RUNNERS = ("pytest", "jest")
 RANK = {"passed": 0, "skipped": 1, "failure": 2, "error": 3}
-SETUP_ERRORS = ("ImportError", "ModuleNotFoundError", "SyntaxError")
+JEST_KIND = {"passed": "passed", "failed": "failure", "pending": "skipped", "skipped": "skipped",
+             "todo": "skipped", "disabled": "skipped"}
+FILE_FAILED = "(파일 실행 실패)"
+SETUP_ERRORS = ("ImportError", "ModuleNotFoundError", "SyntaxError", "Error: Cannot find module")
 NOT_RAN = {
     "not_run": "검사가 실행되지 않음 (이번 실행에서 새 보고서가 나오지 않았거나 실행된 테스트가 0개)",
     "timeout": "검사가 제한 시간을 넘김",
@@ -101,6 +109,37 @@ def parse_junit(path):
     return list(cases.values())
 
 
+def first_line(text):
+    return ((text or "").strip().splitlines() or [""])[0]
+
+
+def parse_jest(path, repo):
+    """Jest의 --json 보고서를 (이름, 결과, 메시지 첫 줄) 목록으로 낸다. 합계 숫자는 읽지 않는다.
+
+    이름은 "저장소 기준 파일 경로::테스트 전체 이름"이다. 한 파일에 같은 이름이 둘이면 나쁜 쪽을 남긴다.
+    파일이 통째로 실행되지 못하면 항목이 0개로 나오므로, 실패한 파일에 실패 항목이 없으면
+    그 파일 몫의 오류 항목을 하나 만든다.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    root = os.path.realpath(repo)
+    cases = {}
+
+    def put(tid, kind, msg):
+        if tid not in cases or RANK[kind] > RANK[cases[tid][1]]:
+            cases[tid] = (tid, kind, msg)
+
+    for suite in data.get("testResults", []):
+        rel = os.path.relpath(os.path.realpath(suite.get("name", "")), root)
+        items = suite.get("assertionResults") or []
+        for item in items:
+            kind = JEST_KIND.get(item.get("status"), "error")  # 모르는 결과는 통과로 치지 않는다
+            put("%s::%s" % (rel, item.get("fullName", "")), kind, first_line((item.get("failureMessages") or [""])[0]))
+        if suite.get("status") == "failed" and not any(i.get("status") == "failed" for i in items):
+            put("%s::%s" % (rel, FILE_FAILED), "error", first_line(suite.get("message")))
+    return list(cases.values())
+
+
 def broken_ids(cases):
     return sorted(c[0] for c in cases if c[1] in ("failure", "error"))
 
@@ -110,7 +149,7 @@ def now():
 
 
 def run_check(ctx, label, args):
-    """pytest를 새 보고서 파일로 돌린다. (실행 여부, 테스트 항목, 기록 파일 이름)을 낸다.
+    """검사를 새 보고서 파일로 돌린다. (테스트 항목, 기록 파일 이름)을 낸다.
 
     보고서 이름은 실행마다 새로 짓는다. 실행 뒤 그 파일이 없으면 "미실행"이다.
     """
@@ -119,24 +158,32 @@ def run_check(ctx, label, args):
     os.makedirs(logs, exist_ok=True)
     os.makedirs(checks, exist_ok=True)
     stamp = "%s-%s-%d" % (label, time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), os.getpid())
-    report = os.path.join(logs, stamp + ".xml")
+    runner = ctx.contract["runner"]
+    report_name = stamp + (".json" if runner == "jest" else ".xml")
+    report = os.path.join(logs, report_name)
     log = os.path.join(logs, stamp + ".log")
     if os.path.exists(report):
         raise Stop("stop", "같은 이름의 보고서가 이미 있음. 잠시 뒤 다시 실행")
     start = time.time()
     ran, exit_code, cases = "ran", None, []
+    if runner == "jest":
+        command = [*ctx.contract["command"], *args, "--json", "--outputFile=" + report]
+        env = dict(os.environ, CI="true")  # 지켜보기(watch) 모드로 들어가 멈춰 있지 않게
+    else:
+        command, env = [sys.executable, "-m", "pytest", *args, "--junitxml=" + report], None
     try:
         with open(log, "wb") as f:
             exit_code = subprocess.run(
-                [sys.executable, "-m", "pytest", *args, "--junitxml=" + report],
-                cwd=ctx.repo, stdout=f, stderr=subprocess.STDOUT,
+                command, cwd=ctx.repo, stdout=f, stderr=subprocess.STDOUT, env=env,
                 timeout=ctx.contract["timeout_seconds"]).returncode
     except subprocess.TimeoutExpired:
         ran = "timeout"
+    except OSError:
+        ran = "not_run"  # 명령을 찾지 못했거나 실행할 수 없음
     if ran == "ran":
         try:
-            cases = parse_junit(report)
-        except (FileNotFoundError, ET.ParseError):
+            cases = parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
+        except (FileNotFoundError, ValueError, ET.ParseError):
             cases = []
         if not cases:
             ran = "not_run"
@@ -144,9 +191,9 @@ def run_check(ctx, label, args):
         log_sha = sha(f.read())
     name = "%03d-%s.json" % (len(os.listdir(checks)) + 1, label)
     record = {
-        "label": label, "runner": "pytest", "args": list(args), "ran": ran, "exit_code": exit_code,
+        "label": label, "runner": runner, "args": list(args), "ran": ran, "exit_code": exit_code,
         "total": len(cases), "counts": {k: sum(1 for c in cases if c[1] == k) for k in RANK},
-        "broken": broken_ids(cases), "report": "logs/" + stamp + ".xml", "log_sha256": log_sha,
+        "broken": broken_ids(cases), "report": "logs/" + report_name, "log_sha256": log_sha,
         "head": git(ctx.repo, "rev-parse", "HEAD").strip(), "seconds": round(time.time() - start), "at": now(),
     }
     save_json(os.path.join(checks, name), record)
@@ -179,8 +226,12 @@ class Ctx:
         missing = [k for k in CONTRACT_KEYS if k not in self.contract]
         if missing:
             raise Stop("stop", "검사 계약에 빠진 항목: " + ", ".join(missing))
-        if self.contract["runner"] != "pytest":
-            raise Stop("stop", "이번 판은 pytest 보고서만 읽음")
+        if self.contract["runner"] not in RUNNERS:
+            raise Stop("stop", "이번 판은 pytest와 jest 보고서만 읽음")
+        command = self.contract.get("command")
+        if self.contract["runner"] == "jest" and not (
+                isinstance(command, list) and command and all(isinstance(c, str) for c in command)):
+            raise Stop("stop", "검사 계약에 빠진 항목: command (jest를 돌리는 명령 목록)")
         self.work_rel = WORK_ROOT + "/" + args.work
         self.work = os.path.join(self.repo, self.work_rel)
         if not os.path.isdir(self.work):

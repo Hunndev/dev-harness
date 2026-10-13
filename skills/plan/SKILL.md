@@ -63,8 +63,8 @@ description: 새 작업을 시작할 때 쓴다. 설명서를 먼저 쓰고, 완
       "title": "한 줄 제목",
       "kind": "feature",
       "criteria": ["C1"],
-      "allowed_files": ["앱/views.py", "앱/tests/test_새파일.py"],
-      "check_args": ["앱/tests/test_새파일.py"]
+      "allowed_files": ["<고칠 파일>", "<새 테스트 파일>"],
+      "check_args": ["<새 테스트 파일>"]
     }
   ]
 }

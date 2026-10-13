@@ -16,7 +16,8 @@ skills/dev/SKILL.md          개발 문서
 agents/implementer.md        구현자 지침
 agents/reviewer.md           검토자 지침 (읽기 도구만)
 bin/hb.py                    작은 프로그램 (Python 표준 라이브러리만)
-tests/test_hb.py             프로그램의 테스트
+tests/test_hb.py             프로그램의 테스트 (pytest 쪽)
+tests/test_hb_jest.py        프로그램의 테스트 (jest 쪽)
 ```
 
 ## 쓰는 법 (Claude Code)
@@ -45,11 +46,24 @@ claude --plugin-dir <이 폴더의 경로>
 }
 ```
 
+  jest를 쓰는 저장소는 `runner`를 `jest`로 하고, jest를 돌리는 명령을 `command`에 적습니다. 프로그램이 그 뒤에 인자와 `--json --outputFile=<보고서>`를 붙입니다.
+
+```json
+{
+  "version": 1,
+  "runner": "jest",
+  "command": ["npx", "jest"],
+  "full_args": [],
+  "timeout_seconds": 600,
+  "test_globs": ["*.test.ts", "*.test.js", "jest.config.js"]
+}
+```
+
 - `.gitignore`에 `logs/`
 
 ## 프로그램의 테스트
 
-pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다).
+pytest가 깔린 파이썬으로 돌립니다(가짜 제품을 만들어 진짜 pytest로 검사합니다). jest 쪽은 같은 모양의 보고서를 내는 가짜 실행기로 검사하므로 Node가 없어도 됩니다.
 
 ```bash
 <파이썬> -m unittest discover -s tests
