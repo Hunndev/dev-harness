@@ -201,6 +201,24 @@ class GradleCase(unittest.TestCase):
         self.git("add", "app.txt", "tests/New.test.txt")
         rc, out = self.hb("done", "--work", WORK, "--task", "01")
         self.assertEqual((rc, out["verdict"]), (0, "ok"), out)
+        self.assertEqual(out["add"], [WORK_DIR])  # 보통은 작업 폴더도 올리라고 알려 준다
+
+    def test_done_does_not_ask_to_add_a_work_folder_that_git_ignores(self):
+        """작업 폴더를 git에 올리지 않기로 한 저장소에서는, 올리라고 하지 않고 그렇다고 알려 준다."""
+        self.write(".gitignore", "logs/\nbuild/\n.harness/*\n!.harness/docs/\n")
+        self.git("rm", "-r", "-q", "--cached", ".harness/artifacts")
+        self.commit("작업 폴더를 git에서 뺌")
+        self.baseline()
+        rc, out = self.red()
+        self.assertEqual(out["verdict"], "ok", out)
+        rc, out = self.green()
+        self.assertEqual(out["verdict"], "ok", out)
+        self.git("add", "app.txt", "tests/New.test.txt")
+        rc, out = self.hb("done", "--work", WORK, "--task", "01")
+        self.assertEqual((rc, out["verdict"]), (0, "ok"), out)
+        self.assertEqual(out["add"], [])
+        self.assertIn("git 제외", out["summary"])
+        self.assertNotIn("올린 뒤", out["summary"])
 
     def test_green_stops_when_implementation_breaks_another_class(self):
         self.baseline()

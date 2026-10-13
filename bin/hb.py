@@ -415,6 +415,9 @@ def cmd_done(ctx, args):
         raise Stop("stop", "통과한 파일 가운데 커밋에 올리지 않은 것이 있음", not_staged=not_staged)
     entry["done"] = {"at": now(), "head": head, "paths": paths}
     save_json(ctx.state_path, state)
+    if subprocess.run(["git", "check-ignore", "-q", ctx.work_rel + "/INDEX.md"], cwd=ctx.repo).returncode == 0:
+        return {"verdict": "ok", "add": [],
+                "summary": "완료로 표시함. 이 저장소는 작업 폴더가 git 제외라 올리지 않음. 그대로 커밋하면 됨"}
     return {"verdict": "ok", "add": [ctx.work_rel],
             "summary": "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨"}
 
