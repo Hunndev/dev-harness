@@ -306,6 +306,15 @@ class HbCase(unittest.TestCase):
         self.assertNotEqual(rc, 0)
         self.assertIn("logs", out["reason"])
 
+    def test_baseline_stops_when_only_log_files_are_ignored(self):
+        """보고서는 .xml이다. *.log만 제외하는 저장소에서는 보고서가 git에 들어갈 수 있으므로 시작하지 않는다."""
+        self.write(".gitignore", "*.log\n__pycache__/\n.pytest_cache/\n")
+        self.commit("로그 파일만 제외")
+        rc, out = self.hb("baseline", "--work", WORK)
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(out["verdict"], "stop", out)
+        self.assertIn("logs", out["reason"])
+
     def test_missing_contract_key_stops_before_running(self):
         self.write(".harness/docs/checks.json", json.dumps({k: v for k, v in CHECKS.items() if k != "full_args"}))
         self.commit("계약에서 전체 검사 명령을 뺌")

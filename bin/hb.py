@@ -148,6 +148,10 @@ def now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def report_ext(ctx):
+    return ".json" if ctx.contract["runner"] == "jest" else ".xml"
+
+
 def run_check(ctx, label, args):
     """검사를 새 보고서 파일로 돌린다. (테스트 항목, 기록 파일 이름)을 낸다.
 
@@ -159,7 +163,7 @@ def run_check(ctx, label, args):
     os.makedirs(checks, exist_ok=True)
     stamp = "%s-%s-%d" % (label, time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), os.getpid())
     runner = ctx.contract["runner"]
-    report_name = stamp + (".json" if runner == "jest" else ".xml")
+    report_name = stamp + report_ext(ctx)
     report = os.path.join(logs, report_name)
     log = os.path.join(logs, stamp + ".log")
     if os.path.exists(report):
@@ -265,9 +269,10 @@ def cmd_baseline(ctx, args):
     dirty = changed(ctx)
     if dirty:
         raise Stop("stop", "작업 트리에 커밋되지 않은 변경이 있음. 깨끗한 상태에서 시작해야 함", dirty=dirty)
-    ignored = subprocess.run(["git", "check-ignore", "-q", ctx.work_rel + "/logs/x.log"], cwd=ctx.repo)
-    if ignored.returncode != 0:
-        raise Stop("stop", "작업 폴더의 logs/가 git 제외 목록에 없음")
+    for name in ("x.log", "x" + report_ext(ctx)):  # 화면 기록과 보고서 둘 다 git에 들어가면 안 된다
+        ignored = subprocess.run(["git", "check-ignore", "-q", ctx.work_rel + "/logs/" + name], cwd=ctx.repo)
+        if ignored.returncode != 0:
+            raise Stop("stop", "작업 폴더의 logs/가 git 제외 목록에 없음 (%s 파일이 git에 들어갈 수 있음)" % name[1:])
     cases, record = run_check(ctx, "baseline", ctx.contract["full_args"])
     broken = broken_ids(cases)
     state = {

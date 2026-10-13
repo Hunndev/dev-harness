@@ -281,6 +281,16 @@ class JestCase(unittest.TestCase):
         self.assertNotEqual(rc, 0)
         self.assertEqual(out["verdict"], "stop", out)
 
+    def test_baseline_stops_when_only_log_files_are_ignored(self):
+        """보고서는 .json이다. *.log만 제외하는 저장소에서는 보고서가 git에 들어갈 수 있으므로 시작하지 않는다."""
+        self.write(".gitignore", "*.log\n")
+        self.commit("로그 파일만 제외")
+        rc, out = self.hb("baseline", "--work", WORK)
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(out["verdict"], "stop", out)
+        self.assertIn("logs", out["reason"])
+        self.assertFalse(os.path.exists(os.path.join(self.root, WORK_DIR, "logs")))
+
     # --- 기록에 남기는 것 ---
     def test_records_use_repo_relative_names_and_keep_messages_out(self):
         self.write("tests/old.test.txt", "leaky | throws | Error: MARKER_IN_MESSAGE_93417\n")
