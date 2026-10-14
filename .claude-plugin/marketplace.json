@@ -1,6 +1,6 @@
 {
   "name": "buccl-dev-harness",
-  "description": "BUCCL 개발 하네스. 계획과 개발 도구를 담은 플러그인 하나.",
+  "description": "개발 하네스. 계획, 개발, 평가, 검수 도구를 담은 플러그인 하나.",
   "owner": {
     "name": "buccl"
   },
@@ -8,8 +8,8 @@
     {
       "name": "hb",
       "source": "./",
-      "description": "개발 하네스(새 판): 계획과 개발. 통과 여부는 작은 프로그램이 직접 검사를 돌려 판정한다.",
-      "version": "0.1.0"
+      "description": "개발 하네스(새 판): 계획, 개발, 평가, 검수. 통과 여부는 작은 프로그램이 직접 검사를 돌려 판정한다.",
+      "version": "0.2.0"
     }
   ]
 }

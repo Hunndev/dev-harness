@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """hb: 검사를 직접 돌려 판정하고 기록하는 작은 프로그램.
 
-명령은 셋이다.
-  baseline  바탕 검사. 작업 트리가 깨끗한지 보고, 전체 검사를 돌려 원래 깨져 있는 테스트를 적는다.
+명령은 넷이다.
+  baseline  바탕 검사. 작업 트리가 깨끗한지 보고, 전체 검사를 돌려 원래 깨져 있는 테스트를 적는다. 작업마다 한 번.
   check     할 일의 검사. --phase red 는 "제대로 실패하는가", green 은 "통과했고 새로 깨진 것이 없는가".
   done      완료. 통과한 그 코드가 그대로 커밋에 올라가 있을 때만 완료로 표시한다.
+  review    검수 검사. 할 일이 모두 완료됐고, 평가 뒤에 바뀐 것이 관리 기록뿐이고, 바탕 검사 뒤에 바뀐 파일이
+            할 일들의 허락된 파일 안이고, 전체 검사를 새로 돌려 새로 깨진 것이 없고 할 일마다의 테스트가 통과하는지 본다.
 
 판정은 테스트 도구가 낸 보고서 파일의 테스트 항목을 이름으로 읽어서 한다.
 합계 숫자, 종료 코드, 화면 출력은 읽지 않는다. 뜻이나 품질은 판단하지 않는다.
@@ -358,6 +360,8 @@ def outside_allowed(paths, allowed):
 
 # --- 명령 ---
 def cmd_baseline(ctx, args):
+    if os.path.exists(ctx.state_path):  # 다시 돌리면 완료 기록과 "원래 깨져 있던 것"이 지워진다
+        raise Stop("stop", "바탕 검사는 이 작업에서 이미 했음. 다시 하지 않고 이어서 하면 됨")
     dirty = changed(ctx)
     if dirty:
         raise Stop("stop", "작업 트리에 커밋되지 않은 변경이 있음. 깨끗한 상태에서 시작해야 함", dirty=dirty)
@@ -472,22 +476,104 @@ def cmd_done(ctx, args):
             "summary": "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨"}
 
 
+RECORD_FILES = ("INDEX.md", "state.json")
+RECORD_DIRS = ("checks/", "logs/")
+RECORD_GLOBS = ("eval-*.md", "review-*.md")
+
+
+def is_record(ctx, path):
+    """작업 폴더의 관리 기록인가. 설명서(spec.md), 할 일 목록, 할 일 본문은 관리 기록이 아니다."""
+    if not path.startswith(ctx.work_rel + "/"):
+        return False
+    rel = path[len(ctx.work_rel) + 1:]
+    return rel in RECORD_FILES or rel.startswith(RECORD_DIRS) or (
+        "/" not in rel and any(fnmatch.fnmatch(rel, g) for g in RECORD_GLOBS))
+
+
+def is_ancestor(repo, older, newer):
+    return subprocess.run(["git", "merge-base", "--is-ancestor", older, newer],
+                          cwd=repo, capture_output=True).returncode == 0
+
+
+def cmd_review(ctx, args):
+    """검수 검사. 오래 걸리는 전체 검사는 다른 조건을 모두 본 뒤에 돌린다."""
+    state = ctx.state()
+    tasks = load_json(os.path.join(ctx.work, "tasks.json"), "할 일 목록").get("tasks", [])
+    out = git(ctx.repo, "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all")
+    dirty = sorted(p for p in {e[3:] for e in out.split("\0") if len(e) > 3} if not is_record(ctx, p))
+    if dirty:  # 작업 폴더의 설명서와 할 일 목록도 커밋돼 있어야 한다
+        raise Stop("stop", "커밋되지 않은 변경이 있음. 검수는 커밋된 것으로만 함", dirty=dirty)
+    if not tasks:
+        raise Stop("stop", "할 일 목록이 비어 있음")
+    not_done = [t.get("id") for t in tasks if not state["tasks"].get(t.get("id"), {}).get("done")]
+    if not_done:
+        raise Stop("stop", "끝나지 않은 할 일이 있음", tasks=not_done)
+    base = state["baseline"]["head"]
+    since = "" if args.since.startswith("-") else subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", args.since + "^{commit}"],
+        cwd=ctx.repo, capture_output=True, text=True).stdout.strip()
+    if not since:
+        raise Stop("stop", "평가 대상 커밋을 찾을 수 없음: " + args.since)
+    if not is_ancestor(ctx.repo, base, since) or not is_ancestor(ctx.repo, since, "HEAD"):
+        raise Stop("stop", "바탕 검사 커밋 → 평가 대상 커밋 → 지금 커밋으로 이어지지 않음")
+    after = git(ctx.repo, "diff", "--name-only", "-z", "--no-renames", since, "HEAD").split("\0")
+    after = sorted(p for p in after if p and not is_record(ctx, p))
+    if after:
+        raise Stop("stop", "평가 뒤에 바뀐 것이 있음. 평가부터 다시", changed=after)
+    paths = git(ctx.repo, "diff", "--name-only", "-z", "--no-renames", base, "HEAD").split("\0")
+    paths = sorted(p for p in paths if p and not p.startswith(ctx.work_rel + "/"))
+    outside = outside_allowed(paths, [a for t in tasks for a in t.get("allowed_files", [])])
+    if outside:
+        raise Stop("stop", "바탕 검사 뒤에 할 일들의 허락된 파일 밖이 바뀜", outside=outside)
+    head = git(ctx.repo, "rev-parse", "HEAD").strip()
+    cases, record = run_check(ctx, "review-full", ctx.contract["full_args"])
+    if changed(ctx) or git(ctx.repo, "rev-parse", "HEAD").strip() != head:
+        raise Stop("stop", "검사하는 동안 파일이나 커밋이 바뀜", record=record)
+    known = set(state["baseline"]["broken"])
+    now_broken = set(broken_ids(cases))
+    new_broken = sorted(now_broken - known)
+    if new_broken:
+        raise Stop("stop", "새로 깨진 테스트가 있음", new_broken=new_broken, record=record)
+    result = {c[0]: c[1] for c in cases}
+    proof = {t["id"]: state["tasks"][t["id"]]["red"]["failed"] for t in tasks}
+    not_passing = {k: [x for x in v if result.get(x) != "passed"] for k, v in proof.items()}
+    not_passing = {k: v for k, v in not_passing.items() if v}
+    if not_passing:  # 건너뜀이나 사라짐도 통과가 아니다
+        raise Stop("stop", "할 일의 테스트가 마지막 검사에서 통과하지 않음", tests=not_passing, record=record)
+    before = load_json(os.path.join(ctx.work, state["baseline"]["record"]), "바탕 검사 기록")
+    counts = {"baseline": {"total": before["total"], "skipped": before["counts"]["skipped"]},
+              "now": {"total": len(cases), "skipped": sum(1 for c in cases if c[1] == "skipped")}}
+    state["review"] = {"base": base, "since": since, "head": head, "record": record, "at": now()}
+    save_json(ctx.state_path, state)
+    summary = "검수 검사 통과. 할 일 %d개 모두 완료, 평가 뒤 바뀐 것 없음, 바뀐 파일 %d개 모두 허락된 파일 안, 새로 깨진 것 없음" % (
+        len(tasks), len(paths))
+    if now_broken & known:
+        summary += ", 원래 깨져 있던 것 %d건" % len(now_broken & known)
+    return {"verdict": "ok", "summary": summary, "base": base, "since": since, "head": head, "paths": paths,
+            "record": record, "baseline_record": state["baseline"]["record"], "tests": counts,
+            "still_broken": sorted(now_broken & known),
+            "tasks": {t["id"]: {"criteria": t.get("criteria", []), "tests": proof[t["id"]]} for t in tasks}}
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="hb", description="검사를 직접 돌려 판정하고 기록한다.")
     p.add_argument("--repo", default=None, help="제품 저장소 (기본: 지금 폴더의 저장소)")
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("baseline", "check", "done"):
+    for name in ("baseline", "check", "done", "review"):
         s = sub.add_parser(name)
         s.add_argument("--work", required=True, help="작업 이름")
         if name == "baseline":
             s.add_argument("--tool", default="claude-code", help="어느 도구로 하는지 (기록용)")
+        elif name == "review":
+            s.add_argument("--since", required=True, help="마지막 평가의 대상 커밋")
         else:
             s.add_argument("--task", required=True, help="할 일 번호")
         if name == "check":
             s.add_argument("--phase", required=True, choices=("red", "green"))
     args = p.parse_args(argv)
     try:
-        out = {"baseline": cmd_baseline, "check": cmd_check, "done": cmd_done}[args.cmd](Ctx(args), args)
+        out = {"baseline": cmd_baseline, "check": cmd_check, "done": cmd_done,
+               "review": cmd_review}[args.cmd](Ctx(args), args)
     except Stop as e:
         out = e.out
     print(json.dumps(out, ensure_ascii=False))
