@@ -1,7 +1,8 @@
-# 다른 에이전트에서 hb 쓰기 (Hermes Agent, OpenClaw 등)
+# 다른 에이전트에서 hb 쓰기 (OpenClaw 등)
 
-- 확인 상태(2026-10-15): hb는 Claude Code에서만 시운전했다. Hermes Agent와 OpenClaw에서는 돌려 보지 않았다. 아래의 경로, 설정 이름, 도구 이름은 각 도구의 공식 문서(맨 아래 "근거")에서 옮겼다.
+- 확인 상태(2026-10-15): hb는 Claude Code에서만 시운전했다. OpenClaw에서는 돌려 보지 않았다. 아래의 경로, 설정 이름, 도구 이름은 각 도구의 공식 문서(맨 아래 "근거")에서 옮겼다.
 - 처음 쓸 때는 작은 버그 하나로 계획부터 검수까지 한 번 끝까지 돌려 보고, 막힌 곳을 이 문서에 더한다.
+- Hermes Agent는 이 문서 대신 [hermes.md](hermes.md)를 본다.
 
 ## 이 문서를 읽는 AI에게
 
@@ -29,31 +30,7 @@ hb의 스킬 문서(`skills/*/SKILL.md`)는 몇 군데가 Claude Code의 말로 
 
 ## Hermes Agent
 
-**설치**
-
-1. 이 저장소를 한 곳에 받는다(본판에 합쳐지기 전에는 `new-harness` 가지).
-2. `~/.hermes/config.yaml`의 `skills.external_dirs`에 이 저장소의 `skills` 폴더를 더한다.
-
-   ```yaml
-   skills:
-     external_dirs:
-       - <이 저장소>/skills
-   ```
-
-   허브, URL, GitHub로 설치하면 `SKILL.md`와, 그것이 가리키는 정해진 하위 폴더(`references/`, `templates/`, `scripts/`, `assets/`, `examples/`)의 파일만 복사된다. 스킬 폴더 바깥의 `bin/hb.py`와 `agents/`는 빠지므로 그 방식으로는 설치하지 않는다.
-3. 새 세션에서 `/plan`이 계획 문서를 여는지 본다. `external_dirs`는 우선순위가 가장 낮아서, 같은 이름의 스킬(`plan`, `dev`, `eval`, `review`는 흔한 이름이다)이 다른 곳에 있으면 그쪽이 먼저 불린다.
-
-**부르기**: `/plan <하고 싶은 일>`, `/dev <작업 이름>`, `/eval <작업 이름>`, `/review <작업 이름>`. `hermes chat -s plan`처럼 세션을 시작할 때 불러 둘 수도 있다.
-
-**바꿔 읽기**
-
-- 스킬 폴더: 스킬을 불러오면 붙는 `[Skill directory: …]`의 경로. 그 두 단계 위가 이 저장소다.
-- 보조 AI: `delegate_task(goal=…, context=…)`. 자식은 새 대화로 시작한다. `context`에 `agents/implementer.md`(또는 `agents/reviewer.md`)의 내용과 읽을 파일 경로를 넣는다.
-- 읽기만 하는 검토자: 자식의 도구는 부모 것을 물려받아서 따로 줄일 수 없다. 세 명령 비교로 확인한다.
-- 긴 검사: `terminal`의 기본 제한 시간은 설정값 180초다. 명령마다 `timeout`을 검사 시간보다 길게 준다(앞에서 기다리는 것은 600초까지). 600초를 넘는 저장소는 백그라운드(`background=true`)로 돌리고 끝날 때까지 기다린다. 세션이 끝나면 백그라운드도 끊긴다.
-- 새 세션: 평가와 검수는 새 `hermes chat` 세션에서 한다.
-- 지침 파일: 저장소의 지침 파일은 처음 찾은 하나만 읽는다(`.hermes.md`/`HERMES.md` → `AGENTS.override.md` → `AGENTS.md` → `CLAUDE.md` 순).
-- 메모: 세션을 시작할 때 `~/.hermes/memories/MEMORY.md`와 `USER.md`를 읽는다. 세션 하나만 빼는 방법은 `hermes chat --ignore-rules`인데, 이것은 `AGENTS.md`와 미리 불러 둔 스킬도 함께 뺀다. 그래서 평가와 검수는 위의 규칙대로 사용자에게 알린 뒤 진행한다(알려진 한계).
+[hermes.md](hermes.md)를 본다.
 
 ## OpenClaw
 
@@ -89,5 +66,4 @@ Agent Skills(`SKILL.md` + `name`, `description`)를 읽는 에이전트라면 �
 
 ## 근거
 
-- Hermes Agent: [스킬](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills), [스킬 만들기](https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills), [CLI 명령](https://hermes-agent.nousresearch.com/docs/reference/cli-commands), [도구](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools), [위임](https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation), [지침 파일](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files), [메모](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory). 앞에서 기다리는 600초 상한과 백그라운드 동작은 문서가 아니라 [소스 코드](https://github.com/NousResearch/hermes-agent/blob/379cf1220fe289b5ecfe8bcf61cd4d5126e140cd/tools/terminal_tool.py#L76)에서 확인했다.
 - OpenClaw: [스킬](https://docs.openclaw.ai/tools/skills), [슬래시 명령](https://docs.openclaw.ai/tools/slash-commands), [스킬 CLI](https://docs.openclaw.ai/cli/skills), [exec](https://docs.openclaw.ai/tools/exec), [백그라운드 실행](https://docs.openclaw.ai/gateway/background-process), [하위 에이전트](https://docs.openclaw.ai/tools/subagents/tool-reference), [하위 에이전트 도구 정책](https://docs.openclaw.ai/tools/subagents/tool-policy), [작업 공간](https://docs.openclaw.ai/concepts/agent-workspace), [메모](https://docs.openclaw.ai/concepts/memory).
