@@ -39,6 +39,13 @@ claude --plugin-dir <이 폴더의 경로>
 
 세션 안에서 `/hb:plan`으로 계획을, `/hb:dev`로 개발을 시작합니다. 개발이 끝나면 새 창에서 `/hb:eval`로 평가를 받고, 평가 기록이 "검수로"를 내면 또 새 창에서 `/hb:review`로 검수를 받습니다. 올리기와 합치기는 사람이 합니다.
 
+평가와 검수 창은 자동 메모를 끄고 엽니다. 앞 세션들이 남긴 메모를 읽고 시작하면 새 눈으로 보지 못하기 때문입니다(시운전에서 두 번째 평가가 앞 세션의 확인 안 된 메모를 "합의한 규율"로 인용했습니다).
+
+```bash
+cd <제품 저장소>
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude --plugin-dir <이 폴더의 경로>
+```
+
 Hermes Agent, OpenClaw 같은 다른 에이전트에서 쓰려면 [docs/other-agents.md](docs/other-agents.md)를 봅니다.
 
 ## 제품 저장소에 있어야 하는 것
