@@ -20,7 +20,8 @@ skills/review/SKILL.md       검수 문서
 agents/implementer.md        구현자 지침
 agents/reviewer.md           검토자 지침 (읽기 도구만)
 bin/hb.py                    작은 프로그램 (Python 표준 라이브러리만)
-docs/other-agents.md         다른 에이전트(Hermes Agent, OpenClaw 등)에서 쓰는 법
+docs/hermes.md               Hermes Agent에서 쓰는 법
+docs/other-agents.md         그 밖의 에이전트(OpenClaw 등)에서 쓰는 법
 tests/test_hb.py             프로그램의 테스트 (pytest 쪽)
 tests/test_hb_jest.py        프로그램의 테스트 (jest 쪽)
 tests/test_hb_gradle.py      프로그램의 테스트 (gradle 쪽)
@@ -46,7 +47,7 @@ cd <제품 저장소>
 CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude --plugin-dir <이 폴더의 경로>
 ```
 
-Hermes Agent, OpenClaw 같은 다른 에이전트에서 쓰려면 [docs/other-agents.md](docs/other-agents.md)를 봅니다.
+Hermes Agent에서 쓰려면 [docs/hermes.md](docs/hermes.md)를, OpenClaw 같은 그 밖의 에이전트에서 쓰려면 [docs/other-agents.md](docs/other-agents.md)를 봅니다.
 
 ## 제품 저장소에 있어야 하는 것
 
