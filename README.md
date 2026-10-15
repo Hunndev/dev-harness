@@ -20,6 +20,7 @@ skills/review/SKILL.md       검수 문서
 agents/implementer.md        구현자 지침
 agents/reviewer.md           검토자 지침 (읽기 도구만)
 bin/hb.py                    작은 프로그램 (Python 표준 라이브러리만)
+docs/other-agents.md         다른 에이전트(Hermes Agent, OpenClaw 등)에서 쓰는 법
 tests/test_hb.py             프로그램의 테스트 (pytest 쪽)
 tests/test_hb_jest.py        프로그램의 테스트 (jest 쪽)
 tests/test_hb_gradle.py      프로그램의 테스트 (gradle 쪽)
@@ -37,6 +38,8 @@ claude --plugin-dir <이 폴더의 경로>
 ```
 
 세션 안에서 `/hb:plan`으로 계획을, `/hb:dev`로 개발을 시작합니다. 개발이 끝나면 새 창에서 `/hb:eval`로 평가를 받고, 평가 기록이 "검수로"를 내면 또 새 창에서 `/hb:review`로 검수를 받습니다. 올리기와 합치기는 사람이 합니다.
+
+Hermes Agent, OpenClaw 같은 다른 에이전트에서 쓰려면 [docs/other-agents.md](docs/other-agents.md)를 봅니다.
 
 ## 제품 저장소에 있어야 하는 것
 
