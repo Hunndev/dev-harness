@@ -8,11 +8,11 @@
     "total": 95
   },
   "review": {
-    "at": "2026-10-29T05:07:23Z",
+    "at": "2026-10-29T06:00:16Z",
     "base": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
-    "head": "c88acf7b982ed429cfcaf3a1dac99566d5b13c74",
-    "record": "checks/013-review-full.json",
-    "since": "09281d420cf808cfdbc7801547215e6399353646"
+    "head": "3bf2672fa0528540ccad271942bd34c7f702a076",
+    "record": "checks/020-review-full.json",
+    "since": "067a75d1b534ae49ea79faa76acb818323df1a1e"
   },
   "tasks": {
     "01": {
