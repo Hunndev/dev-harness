@@ -64,3 +64,6 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
 
 ## 평가
 - 평가 01 (eval-01.md, 대상 커밋 09281d420cf808cfdbc7801547215e6399353646): 검수로. 구현 오류 0, 필수 테스트 누락 0, 질문 0, 검수 확인 항목 3, 권장 7. 다시 받은 횟수 0.
+
+## 검수
+- 검수 01 (review-01.md, 검수 대상 커밋 c88acf7b982ed429cfcaf3a1dac99566d5b13c74, --since 09281d420cf808cfdbc7801547215e6399353646): 검수 통과. review rc=0 verdict ok, "검수 검사 통과. 할 일 2개 모두 완료, 평가 뒤 바뀐 것 없음, 바뀐 파일 9개 모두 허락된 파일 안, 새로 깨진 것 없음" (checks/013-review-full.json, 138개 통과, 건너뜀 0). C1–C9 충족, 검수 확인 항목 3개 확인됨, 사람 확인 없음.
