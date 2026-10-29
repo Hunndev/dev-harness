@@ -25,6 +25,14 @@
       "criteria": ["C2", "C4"],
       "allowed_files": ["bin/hb.py", "tests/test_hb_preflight_paths.py"],
       "check_args": ["tests/test_hb_preflight_paths.py"]
+    },
+    {
+      "id": "04",
+      "title": "preflight reuse: green 뒤 커밋으로 바뀐 파일도 review_paths에",
+      "kind": "bug",
+      "criteria": ["C7"],
+      "allowed_files": ["bin/hb.py", "tests/test_hb_preflight_reuse.py"],
+      "check_args": ["tests/test_hb_preflight_reuse.py"]
     }
   ]
 }

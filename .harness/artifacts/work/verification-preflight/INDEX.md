@@ -13,6 +13,7 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
 |---|---|
 | C1–C8 | 01 |
 | C9 | 02 |
+| C7 (green 뒤 커밋으로 바뀐 파일, 평가 02) | 04 |
 
 ## 바탕 검사
 - 2026-10-29 03:44:39Z–03:45:35Z, `/Users/yunhunbin/dev/oss-agent/.venv/bin/python bin/hb.py --repo . baseline --work verification-preflight --tool claude-code`, rc=0
@@ -69,12 +70,14 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
   - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 16개" (checks/009-02-red.json). 기존 규칙 유지 테스트 2개는 통과.
   - 테스트 검토 1: 지문 전후 같음(logs/02-pre-test-review.log = logs/02-post-test-review.log). 꼭 고칠 것 2건: (1) stop 조건 없이 "돌리지 않"만으로 통과, (2) README 테스트가 파일 목록 줄로 통과.
   - 남은 권장(진행 안 막음): eval/review "product만"의 "만" 미확인; 세 칸 "보고" 미확인; "각 check" 미확인; 권장 규칙 절 제한이 과함; dev 88줄 뒷문장 보호 빠짐; eval 17줄 "테스트를 돌리지 않는다" 보호 없음.
+- 04: 대기. 평가 02에서 더함. green 뒤 커밋으로 바뀐 파일이 review_paths에 없음(C7, 일반 review #5 (a)). tasks/04-preflight-reuse-commits.md
 
 ## 막힌 곳
 - 전체 deadline 2026-10-29T03:53:30Z(마진 120초).
 
 ## 평가
 - 평가 01 (eval-01.md, 대상 커밋 09281d420cf808cfdbc7801547215e6399353646): 검수로. 구현 오류 0, 필수 테스트 누락 0, 질문 0, 검수 확인 항목 3, 권장 7. 다시 받은 횟수 0.
+- 평가 02 (eval-02.md, 대상 커밋 a3e62cf765387ad601aa110b02ccfdcf31092ffa): 개발로. 구현 오류 1(C7: green 뒤 커밋으로 바뀐 파일이 review_paths에 없음 → 할 일 04), 필수 테스트 누락 0, 질문 0, 검수 확인 항목 3, 권장 6. 일반 review 독립 판정: #5 (a) 구현 오류, #5 (b) 합집합 정의 대비로는 맞음, #1·#2·#3·#6·#7 spec 정의대로이며 비차단(근거는 eval-02.md 표). 다시 받은 횟수 1.
 
 ## 검수
 - 검수 01 (review-01.md, 검수 대상 커밋 c88acf7b982ed429cfcaf3a1dac99566d5b13c74, --since 09281d420cf808cfdbc7801547215e6399353646): 검수 통과. review rc=0 verdict ok, "검수 검사 통과. 할 일 2개 모두 완료, 평가 뒤 바뀐 것 없음, 바뀐 파일 9개 모두 허락된 파일 안, 새로 깨진 것 없음" (checks/013-review-full.json, 138개 통과, 건너뜀 0). C1–C9 충족, 검수 확인 항목 3개 확인됨, 사람 확인 없음.
