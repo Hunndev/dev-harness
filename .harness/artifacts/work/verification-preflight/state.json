@@ -169,6 +169,41 @@
         "record": "checks/014-03-red.json",
         "test_fp": "c9442e36160b66c30419042eb01e8b57761ac13fd7d3e6de7e10f71e59130ac0"
       }
+    },
+    "04": {
+      "done": {
+        "at": "2026-10-29T05:51:49Z",
+        "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_reuse.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T05:48:46Z",
+        "ok": true,
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_reuse.py"
+        ],
+        "records": [
+          "checks/018-04-green-task.json",
+          "checks/019-04-green-full.json"
+        ],
+        "snapshot": "97a6924a4a59d08f87d3805eb14c416eb12fbf98b0e21442903f812099cc95d1"
+      },
+      "red": {
+        "at": "2026-10-29T05:42:26Z",
+        "failed": [
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_committed_and_uncommitted_changes_after_green_are_both_review_paths",
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_new_file_committed_after_green_is_changed_with_review_path",
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_tracked_file_modified_and_committed_after_green_is_changed_with_review_path"
+        ],
+        "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+        "ok": true,
+        "record": "checks/017-04-red.json",
+        "test_fp": "d4acf3097a2107a948fd7629cc4d1d36324eff267340ed94f5bf3a2a9222e5f8"
+      }
     }
   },
   "tool": "claude-code",

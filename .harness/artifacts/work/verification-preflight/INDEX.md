@@ -52,7 +52,9 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
   - green 1: hb_rc=0, "통과 확인 됨. 새로 깨진 것 없음" (checks/015-03-green-task.json, checks/016-03-green-full.json 전체 151개 통과, 건너뜀 0).
   - 구현 검토: 지문 전후 같음(logs/03-pre-impl-review.log = logs/03-post-impl-review.log). 꼭 고칠 것 없음. 빈 PATH 항목 대조: 버리지 않고 os.path.join(ctx.repo, "") = ctx.repo + "/"로 풀며 run_check(cwd=ctx.repo)와 같은 곳을 찾음.
     - 남은 권장(진행 안 막음): --repo 없이 git toplevel이 실제 경로이고 --aux가 링크 경로(/tmp/...)면 허락된 파일인데도 저장소 밖으로 막힘(잘못 막는 쪽); 빈 PATH 항목을 확인하는 테스트 없음(C2 문언과 할 일 본문 기대는 상대 항목까지).
-  - 커밋 1번(프로그램이 돌리지 않는 검증 명령): 없음. 테스트 재작성 0회, 지적 반영 0회.(감독 지시, codex-v7-findings-owner.md). tasks/03-preflight-paths.md
+  - 커밋 1번(프로그램이 돌리지 않는 검증 명령): 없음. 테스트 재작성 0회, 지적 반영 0회.
+  - 누락 기록: 할 일 03의 red와 green 전에 dev 문서가 정한 `preflight`를 돌리지 않았다. 나중에 돌려 채우지 않는다(사후 증거를 만들지 않음). 할 일 04부터 지킨다.
+  - 출처 문서: 감독 지시 codex-v7-findings-owner.md, 할 일 본문 tasks/03-preflight-paths.md
   - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 8개" (checks/014-03-red.json). 대조 테스트 5개 통과. 테스트 동결 tests/test_hb_preflight_paths.py sha256 f36f6ae15ffb99bb21b651b42831986fc3340e084cbbc415860ca872c4b587d3.
   - 테스트 검토 1: 지문 전후 같음(logs/03-pre-test-review.log = logs/03-post-test-review.log). 꼭 고칠 것 없음. 남은 권장: 저장소 탈출 세 테스트에 "경로 변경 필요" 단언 없음; 링크를 푼 절대 경로 테스트에 outcome.aux 단언 없음. 테스트 재작성 0회, 지적 반영 0회.
   - 출처: Codex native exec review(gpt-6-astra medium, base f4f61ab..72c79ed, rc0) P2 2건과 Claude 일반 review(/code-review high, 같은 범위. 이 세션의 스킬 목록에 /review가 없어 /code-review로 실행) #4.
@@ -70,7 +72,15 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
   - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 16개" (checks/009-02-red.json). 기존 규칙 유지 테스트 2개는 통과.
   - 테스트 검토 1: 지문 전후 같음(logs/02-pre-test-review.log = logs/02-post-test-review.log). 꼭 고칠 것 2건: (1) stop 조건 없이 "돌리지 않"만으로 통과, (2) README 테스트가 파일 목록 줄로 통과.
   - 남은 권장(진행 안 막음): eval/review "product만"의 "만" 미확인; 세 칸 "보고" 미확인; "각 check" 미확인; 권장 규칙 절 제한이 과함; dev 88줄 뒷문장 보호 빠짐; eval 17줄 "테스트를 돌리지 않는다" 보호 없음.
-- 04: 대기. 평가 02에서 더함. green 뒤 커밋으로 바뀐 파일이 review_paths에 없음(C7, 일반 review #5 (a)). tasks/04-preflight-reuse-commits.md
+- 04: 완료. 평가 02에서 더함. green 뒤 커밋으로 바뀐 파일이 review_paths에 없음(C7, 일반 review #5 (a)). tasks/04-preflight-reuse-commits.md. 테스트 재작성 0회, 지적 반영 0회
+  - preflight(red 전): `/Users/yunhunbin/dev/oss-agent/.venv/bin/python bin/hb.py --repo . preflight --work verification-preflight --task 04`, hb_rc=0, verdict ok, blocked {}. outcome: product not_run / environment ok / aux none. summary "시작 전 검증 통과. 제품 not_run, 환경 ok, 보조검증 none". --deadline은 주지 않음(새 deadline을 만들지 않음).
+  - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 3개" (checks/017-04-red.json). 대조 테스트 2개 통과. 테스트 tests/test_hb_preflight_reuse.py sha256 36253e83e5da8eec61bca8c60fce255b6f88e0d95766575938cc17ae28edac3e. 구현자는 pytest/hb.py를 돌리지 않음.
+  - 테스트 검토 1: 지문 전후 같음(logs/04-pre-test-review.log = logs/04-post-test-review.log). 꼭 고칠 것 없음. 테스트 동결. 남은 권장: baseline과 green 사이 커밋 경우 없음(R1); 커밋으로 지우기/이름 바꾸기 경우 없음(R2).
+  - 구현(bin/hb.py만, native Edit, +12/−2): committed_since(red head..HEAD, --no-renames, 작업 폴더 제외)를 reuse가 changed일 때만 review_paths에 더함. 구현자는 pytest/hb.py를 돌리지 않음.
+  - preflight(green 전): hb_rc=0, verdict ok, blocked {}. outcome: product not_run / environment ok / aux none. --deadline 없음.
+  - green 1: hb_rc=0, "통과 확인 됨. 새로 깨진 것 없음" (checks/018-04-green-task.json, checks/019-04-green-full.json 전체 156개 통과, 건너뜀 0).
+  - 구현 검토: 지문 전후 같음(logs/04-pre-impl-review.log = logs/04-post-impl-review.log). 꼭 고칠 것 없음. 남은 권장: red head 커밋이 사라지면 git diff 실패로 blocked/outcome 없는 stop(spec 예외 상황에 없음, 기존 snapshot과 같은 실패 방식, 잘못 통과시키지 않는 쪽); 커밋으로 지운 파일 테스트 없음.
+  - 커밋 1번(프로그램이 돌리지 않는 검증 명령): 없음.
 
 ## 막힌 곳
 - 전체 deadline 2026-10-29T03:53:30Z(마진 120초).

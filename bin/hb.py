@@ -96,6 +96,12 @@ def snapshot(ctx):
     return sha(body.encode()), paths, head
 
 
+def committed_since(ctx, base):
+    """base부터 HEAD까지 커밋으로 바뀐 파일(지운 것 포함). 이 작업의 작업 폴더는 뺀다."""
+    out = git(ctx.repo, "diff", "--name-only", "-z", "--no-renames", base, "HEAD")
+    return sorted(p for p in out.split("\0") if p and not p.startswith(ctx.work_rel + "/"))
+
+
 def test_fingerprint(ctx, check_args):
     """테스트 관련 파일과 확인 명령의 지문."""
     files = set(git(ctx.repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0"))
@@ -443,15 +449,19 @@ def cmd_preflight(ctx, args):
     out = {"outcome": {"product": "not_run", "environment": "blocked" if env else "ok",
                        "aux": "incomplete" if args.aux else "none"}}
     if task is not None and os.path.exists(ctx.state_path):  # 바탕 검사 전이면 제품 결과는 없음
-        green = ctx.state().get("tasks", {}).get(task["id"], {}).get("green")
+        entry = ctx.state().get("tasks", {}).get(task["id"], {})
+        green = entry.get("green")
         if green:
             out["outcome"]["product"] = "pass" if green.get("ok") else "fail"
         if green and green.get("ok"):
-            snap, paths, _ = snapshot(ctx)
+            snap, paths, head = snapshot(ctx)
             if snap == green["snapshot"]:
                 out["reuse"] = "same_source"
             else:  # green 기록에는 파일마다의 지문이 없어 어느 파일이 바뀌었는지 가릴 수 없다. 지금 바뀐 것과 사라진 것 전부
                 out["reuse"] = "changed"
+                base = entry.get("red", {}).get("head")  # green은 HEAD가 실패 확인 때와 같을 때만 기록된다
+                if base and base != head:  # green 뒤 커밋으로 바뀐 것도
+                    paths = paths + committed_since(ctx, base)
                 out["review_paths"] = sorted(set(paths) | set(green["paths"]))
     if deadline is not None:
         remaining = int(deadline - time.time())
