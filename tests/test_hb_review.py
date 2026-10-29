@@ -82,7 +82,9 @@ class ReviewCase(unittest.TestCase):
         self.git("commit", "-q", "-m", msg)
 
     def hb(self, *args):
-        r = subprocess.run([sys.executable, HB, "--repo", self.root, *args], capture_output=True, text=True)
+        # 크기가 같은 변경이 같은 초에 쓰이면 옛 .pyc가 쓰여 깨진 동작이 가려지므로 바이트코드를 쓰지 않는다.
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        r = subprocess.run([sys.executable, HB, "--repo", self.root, *args], capture_output=True, text=True, env=env)
         try:
             out = json.loads(r.stdout.strip().splitlines()[-1])
         except (IndexError, ValueError):

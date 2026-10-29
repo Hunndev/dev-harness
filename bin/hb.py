@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """hb: 검사를 직접 돌려 판정하고 기록하는 작은 프로그램.
 
-명령은 넷이다.
+명령은 다섯이다.
+  preflight 시작 전 검증. 검사를 돌리지 않고, 돌려도 완료 증거가 안 되는 경우(환경, 증거 경로, 범위, 시간)를
+            미리 막는다. 제품 결과, 환경, 보조검증을 따로 적는다. 기록을 만들거나 고치지 않는다.
   baseline  바탕 검사. 작업 트리가 깨끗한지 보고, 전체 검사를 돌려 원래 깨져 있는 테스트를 적는다. 작업마다 한 번.
   check     할 일의 검사. --phase red 는 "제대로 실패하는가", green 은 "통과했고 새로 깨진 것이 없는가".
   done      완료. 통과한 그 코드가 그대로 커밋에 올라가 있을 때만 완료로 표시한다.
@@ -21,10 +23,13 @@
 Python 표준 라이브러리만 쓴다.
 """
 import argparse
+import datetime
 import fnmatch
 import hashlib
+import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -358,17 +363,99 @@ def outside_allowed(paths, allowed):
     return [p for p in paths if not any(p == a or fnmatch.fnmatch(p, a) for a in allowed)]
 
 
+def logs_not_ignored(ctx):
+    """작업 폴더의 logs/가 git 제외가 아니면 그 이유를 낸다. 제외면 None."""
+    for name in ("x.log", "x" + report_ext(ctx)):  # 화면 기록과 보고서 둘 다 git에 들어가면 안 된다
+        ignored = subprocess.run(["git", "check-ignore", "-q", ctx.work_rel + "/logs/" + name], cwd=ctx.repo)
+        if ignored.returncode != 0:
+            return "작업 폴더의 logs/가 git 제외 목록에 없음 (%s 파일이 git에 들어갈 수 있음)" % name[1:]
+    return None
+
+
 # --- 명령 ---
+def environment_problems(ctx):
+    """검사를 돌릴 수 없는 환경이면 그 이유 목록. 실제로 돌리지는 않는다."""
+    runner = ctx.contract["runner"]
+    if runner == "pytest":  # run_check는 이 프로그램을 돌리는 파이썬으로 pytest를 부른다
+        try:
+            found = importlib.util.find_spec("pytest") is not None
+        except (ImportError, ValueError):
+            found = False
+        if not found:
+            return ["이 파이썬에서 pytest를 찾을 수 없음: " + sys.executable]
+        return []
+    command = ctx.contract["command"][0]
+    if not shutil.which(os.path.join(ctx.repo, command) if os.sep in command else command):  # 검사는 저장소에서 돈다
+        return ["검사 명령을 찾을 수 없음: " + command]
+    return []
+
+
+def parse_deadline(text):
+    """UTC ISO 8601 시각을 초로 낸다. 시간대가 없으면 UTC로 읽는다."""
+    try:
+        when = datetime.datetime.fromisoformat(text[:-1] + "+00:00" if text.endswith(("Z", "z")) else text)
+    except ValueError:
+        raise Stop("stop", "deadline 형식이 틀림")
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.timezone.utc)
+    return when.timestamp()
+
+
+def cmd_preflight(ctx, args):
+    """시작 전 검증. 검사를 돌리지 않고, state.json, checks/, logs/를 만들거나 고치지 않는다."""
+    deadline = parse_deadline(args.deadline) if args.deadline is not None else None
+    task = ctx.task(args.task) if args.task else None
+    blocked = {}
+    env = environment_problems(ctx)
+    if env:
+        blocked["environment"] = env
+    problem = logs_not_ignored(ctx)
+    if problem:
+        blocked["evidence"] = [problem + ". 이 경로로 낸 결과는 완료 증거가 될 수 없음"]
+    if args.aux:
+        if task is None:
+            blocked["scope"] = ["--aux는 --task와 함께 줘야 함 (어느 할 일의 범위인지 알 수 없음)"]
+        else:
+            outside = outside_allowed(args.aux, task["allowed_files"])
+            if outside:
+                blocked["scope"] = ["%s: 할 일 %s의 바꿔도 되는 파일 밖. 경로 변경 필요" % (p, task["id"])
+                                    for p in outside]
+    out = {"outcome": {"product": "not_run", "environment": "blocked" if env else "ok",
+                       "aux": "incomplete" if args.aux else "none"}}
+    if task is not None and os.path.exists(ctx.state_path):  # 바탕 검사 전이면 제품 결과는 없음
+        green = ctx.state().get("tasks", {}).get(task["id"], {}).get("green")
+        if green:
+            out["outcome"]["product"] = "pass" if green.get("ok") else "fail"
+        if green and green.get("ok"):
+            snap, paths, _ = snapshot(ctx)
+            if snap == green["snapshot"]:
+                out["reuse"] = "same_source"
+            else:  # green 기록에는 파일마다의 지문이 없어 어느 파일이 바뀌었는지 가릴 수 없다. 지금 바뀐 것과 사라진 것 전부
+                out["reuse"] = "changed"
+                out["review_paths"] = sorted(set(paths) | set(green["paths"]))
+    if deadline is not None:
+        remaining = int(deadline - time.time())
+        needed = ctx.contract["timeout_seconds"] + args.margin
+        out["time"] = {"remaining_seconds": remaining, "needed_seconds": needed}
+        if remaining < needed:
+            blocked["time"] = ["남은 시간 %d초가 필요한 시간 %d초(검사 제한 시간 + 여유)보다 짧음" % (remaining, needed)]
+    outcome = out["outcome"]
+    summary = "제품 %s, 환경 %s, 보조검증 %s" % (outcome["product"], outcome["environment"], outcome["aux"])
+    if blocked:
+        raise Stop("stop", "시작 전 검증에서 막힘: " + ", ".join(sorted(blocked)),
+                   blocked=blocked, summary=summary, **out)
+    return {"verdict": "ok", "blocked": {}, "summary": "시작 전 검증 통과. " + summary, **out}
+
+
 def cmd_baseline(ctx, args):
     if os.path.exists(ctx.state_path):  # 다시 돌리면 완료 기록과 "원래 깨져 있던 것"이 지워진다
         raise Stop("stop", "바탕 검사는 이 작업에서 이미 했음. 다시 하지 않고 이어서 하면 됨")
     dirty = changed(ctx)
     if dirty:
         raise Stop("stop", "작업 트리에 커밋되지 않은 변경이 있음. 깨끗한 상태에서 시작해야 함", dirty=dirty)
-    for name in ("x.log", "x" + report_ext(ctx)):  # 화면 기록과 보고서 둘 다 git에 들어가면 안 된다
-        ignored = subprocess.run(["git", "check-ignore", "-q", ctx.work_rel + "/logs/" + name], cwd=ctx.repo)
-        if ignored.returncode != 0:
-            raise Stop("stop", "작업 폴더의 logs/가 git 제외 목록에 없음 (%s 파일이 git에 들어갈 수 있음)" % name[1:])
+    problem = logs_not_ignored(ctx)
+    if problem:
+        raise Stop("stop", problem)
     cases, record = run_check(ctx, "baseline", ctx.contract["full_args"])
     broken = broken_ids(cases)
     state = {
@@ -570,10 +657,16 @@ def main(argv=None):
             s.add_argument("--task", required=True, help="할 일 번호")
         if name == "check":
             s.add_argument("--phase", required=True, choices=("red", "green"))
+    s = sub.add_parser("preflight")
+    s.add_argument("--work", required=True, help="작업 이름")
+    s.add_argument("--task", default=None, help="할 일 번호 (주면 그 할 일의 통과 기록과 범위를 본다)")
+    s.add_argument("--aux", action="append", default=[], help="보조검증이 쓸 경로 (여러 번 줄 수 있음)")
+    s.add_argument("--deadline", default=None, help="결과를 회수해야 하는 시각 (UTC ISO 8601)")
+    s.add_argument("--margin", type=int, default=120, help="검사 제한 시간에 더할 여유 초 (기본 120)")
     args = p.parse_args(argv)
     try:
         out = {"baseline": cmd_baseline, "check": cmd_check, "done": cmd_done,
-               "review": cmd_review}[args.cmd](Ctx(args), args)
+               "review": cmd_review, "preflight": cmd_preflight}[args.cmd](Ctx(args), args)
     except Stop as e:
         out = e.out
     print(json.dumps(out, ensure_ascii=False))

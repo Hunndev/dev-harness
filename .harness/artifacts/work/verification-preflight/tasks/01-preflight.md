@@ -11,3 +11,5 @@
 - 테스트: `tests/test_hb_preflight.py`. 기존 `tests/test_hb.py`처럼 임시 git 저장소에 가짜 제품을 만들고 실제 hb.py를 subprocess로 부른다.
   pytest가 없으면 건너뛰는 묶음은 통과 근거로 쓰지 않는다(.harness/README.md).
 - 지킬 것: 기존 판정·지문·안전 관문 변경 금지. preflight가 state.json, checks/, logs/를 만들지 않음.
+- 기존 회귀 fixture 보정(green 1에서 발견, 감독 승인): `tests/test_hb_review.py`의 `ReviewCase.hb`가 hb를 부를 때 기존 환경을 그대로 물려주고 `PYTHONDONTWRITEBYTECODE=1`만 더한다. 이 한 곳만 바꾼다. 단언, 테스트 본문, 다른 테스트 파일은 바꾸지 않는다.
+  근거: scratch 재현(/Users/yunhunbin/.hermes/profiles/developer-buccl/cache/scratch/hb-pyc-repro/repro.py). 크기가 같은 변경에 수정 시각이 같은 초면 옛 .pyc가 쓰여 깨진 동작이 가려진다.
