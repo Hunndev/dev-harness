@@ -1,0 +1,23 @@
+{
+  "args": [
+    "-rA",
+    "tests"
+  ],
+  "at": "2026-10-29T05:07:23Z",
+  "broken": [],
+  "counts": {
+    "error": 0,
+    "failure": 0,
+    "passed": 138,
+    "skipped": 0
+  },
+  "exit_code": 0,
+  "head": "c88acf7b982ed429cfcaf3a1dac99566d5b13c74",
+  "label": "review-full",
+  "log_sha256": "2b57e2bbf79bb53495741e9b05dfa11fe899b92345a894bfb07658907f5e6eef",
+  "ran": "ran",
+  "report": "logs/review-full-20261029T050620Z-89476.xml",
+  "runner": "pytest",
+  "seconds": 63,
+  "total": 138
+}

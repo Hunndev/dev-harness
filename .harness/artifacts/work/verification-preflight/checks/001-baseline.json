@@ -1,0 +1,23 @@
+{
+  "args": [
+    "-rA",
+    "tests"
+  ],
+  "at": "2026-10-29T03:45:35Z",
+  "broken": [],
+  "counts": {
+    "error": 0,
+    "failure": 0,
+    "passed": 95,
+    "skipped": 0
+  },
+  "exit_code": 0,
+  "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+  "label": "baseline",
+  "log_sha256": "257717d32c5893d92a2326b8fad4107fdfe7e3ccc3cd7f51900b6355c81832ed",
+  "ran": "ran",
+  "report": "logs/baseline-20261029T034439Z-66349.xml",
+  "runner": "pytest",
+  "seconds": 55,
+  "total": 95
+}

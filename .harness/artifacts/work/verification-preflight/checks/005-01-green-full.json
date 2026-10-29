@@ -1,0 +1,25 @@
+{
+  "args": [
+    "-rA",
+    "tests"
+  ],
+  "at": "2026-10-29T04:11:49Z",
+  "broken": [
+    "tests.test_hb_review.ReviewCase::test_stops_when_a_commit_after_done_breaks_an_old_test"
+  ],
+  "counts": {
+    "error": 0,
+    "failure": 1,
+    "passed": 119,
+    "skipped": 0
+  },
+  "exit_code": 1,
+  "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+  "label": "01-green-full",
+  "log_sha256": "f4149152d813f3adfe47d8c48e754749ecf5669e6e2aa9b1c09a5960d44501f1",
+  "ran": "ran",
+  "report": "logs/01-green-full-20261029T041047Z-73433.xml",
+  "runner": "pytest",
+  "seconds": 62,
+  "total": 120
+}

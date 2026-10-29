@@ -1,0 +1,38 @@
+{
+  "work": "verification-preflight",
+  "tasks": [
+    {
+      "id": "01",
+      "title": "preflight 명령: 환경/증거경로/범위/시간 사전 검증과 결과 세 칸 구분, 증거 재사용",
+      "kind": "feature",
+      "criteria": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"],
+      "allowed_files": ["bin/hb.py", "tests/test_hb_preflight.py", "tests/test_hb_review.py"],
+      "check_args": ["tests/test_hb_preflight.py"]
+    },
+    {
+      "id": "02",
+      "title": "skills와 README에 preflight 연계",
+      "kind": "feature",
+      "criteria": ["C9"],
+      "allowed_files": ["skills/dev/SKILL.md", "skills/plan/SKILL.md", "skills/eval/SKILL.md",
+                        "skills/review/SKILL.md", "README.md", "tests/test_skills_preflight.py"],
+      "check_args": ["tests/test_skills_preflight.py"]
+    },
+    {
+      "id": "03",
+      "title": "preflight 경로 해석: --aux 정규화와 저장소 탈출 거부, 상대 PATH를 저장소 기준으로",
+      "kind": "bug",
+      "criteria": ["C2", "C4"],
+      "allowed_files": ["bin/hb.py", "tests/test_hb_preflight_paths.py"],
+      "check_args": ["tests/test_hb_preflight_paths.py"]
+    },
+    {
+      "id": "04",
+      "title": "preflight reuse: green 뒤 커밋으로 바뀐 파일도 review_paths에",
+      "kind": "bug",
+      "criteria": ["C7"],
+      "allowed_files": ["bin/hb.py", "tests/test_hb_preflight_reuse.py"],
+      "check_args": ["tests/test_hb_preflight_reuse.py"]
+    }
+  ]
+}

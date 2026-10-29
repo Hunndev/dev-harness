@@ -1,0 +1,212 @@
+{
+  "baseline": {
+    "at": "2026-10-29T03:45:35Z",
+    "branch": "feat/verification-preflight",
+    "broken": [],
+    "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+    "record": "checks/001-baseline.json",
+    "total": 95
+  },
+  "review": {
+    "at": "2026-10-29T06:00:16Z",
+    "base": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+    "head": "3bf2672fa0528540ccad271942bd34c7f702a076",
+    "record": "checks/020-review-full.json",
+    "since": "067a75d1b534ae49ea79faa76acb818323df1a1e"
+  },
+  "tasks": {
+    "01": {
+      "done": {
+        "at": "2026-10-29T04:36:23Z",
+        "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight.py",
+          "tests/test_hb_review.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T04:32:35Z",
+        "ok": true,
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight.py",
+          "tests/test_hb_review.py"
+        ],
+        "records": [
+          "checks/007-01-green-task.json",
+          "checks/008-01-green-full.json"
+        ],
+        "snapshot": "b14e7314b9d23678aa6db61c8e99a4212b7d5ef6e003f582ef481c15b5d9baa4"
+      },
+      "red": {
+        "at": "2026-10-29T04:26:58Z",
+        "failed": [
+          "tests.test_hb_preflight.PreflightCase::test_bad_deadline_format_stops_without_blocked",
+          "tests.test_hb_preflight.PreflightCase::test_c1_pytest_not_importable_by_running_python_stops_as_environment",
+          "tests.test_hb_preflight.PreflightCase::test_c1_pytest_not_needed_when_runner_is_not_pytest",
+          "tests.test_hb_preflight.PreflightCase::test_c2_existing_command_for_non_pytest_runner_is_not_blocked",
+          "tests.test_hb_preflight.PreflightCase::test_c2_missing_command_for_non_pytest_runner_stops_as_environment",
+          "tests.test_hb_preflight.PreflightCase::test_c3_logs_not_ignored_stops_as_evidence",
+          "tests.test_hb_preflight.PreflightCase::test_c3_only_log_files_ignored_still_stops_as_evidence",
+          "tests.test_hb_preflight.PreflightCase::test_c4_aux_inside_allowed_files_is_not_blocked",
+          "tests.test_hb_preflight.PreflightCase::test_c4_aux_outside_allowed_files_stops_as_scope_with_path",
+          "tests.test_hb_preflight.PreflightCase::test_c4_aux_without_task_stops_as_scope",
+          "tests.test_hb_preflight.PreflightCase::test_c5_far_future_deadline_is_not_blocked",
+          "tests.test_hb_preflight.PreflightCase::test_c5_margin_counts_toward_needed_time",
+          "tests.test_hb_preflight.PreflightCase::test_c5_past_deadline_stops_as_time",
+          "tests.test_hb_preflight.PreflightCase::test_c6_green_ok_with_aux_reports_product_pass_and_aux_incomplete",
+          "tests.test_hb_preflight.PreflightCase::test_c6_product_not_run_when_task_not_given_even_after_green",
+          "tests.test_hb_preflight.PreflightCase::test_c6_product_not_run_without_green_record",
+          "tests.test_hb_preflight.PreflightCase::test_c6_product_pass_with_environment_blocked_is_still_stop",
+          "tests.test_hb_preflight.PreflightCase::test_c7_modified_file_after_green_is_changed_with_review_path",
+          "tests.test_hb_preflight.PreflightCase::test_c7_new_file_after_green_is_changed_with_review_path",
+          "tests.test_hb_preflight.PreflightCase::test_c7_unchanged_source_after_green_is_same_source",
+          "tests.test_hb_preflight.PreflightCase::test_c8_preflight_before_baseline_creates_no_records",
+          "tests.test_hb_preflight.PreflightCase::test_c8_preflight_leaves_state_checks_and_logs_untouched",
+          "tests.test_hb_preflight.PreflightCase::test_nothing_blocked_is_ok_with_empty_blocked_and_no_optional_fields",
+          "tests.test_hb_preflight.PreflightCase::test_several_blocked_kinds_are_all_reported_in_one_stop",
+          "tests.test_hb_preflight.PreflightCase::test_unknown_task_id_stops_with_same_reason_as_check"
+        ],
+        "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+        "ok": true,
+        "record": "checks/006-01-red.json",
+        "test_fp": "4b0a2c6d7b7a783fa4a94ae3caad0c5b3ee14c491847bccd9344ce9042a7d058"
+      }
+    },
+    "02": {
+      "done": {
+        "at": "2026-10-29T04:57:06Z",
+        "head": "d9993b49db76e56db1f49ff15bbb34cc77989d23",
+        "paths": [
+          "README.md",
+          "skills/dev/SKILL.md",
+          "skills/eval/SKILL.md",
+          "skills/plan/SKILL.md",
+          "skills/review/SKILL.md",
+          "tests/test_skills_preflight.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T04:53:48Z",
+        "ok": true,
+        "paths": [
+          "README.md",
+          "skills/dev/SKILL.md",
+          "skills/eval/SKILL.md",
+          "skills/plan/SKILL.md",
+          "skills/review/SKILL.md",
+          "tests/test_skills_preflight.py"
+        ],
+        "records": [
+          "checks/011-02-green-task.json",
+          "checks/012-02-green-full.json"
+        ],
+        "snapshot": "c5ce9d18ccfd9c294335e0893a80591e5b94339bfe3c44636d9a11dee49bf5bb"
+      },
+      "red": {
+        "at": "2026-10-29T04:45:30Z",
+        "failed": [
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_aux_out_of_scope_stops_and_reports_path_change",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_does_not_promote_recommendation_with_preflight",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_command_documented",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_stop_does_not_start_check",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_reports_three_outcomes_separately",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_baseline",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_each_check",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_aux_incomplete_is_not_pass",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_environment_blocked_is_not_pass",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_product_only_is_completion_evidence",
+          "tests.test_skills_preflight.PlanSkillPreflight::test_plan_checks_environment_with_preflight",
+          "tests.test_skills_preflight.PlanSkillPreflight::test_plan_preflight_comes_after_step_9",
+          "tests.test_skills_preflight.ReadmePreflight::test_readme_describes_preflight_command",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_aux_incomplete_is_not_pass",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_environment_blocked_is_not_pass",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_product_only_is_completion_evidence"
+        ],
+        "head": "d9993b49db76e56db1f49ff15bbb34cc77989d23",
+        "ok": true,
+        "record": "checks/010-02-red.json",
+        "test_fp": "fb6cdb31a7bb91201889a8f1bcb3b49592ce07b5c38a0726543ab9ffbd5d0b9f"
+      }
+    },
+    "03": {
+      "done": {
+        "at": "2026-10-29T05:28:12Z",
+        "head": "72c79ed945148337693213555a265ac2a6fec95f",
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_paths.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T05:25:37Z",
+        "ok": true,
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_paths.py"
+        ],
+        "records": [
+          "checks/015-03-green-task.json",
+          "checks/016-03-green-full.json"
+        ],
+        "snapshot": "ed4a960a74b60b76f61e8d59ee7ad02c4c98557ff71e9c7f8441c1d2cdf11491"
+      },
+      "red": {
+        "at": "2026-10-29T05:19:19Z",
+        "failed": [
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c2_relative_path_entry_does_not_find_command_only_in_calling_folder",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c2_relative_path_entry_finds_command_in_repo_when_called_from_elsewhere",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_path_inside_repo_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_path_outside_repo_stops_as_scope",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_real_path_inside_repo_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_dot_slash_path_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_glob_does_not_let_dotdot_reach_file_outside_allowed",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_glob_does_not_let_path_escape_repo"
+        ],
+        "head": "72c79ed945148337693213555a265ac2a6fec95f",
+        "ok": true,
+        "record": "checks/014-03-red.json",
+        "test_fp": "c9442e36160b66c30419042eb01e8b57761ac13fd7d3e6de7e10f71e59130ac0"
+      }
+    },
+    "04": {
+      "done": {
+        "at": "2026-10-29T05:51:49Z",
+        "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_reuse.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T05:48:46Z",
+        "ok": true,
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_reuse.py"
+        ],
+        "records": [
+          "checks/018-04-green-task.json",
+          "checks/019-04-green-full.json"
+        ],
+        "snapshot": "97a6924a4a59d08f87d3805eb14c416eb12fbf98b0e21442903f812099cc95d1"
+      },
+      "red": {
+        "at": "2026-10-29T05:42:26Z",
+        "failed": [
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_committed_and_uncommitted_changes_after_green_are_both_review_paths",
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_new_file_committed_after_green_is_changed_with_review_path",
+          "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_tracked_file_modified_and_committed_after_green_is_changed_with_review_path"
+        ],
+        "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+        "ok": true,
+        "record": "checks/017-04-red.json",
+        "test_fp": "d4acf3097a2107a948fd7629cc4d1d36324eff267340ed94f5bf3a2a9222e5f8"
+      }
+    }
+  },
+  "tool": "claude-code",
+  "version": 1,
+  "work": "verification-preflight"
+}

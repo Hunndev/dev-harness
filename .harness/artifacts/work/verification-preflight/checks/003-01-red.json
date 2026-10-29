@@ -1,0 +1,48 @@
+{
+  "args": [
+    "tests/test_hb_preflight.py"
+  ],
+  "at": "2026-10-29T04:02:20Z",
+  "broken": [
+    "tests.test_hb_preflight.PreflightCase::test_bad_deadline_format_stops_without_blocked",
+    "tests.test_hb_preflight.PreflightCase::test_c1_pytest_not_importable_by_running_python_stops_as_environment",
+    "tests.test_hb_preflight.PreflightCase::test_c1_pytest_not_needed_when_runner_is_not_pytest",
+    "tests.test_hb_preflight.PreflightCase::test_c2_existing_command_for_non_pytest_runner_is_not_blocked",
+    "tests.test_hb_preflight.PreflightCase::test_c2_missing_command_for_non_pytest_runner_stops_as_environment",
+    "tests.test_hb_preflight.PreflightCase::test_c3_logs_not_ignored_stops_as_evidence",
+    "tests.test_hb_preflight.PreflightCase::test_c3_only_log_files_ignored_still_stops_as_evidence",
+    "tests.test_hb_preflight.PreflightCase::test_c4_aux_inside_allowed_files_is_not_blocked",
+    "tests.test_hb_preflight.PreflightCase::test_c4_aux_outside_allowed_files_stops_as_scope_with_path",
+    "tests.test_hb_preflight.PreflightCase::test_c4_aux_without_task_stops_as_scope",
+    "tests.test_hb_preflight.PreflightCase::test_c5_far_future_deadline_is_not_blocked",
+    "tests.test_hb_preflight.PreflightCase::test_c5_margin_counts_toward_needed_time",
+    "tests.test_hb_preflight.PreflightCase::test_c5_past_deadline_stops_as_time",
+    "tests.test_hb_preflight.PreflightCase::test_c6_green_ok_with_aux_reports_product_pass_and_aux_incomplete",
+    "tests.test_hb_preflight.PreflightCase::test_c6_product_not_run_when_task_not_given_even_after_green",
+    "tests.test_hb_preflight.PreflightCase::test_c6_product_not_run_without_green_record",
+    "tests.test_hb_preflight.PreflightCase::test_c6_product_pass_with_environment_blocked_is_still_stop",
+    "tests.test_hb_preflight.PreflightCase::test_c7_modified_file_after_green_is_changed_with_review_path",
+    "tests.test_hb_preflight.PreflightCase::test_c7_new_file_after_green_is_changed_with_review_path",
+    "tests.test_hb_preflight.PreflightCase::test_c7_unchanged_source_after_green_is_same_source",
+    "tests.test_hb_preflight.PreflightCase::test_c8_preflight_before_baseline_creates_no_records",
+    "tests.test_hb_preflight.PreflightCase::test_c8_preflight_leaves_state_checks_and_logs_untouched",
+    "tests.test_hb_preflight.PreflightCase::test_nothing_blocked_is_ok_with_empty_blocked_and_no_optional_fields",
+    "tests.test_hb_preflight.PreflightCase::test_several_blocked_kinds_are_all_reported_in_one_stop",
+    "tests.test_hb_preflight.PreflightCase::test_unknown_task_id_stops_with_same_reason_as_check"
+  ],
+  "counts": {
+    "error": 0,
+    "failure": 25,
+    "passed": 0,
+    "skipped": 0
+  },
+  "exit_code": 1,
+  "head": "dae8b745efed1afcb64ca8b20bc52dc82a28019c",
+  "label": "01-red",
+  "log_sha256": "b7cfa61f2d22db9bec19c1dbade9d8c90ca911df36bb865a818309eb711633de",
+  "ran": "ran",
+  "report": "logs/01-red-20261029T040212Z-71683.xml",
+  "runner": "pytest",
+  "seconds": 8,
+  "total": 25
+}

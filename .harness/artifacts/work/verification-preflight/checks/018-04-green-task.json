@@ -1,0 +1,22 @@
+{
+  "args": [
+    "tests/test_hb_preflight_reuse.py"
+  ],
+  "at": "2026-10-29T05:47:34Z",
+  "broken": [],
+  "counts": {
+    "error": 0,
+    "failure": 0,
+    "passed": 5,
+    "skipped": 0
+  },
+  "exit_code": 0,
+  "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+  "label": "04-green-task",
+  "log_sha256": "52137cc9b4e082294e74bf47d2e17353f86f4c821df7f9c7d27ef3607e177d75",
+  "ran": "ran",
+  "report": "logs/04-green-task-20261029T054731Z-42163.xml",
+  "runner": "pytest",
+  "seconds": 3,
+  "total": 5
+}

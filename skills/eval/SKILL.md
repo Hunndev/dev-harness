@@ -25,6 +25,10 @@ description: hb 작업의 평가. 개발(dev)이 끝난 작업을 새 세션에�
 - 할 일 목록(`tasks.json`)과 진행표(`INDEX.md`): 개발 때 남은 "권장"
 - 저장소 규칙: `.harness/README.md`와 거기 적힌 규칙 문서
 - 프로그램 기록(`state.json`)의 `baseline.head`: 작업을 시작한 커밋
+- 진행표와 프로그램 출력에 적힌 시작 전 검증(`preflight`)의 결과. 평가는 `preflight`를 돌리지 않고, 적힌 것만 이렇게 읽는다.
+  - `product`만 완료 증거로 읽는다. 그것도 프로그램의 check 기록(`state.json`, `checks/`)이 함께 있을 때만이다.
+  - `aux: incomplete`는 보조검증이 끝나지 않았다는 뜻이다. 통과로 읽지 않는다.
+  - `environment: blocked`는 통과가 아니다. 그 환경에서 낸 결과는 판단 근거로 쓰지 않는다.
 - 이전 평가 기록(`eval-*.md`)은 아래 3번까지 끝낸 뒤에 읽는다. 이전 판단에 끌려가지 않게 하려는 것이다.
 
 ## 순서

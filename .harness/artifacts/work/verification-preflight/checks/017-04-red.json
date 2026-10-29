@@ -1,0 +1,26 @@
+{
+  "args": [
+    "tests/test_hb_preflight_reuse.py"
+  ],
+  "at": "2026-10-29T05:42:26Z",
+  "broken": [
+    "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_committed_and_uncommitted_changes_after_green_are_both_review_paths",
+    "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_new_file_committed_after_green_is_changed_with_review_path",
+    "tests.test_hb_preflight_reuse.PreflightReuseCase::test_c7_tracked_file_modified_and_committed_after_green_is_changed_with_review_path"
+  ],
+  "counts": {
+    "error": 0,
+    "failure": 3,
+    "passed": 2,
+    "skipped": 0
+  },
+  "exit_code": 1,
+  "head": "4e6269ac947246acd28bc1f281e6b5195b2c7342",
+  "label": "04-red",
+  "log_sha256": "03f39d65f9538ca10c77249ab577b989e3b12ccbbf28caa154d3e8255ba63dc9",
+  "ran": "ran",
+  "report": "logs/04-red-20261029T054220Z-25332.xml",
+  "runner": "pytest",
+  "seconds": 5,
+  "total": 5
+}

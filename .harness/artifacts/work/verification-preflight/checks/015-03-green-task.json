@@ -1,0 +1,22 @@
+{
+  "args": [
+    "tests/test_hb_preflight_paths.py"
+  ],
+  "at": "2026-10-29T05:24:28Z",
+  "broken": [],
+  "counts": {
+    "error": 0,
+    "failure": 0,
+    "passed": 13,
+    "skipped": 0
+  },
+  "exit_code": 0,
+  "head": "72c79ed945148337693213555a265ac2a6fec95f",
+  "label": "03-green-task",
+  "log_sha256": "2e4dd43434a3179309fbbe8b53a68ef47a015c4b8ae48789843b2c4d91d39151",
+  "ran": "ran",
+  "report": "logs/03-green-task-20261029T052426Z-15158.xml",
+  "runner": "pytest",
+  "seconds": 2,
+  "total": 13
+}
