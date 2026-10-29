@@ -85,6 +85,13 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
 ## 막힌 곳
 - 전체 deadline 2026-10-29T03:53:30Z(마진 120초).
 
+## 교차검수
+- Claude 일반 review: `/code-review high f4f61ab5a67e15c8d43dffc8299b6c4137bdbe29..72c79ed945148337693213555a265ac2a6fec95f` (opus 5.5 high, 읽기 전용, 테스트 실행 없음. 이 세션의 스킬 목록에 /review가 없어 /code-review로 실행). 지적 10건(0건 아님). 처리: #4는 할 일 03, #5 (a)는 평가 02 판정으로 할 일 04, #1·#2·#3·#6·#7은 평가 02가 spec 정의대로이며 비차단으로 판정(eval-02.md 표), #8·#9는 새 설계로 고치지 않음(통과 판정 아님), #10은 #2와 같은 갈래.
+- Codex native exec review v7 (감독 실행, gpt-6-astra medium, base f4f61ab..72c79ed, rc 0): P2 2건(--aux 정규화, 상대 PATH). 원문 /Users/yunhunbin/.hermes/profiles/developer-buccl/artifacts/harness-verification-preflight/codex-v7-final.txt → 할 일 03.
+- Codex 같은 thread delta v8 (72c79ed..a3e62cf, rc 0): 두 P2 해소, 새 delta 지적 0, 비차단 권장 0. 원문 .../codex-v8-final.txt.
+- Codex 같은 thread delta v9 (a3e62cf..067a75d, rc 0): C7 해소, 남은 C7 delta 결함 0, 비차단 권장 0, green 기록 모양과 기존 관문 불변. 원문 .../codex-v9-final.txt.
+- 절차 기록: 검수 02의 검수자가 시스템 `python3 -I`로 tasks.json을 한 번 읽음(읽기만, 쓰기 없음, 검수자 자진 보고). 감독이 금지한 -I 플래그 사용이므로 사실대로 남긴다. 평가 02의 `python3 -c "pass"`, 평가 03의 읽기 전용 git grep/cat/ls 사용도 각 기록에 자진 보고됨.
+
 ## 평가
 - 평가 01 (eval-01.md, 대상 커밋 09281d420cf808cfdbc7801547215e6399353646): 검수로. 구현 오류 0, 필수 테스트 누락 0, 질문 0, 검수 확인 항목 3, 권장 7. 다시 받은 횟수 0.
 - 평가 02 (eval-02.md, 대상 커밋 a3e62cf765387ad601aa110b02ccfdcf31092ffa): 개발로. 구현 오류 1(C7: green 뒤 커밋으로 바뀐 파일이 review_paths에 없음 → 할 일 04), 필수 테스트 누락 0, 질문 0, 검수 확인 항목 3, 권장 6. 일반 review 독립 판정: #5 (a) 구현 오류, #5 (b) 합집합 정의 대비로는 맞음, #1·#2·#3·#6·#7 spec 정의대로이며 비차단(근거는 eval-02.md 표). 다시 받은 횟수 1.
