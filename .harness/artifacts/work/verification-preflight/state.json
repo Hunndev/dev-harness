@@ -66,6 +66,62 @@
         "record": "checks/006-01-red.json",
         "test_fp": "4b0a2c6d7b7a783fa4a94ae3caad0c5b3ee14c491847bccd9344ce9042a7d058"
       }
+    },
+    "02": {
+      "done": {
+        "at": "2026-10-29T04:57:06Z",
+        "head": "d9993b49db76e56db1f49ff15bbb34cc77989d23",
+        "paths": [
+          "README.md",
+          "skills/dev/SKILL.md",
+          "skills/eval/SKILL.md",
+          "skills/plan/SKILL.md",
+          "skills/review/SKILL.md",
+          "tests/test_skills_preflight.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T04:53:48Z",
+        "ok": true,
+        "paths": [
+          "README.md",
+          "skills/dev/SKILL.md",
+          "skills/eval/SKILL.md",
+          "skills/plan/SKILL.md",
+          "skills/review/SKILL.md",
+          "tests/test_skills_preflight.py"
+        ],
+        "records": [
+          "checks/011-02-green-task.json",
+          "checks/012-02-green-full.json"
+        ],
+        "snapshot": "c5ce9d18ccfd9c294335e0893a80591e5b94339bfe3c44636d9a11dee49bf5bb"
+      },
+      "red": {
+        "at": "2026-10-29T04:45:30Z",
+        "failed": [
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_aux_out_of_scope_stops_and_reports_path_change",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_does_not_promote_recommendation_with_preflight",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_command_documented",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_stop_does_not_start_check",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_reports_three_outcomes_separately",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_baseline",
+          "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_each_check",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_aux_incomplete_is_not_pass",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_environment_blocked_is_not_pass",
+          "tests.test_skills_preflight.EvalSkillPreflight::test_product_only_is_completion_evidence",
+          "tests.test_skills_preflight.PlanSkillPreflight::test_plan_checks_environment_with_preflight",
+          "tests.test_skills_preflight.PlanSkillPreflight::test_plan_preflight_comes_after_step_9",
+          "tests.test_skills_preflight.ReadmePreflight::test_readme_describes_preflight_command",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_aux_incomplete_is_not_pass",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_environment_blocked_is_not_pass",
+          "tests.test_skills_preflight.ReviewSkillPreflight::test_product_only_is_completion_evidence"
+        ],
+        "head": "d9993b49db76e56db1f49ff15bbb34cc77989d23",
+        "ok": true,
+        "record": "checks/010-02-red.json",
+        "test_fp": "fb6cdb31a7bb91201889a8f1bcb3b49592ce07b5c38a0726543ab9ffbd5d0b9f"
+      }
     }
   },
   "tool": "claude-code",

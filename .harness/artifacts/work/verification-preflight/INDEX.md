@@ -45,7 +45,19 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
   - red 1: rc=0, "실패 확인 됨. 본문에서 실패한 테스트 25개" (checks/002-01-red.json)
   - 테스트 검토 1: 지문 전후 같음(logs/01-pre-test-review.log = logs/01-post-test-review.log). 꼭 고칠 것 1건: state.json 없음 + --task일 때 product not_run / reuse 없음을 단언하지 않음.
   - 남은 권장(진행 안 막음): C7 경로 목록이 같고 내용만 바뀌면 green 기록만으로 파일을 가릴 수 없어 review_paths는 "바뀐 파일을 포함"만 확인; C6 product: fail은 실제 흐름에서 만들 수 없어 행동 테스트 없음; C4 280줄 assertNotIn("app.py")가 안내 문구를 막을 수 있음.
-- 02: 시작 전
+- 01: 완료. 커밋 d9993b4 (done hb_rc=0 "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨")
+- 02: 완료(done hb_rc=0 "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨"). 테스트 동결(tests/test_skills_preflight.py sha256 e7eeecb50c2dcb429e773dcf33abd3ccced17a0d6d3b38a8b37ac4c14e6e4fb1). 테스트 재작성 1회, 지적 반영 0회
+  - red 2: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 16개" (checks/010-02-red.json)
+  - 테스트 검토 2(변경분): 지문 전후 같음(logs/02-pre-test-review2.log = logs/02-post-test-review2.log). 꼭 고칠 것 없음, 권장 없음.
+  - 구현(README.md, skills 4개, native Edit). 구현자의 focused 실행: tests/test_skills_preflight.py 18 passed.
+  - green 1: hb_rc=0, "통과 확인 됨. 새로 깨진 것 없음" (checks/011-02-green-task.json, checks/012-02-green-full.json 전체 138개 통과).
+  - 구현 검토: 지문 전후 같음(logs/02-pre-impl-review.log = logs/02-post-impl-review.log). 꼭 고칠 것 없음.
+    - 남은 권장(진행 안 막음): dev 58줄 "preflight가 내는 지적" 표현을 검토의 권장으로 좁히기; plan 44줄을 preflight ok/stop 조건과 합치고 파이썬 선택 안내 더하기; eval/review "product만"을 product: pass + reuse가 changed 아님으로 밝히기; dev에 blocked 없는 stop이면 reason을 적는다 더하기; --deadline 형식(UTC ISO 8601) 적기.
+  - 커밋 1번(프로그램이 돌리지 않는 검증 명령): .harness/README.md에 별도 검증 명령 없음. 돌릴 것 없음.
+  - 할 일 02 결과: "통과 확인 됨. 새로 깨진 것 없음". 테스트 재작성 1회, 지적 반영 0회.
+  - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 16개" (checks/009-02-red.json). 기존 규칙 유지 테스트 2개는 통과.
+  - 테스트 검토 1: 지문 전후 같음(logs/02-pre-test-review.log = logs/02-post-test-review.log). 꼭 고칠 것 2건: (1) stop 조건 없이 "돌리지 않"만으로 통과, (2) README 테스트가 파일 목록 줄로 통과.
+  - 남은 권장(진행 안 막음): eval/review "product만"의 "만" 미확인; 세 칸 "보고" 미확인; "각 check" 미확인; 권장 규칙 절 제한이 과함; dev 88줄 뒷문장 보호 빠짐; eval 17줄 "테스트를 돌리지 않는다" 보호 없음.
 
 ## 막힌 곳
 - 전체 deadline 2026-10-29T03:53:30Z(마진 120초).

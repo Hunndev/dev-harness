@@ -1,0 +1,39 @@
+{
+  "args": [
+    "tests/test_skills_preflight.py"
+  ],
+  "at": "2026-10-29T04:40:37Z",
+  "broken": [
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_aux_out_of_scope_stops_and_reports_path_change",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_does_not_promote_recommendation_with_preflight",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_command_documented",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_preflight_stop_does_not_start_check",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_reports_three_outcomes_separately",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_baseline",
+    "tests.test_skills_preflight.DevSkillPreflight::test_dev_runs_preflight_before_each_check",
+    "tests.test_skills_preflight.EvalSkillPreflight::test_aux_incomplete_is_not_pass",
+    "tests.test_skills_preflight.EvalSkillPreflight::test_environment_blocked_is_not_pass",
+    "tests.test_skills_preflight.EvalSkillPreflight::test_product_only_is_completion_evidence",
+    "tests.test_skills_preflight.PlanSkillPreflight::test_plan_checks_environment_with_preflight",
+    "tests.test_skills_preflight.PlanSkillPreflight::test_plan_preflight_comes_after_step_9",
+    "tests.test_skills_preflight.ReadmePreflight::test_readme_describes_preflight_command",
+    "tests.test_skills_preflight.ReviewSkillPreflight::test_aux_incomplete_is_not_pass",
+    "tests.test_skills_preflight.ReviewSkillPreflight::test_environment_blocked_is_not_pass",
+    "tests.test_skills_preflight.ReviewSkillPreflight::test_product_only_is_completion_evidence"
+  ],
+  "counts": {
+    "error": 0,
+    "failure": 16,
+    "passed": 2,
+    "skipped": 0
+  },
+  "exit_code": 1,
+  "head": "d9993b49db76e56db1f49ff15bbb34cc77989d23",
+  "label": "02-red",
+  "log_sha256": "cff0fe8ee4128c984f3402e91cda7be67de4ac745de75bbda8b5061b5a96d7fc",
+  "ran": "ran",
+  "report": "logs/02-red-20261029T044037Z-84258.xml",
+  "runner": "pytest",
+  "seconds": 0,
+  "total": 18
+}
