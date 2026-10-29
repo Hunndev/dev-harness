@@ -1,0 +1,22 @@
+{
+  "work": "verification-preflight",
+  "tasks": [
+    {
+      "id": "01",
+      "title": "preflight 명령: 환경/증거경로/범위/시간 사전 검증과 결과 세 칸 구분, 증거 재사용",
+      "kind": "feature",
+      "criteria": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"],
+      "allowed_files": ["bin/hb.py", "tests/test_hb_preflight.py"],
+      "check_args": ["tests/test_hb_preflight.py"]
+    },
+    {
+      "id": "02",
+      "title": "skills와 README에 preflight 연계",
+      "kind": "feature",
+      "criteria": ["C9"],
+      "allowed_files": ["skills/dev/SKILL.md", "skills/plan/SKILL.md", "skills/eval/SKILL.md",
+                        "skills/review/SKILL.md", "README.md", "tests/test_skills_preflight.py"],
+      "check_args": ["tests/test_skills_preflight.py"]
+    }
+  ]
+}
