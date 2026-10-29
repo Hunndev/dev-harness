@@ -46,6 +46,17 @@ bootstrap 커밋: 0a246bb (.harness/README.md, .harness/docs/checks.json, .gitig
   - 테스트 검토 1: 지문 전후 같음(logs/01-pre-test-review.log = logs/01-post-test-review.log). 꼭 고칠 것 1건: state.json 없음 + --task일 때 product not_run / reuse 없음을 단언하지 않음.
   - 남은 권장(진행 안 막음): C7 경로 목록이 같고 내용만 바뀌면 green 기록만으로 파일을 가릴 수 없어 review_paths는 "바뀐 파일을 포함"만 확인; C6 product: fail은 실제 흐름에서 만들 수 없어 행동 테스트 없음; C4 280줄 assertNotIn("app.py")가 안내 문구를 막을 수 있음.
 - 01: 완료. 커밋 d9993b4 (done hb_rc=0 "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨")
+- 03: 완료. 검수 01 뒤 리뷰에서 더함
+  - 구현(bin/hb.py만, native Edit): repo_relative로 --aux 정리와 저장소 밖 거부, 비pytest 명령 찾기에서 PATH 각 항목(빈 항목 포함)을 ctx.repo 기준으로 풂. 구현자의 pytest는 권한 거부로 돌지 않음(결과 없음).
+  - green 1: hb_rc=0, "통과 확인 됨. 새로 깨진 것 없음" (checks/015-03-green-task.json, checks/016-03-green-full.json 전체 151개 통과, 건너뜀 0).
+  - 구현 검토: 지문 전후 같음(logs/03-pre-impl-review.log = logs/03-post-impl-review.log). 꼭 고칠 것 없음. 빈 PATH 항목 대조: 버리지 않고 os.path.join(ctx.repo, "") = ctx.repo + "/"로 풀며 run_check(cwd=ctx.repo)와 같은 곳을 찾음.
+    - 남은 권장(진행 안 막음): --repo 없이 git toplevel이 실제 경로이고 --aux가 링크 경로(/tmp/...)면 허락된 파일인데도 저장소 밖으로 막힘(잘못 막는 쪽); 빈 PATH 항목을 확인하는 테스트 없음(C2 문언과 할 일 본문 기대는 상대 항목까지).
+  - 커밋 1번(프로그램이 돌리지 않는 검증 명령): 없음. 테스트 재작성 0회, 지적 반영 0회.(감독 지시, codex-v7-findings-owner.md). tasks/03-preflight-paths.md
+  - red 1: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 8개" (checks/014-03-red.json). 대조 테스트 5개 통과. 테스트 동결 tests/test_hb_preflight_paths.py sha256 f36f6ae15ffb99bb21b651b42831986fc3340e084cbbc415860ca872c4b587d3.
+  - 테스트 검토 1: 지문 전후 같음(logs/03-pre-test-review.log = logs/03-post-test-review.log). 꼭 고칠 것 없음. 남은 권장: 저장소 탈출 세 테스트에 "경로 변경 필요" 단언 없음; 링크를 푼 절대 경로 테스트에 outcome.aux 단언 없음. 테스트 재작성 0회, 지적 반영 0회.
+  - 출처: Codex native exec review(gpt-6-astra medium, base f4f61ab..72c79ed, rc0) P2 2건과 Claude 일반 review(/code-review high, 같은 범위. 이 세션의 스킬 목록에 /review가 없어 /code-review로 실행) #4.
+  - 고칠 것: --aux 경로 정규화와 저장소 탈출 거부(C4), 상대 PATH 항목을 ctx.repo 기준으로 풀기(C2).
+  - 할 일 03에 넣지 않은 일반 review 지적(**통과 판정이 아님. 비차단 여부 미판정**). 감독 판정 원문(review-v7-adjudication.md): "일반review 10건의 제외는 모두 통과 판정으로 바꾸지 마세요. 현재 task03 최소2건은 계속하되 새 eval에서 #1/#2/#3/#5/#6/#7이 승인된 spec의 정확한 정의상 비차단인지 독립 확인을 맡기고 근거 남기세요(새 설계/추가 범위 요구 금지). … 특히 #5 커밋 후 변경 파일 누락이 C7 계약 위반인지 합집합 정의 대비 분리. 기존 판정/gate 변경금지. 일반리뷰 zero-findings로 보고하지 않습니다." → eval-02가 #1/#2/#3/#5/#6/#7을 spec 정의(C5, C6, C7)에 대해 독립 판정한다. #5는 C7 문언("파일을 바꾸면 changed와 그 파일이 review_paths에 나온다") 대비 위반인지, 합집합 정의(구현·문서) 대비인지를 나눠 판정. 지휘의 앞선 분류는 근거가 아님: 일반 #1 실패한 green 뒤에도 이전 green 기록으로 product: pass, #2·#10 product: fail 갈래가 나올 수 없음(C6 정의 "green 기록이 ok"대로), #3 green이 run_check를 두 번 돌려 필요한 시간이 최대 2배(평가 권장 3), #5 green 뒤 커밋으로 들어온 파일이 review_paths에 없음(개발 권장), #6 커밋 뒤에는 늘 reuse: changed(평가 권장 4), #7 음수 --margin(평가 권장 6), #8 run_check와 명령 결정 공용화·xcresulttool 미확인(새 설계), #9 Ctx/ctx.task의 Stop은 blocked/outcome 모양이 없음(새 설계).
 - 02: 완료(done hb_rc=0 "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨"). 테스트 동결(tests/test_skills_preflight.py sha256 e7eeecb50c2dcb429e773dcf33abd3ccced17a0d6d3b38a8b37ac4c14e6e4fb1). 테스트 재작성 1회, 지적 반영 0회
   - red 2: hb_rc=0, "실패 확인 됨. 본문에서 실패한 테스트 16개" (checks/010-02-red.json)
   - 테스트 검토 2(변경분): 지문 전후 같음(logs/02-pre-test-review2.log = logs/02-post-test-review2.log). 꼭 고칠 것 없음, 권장 없음.

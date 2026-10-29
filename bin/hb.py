@@ -363,6 +363,16 @@ def outside_allowed(paths, allowed):
     return [p for p in paths if not any(p == a or fnmatch.fnmatch(p, a) for a in allowed)]
 
 
+def repo_relative(repo, path):
+    """경로를 저장소 기준 상대 경로로 정리한다. 저장소 밖이면 None."""
+    full = os.path.normpath(os.path.join(repo, path))  # 절대 경로는 그대로, 상대 경로는 저장소 기준
+    for base in (os.path.abspath(repo), os.path.realpath(repo)):  # 심볼릭 링크 아래 저장소도 같은 저장소로 본다
+        rel = os.path.relpath(full, base)
+        if rel != os.pardir and not rel.startswith(os.pardir + os.sep):
+            return rel.replace(os.sep, "/")
+    return None
+
+
 def logs_not_ignored(ctx):
     """작업 폴더의 logs/가 git 제외가 아니면 그 이유를 낸다. 제외면 None."""
     for name in ("x.log", "x" + report_ext(ctx)):  # 화면 기록과 보고서 둘 다 git에 들어가면 안 된다
@@ -385,7 +395,12 @@ def environment_problems(ctx):
             return ["이 파이썬에서 pytest를 찾을 수 없음: " + sys.executable]
         return []
     command = ctx.contract["command"][0]
-    if not shutil.which(os.path.join(ctx.repo, command) if os.sep in command else command):  # 검사는 저장소에서 돈다
+    if os.sep in command:
+        found = shutil.which(os.path.join(ctx.repo, command))  # 검사는 저장소에서 돈다
+    else:  # PATH의 상대 항목도 저장소 기준으로 푼다
+        entries = os.environ.get("PATH", os.defpath).split(os.pathsep)
+        found = shutil.which(command, path=os.pathsep.join(os.path.join(ctx.repo, e) for e in entries))
+    if not found:
         return ["검사 명령을 찾을 수 없음: " + command]
     return []
 
@@ -416,10 +431,15 @@ def cmd_preflight(ctx, args):
         if task is None:
             blocked["scope"] = ["--aux는 --task와 함께 줘야 함 (어느 할 일의 범위인지 알 수 없음)"]
         else:
-            outside = outside_allowed(args.aux, task["allowed_files"])
-            if outside:
-                blocked["scope"] = ["%s: 할 일 %s의 바꿔도 되는 파일 밖. 경로 변경 필요" % (p, task["id"])
-                                    for p in outside]
+            scope = []
+            for p in args.aux:
+                rel = repo_relative(ctx.repo, p)
+                if rel is None:
+                    scope.append("%s: 저장소 밖. 경로 변경 필요" % p)
+                elif outside_allowed([rel], task["allowed_files"]):
+                    scope.append("%s: 할 일 %s의 바꿔도 되는 파일 밖. 경로 변경 필요" % (p, task["id"]))
+            if scope:
+                blocked["scope"] = scope
     out = {"outcome": {"product": "not_run", "environment": "blocked" if env else "ok",
                        "aux": "incomplete" if args.aux else "none"}}
     if task is not None and os.path.exists(ctx.state_path):  # 바탕 검사 전이면 제품 결과는 없음

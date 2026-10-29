@@ -129,6 +129,46 @@
         "record": "checks/010-02-red.json",
         "test_fp": "fb6cdb31a7bb91201889a8f1bcb3b49592ce07b5c38a0726543ab9ffbd5d0b9f"
       }
+    },
+    "03": {
+      "done": {
+        "at": "2026-10-29T05:28:12Z",
+        "head": "72c79ed945148337693213555a265ac2a6fec95f",
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_paths.py"
+        ]
+      },
+      "green": {
+        "at": "2026-10-29T05:25:37Z",
+        "ok": true,
+        "paths": [
+          "bin/hb.py",
+          "tests/test_hb_preflight_paths.py"
+        ],
+        "records": [
+          "checks/015-03-green-task.json",
+          "checks/016-03-green-full.json"
+        ],
+        "snapshot": "ed4a960a74b60b76f61e8d59ee7ad02c4c98557ff71e9c7f8441c1d2cdf11491"
+      },
+      "red": {
+        "at": "2026-10-29T05:19:19Z",
+        "failed": [
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c2_relative_path_entry_does_not_find_command_only_in_calling_folder",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c2_relative_path_entry_finds_command_in_repo_when_called_from_elsewhere",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_path_inside_repo_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_path_outside_repo_stops_as_scope",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_absolute_real_path_inside_repo_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_dot_slash_path_to_allowed_file_is_not_blocked",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_glob_does_not_let_dotdot_reach_file_outside_allowed",
+          "tests.test_hb_preflight_paths.PreflightPathsCase::test_c4_glob_does_not_let_path_escape_repo"
+        ],
+        "head": "72c79ed945148337693213555a265ac2a6fec95f",
+        "ok": true,
+        "record": "checks/014-03-red.json",
+        "test_fp": "c9442e36160b66c30419042eb01e8b57761ac13fd7d3e6de7e10f71e59130ac0"
+      }
     }
   },
   "tool": "claude-code",
