@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "runner": "pytest",
+  "full_args": ["-rA", "tests"],
+  "timeout_seconds": 1200,
+  "test_globs": ["tests/*"]
+}
