@@ -535,7 +535,7 @@ def check_green(ctx, state, task):
     if git(ctx.repo, "rev-parse", "HEAD").strip() != red["head"]:
         raise Stop("stop", "실패 확인 뒤에 커밋이 생김. 커밋은 지휘만 하고, 완료 뒤에 함")
     if test_fingerprint(ctx, task["check_args"]) != red["test_fp"]:
-        raise Stop("stop", "실패 확인 뒤에 테스트가 바뀜. 테스트를 고치려면 승인받고 실패 확인부터 다시")
+        raise Stop("stop", "실패 확인 뒤에 테스트가 바뀜. 테스트 정정 규칙대로 구현을 빼 두고 실패 확인부터 다시")
     outside = outside_allowed(changed(ctx), task["allowed_files"])
     if outside:
         raise Stop("stop", "바꿔도 되는 파일 밖을 고침", outside=outside)
