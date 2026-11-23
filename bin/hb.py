@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """hb: 검사를 직접 돌려 판정하고 기록하는 작은 프로그램.
 
-명령은 다섯이다.
+명령은 여섯이다.
   preflight 시작 전 검증. 검사를 돌리지 않고, 돌려도 완료 증거가 안 되는 경우(환경, 증거 경로, 범위, 시간)를
             미리 막는다. 제품 결과, 환경, 보조검증을 따로 적는다. 기록을 만들거나 고치지 않는다.
   baseline  바탕 검사. 작업 트리가 깨끗한지 보고, 전체 검사를 돌려 원래 깨져 있는 테스트를 적는다. 작업마다 한 번.
   check     할 일의 검사. --phase red 는 "제대로 실패하는가", green 은 "통과했고 새로 깨진 것이 없는가".
   done      완료. 통과한 그 코드가 그대로 커밋에 올라가 있을 때만 완료로 표시한다.
+  setup-fix 준비 데이터 정정. --phase before 는 고치기 전의 실패를 남기고, after 는 같은 인자로 다시 돌려
+            이름 목록이 같고 실패가 모두 통과하고 나빠진 것이 없을 때만 인정한다. 테스트 쪽 변경은 logs/에 남긴다.
+            지금 실패 확인에 기댄 정정만 판정에 쓴다. 앞 실패 확인에 기댄 정정은 기록으로만 남는다.
+            --baseline 은 바탕 검사의 정정. 바탕 검사 기록을 고치기 전으로 보고 같은 인자로 지금 커밋을 돌려,
+            인정되면 기록(baseline.setup_fix)과 변경 기록만 남긴다. 판정의 "원래 깨져 있던 것"은 그대로다.
   review    검수 검사. 할 일이 모두 완료됐고, 평가 뒤에 바뀐 것이 관리 기록뿐이고, 바탕 검사 뒤에 바뀐 파일이
             할 일들의 허락된 파일 안이고, 전체 검사를 새로 돌려 새로 깨진 것이 없고 할 일마다의 테스트가 통과하는지 본다.
 
@@ -32,6 +37,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -102,14 +108,44 @@ def committed_since(ctx, base):
     return sorted(p for p in out.split("\0") if p and not p.startswith(ctx.work_rel + "/"))
 
 
+def is_test_file(ctx, path):
+    """검사 계약의 test_globs에 걸린 파일인가 (경로 전체나 파일 이름으로)."""
+    return any(fnmatch.fnmatch(path, g) or fnmatch.fnmatch(os.path.basename(path), g)
+               for g in ctx.contract["test_globs"])
+
+
 def test_fingerprint(ctx, check_args):
     """테스트 관련 파일과 확인 명령의 지문."""
     files = set(git(ctx.repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0"))
-    globs = ctx.contract["test_globs"]
-    picked = sorted(f for f in files if f and any(
-        fnmatch.fnmatch(f, g) or fnmatch.fnmatch(os.path.basename(f), g) for g in globs))
+    picked = sorted(f for f in files if f and is_test_file(ctx, f))
     body = json.dumps([list(check_args)] + [[p, file_hash(ctx.repo, p)] for p in picked])
     return sha(body.encode())
+
+
+def test_tree(ctx):
+    """테스트 쪽 파일(git에 없는 새 파일 포함, .gitignore 제외는 따름, 작업 폴더 제외)을 git 트리로 적고 그 ID를 낸다.
+
+    임시 인덱스 파일(GIT_INDEX_FILE)에만 올리므로 사용자의 인덱스와 작업 트리는 바뀌지 않는다. 임시 파일은 끝나면 지운다.
+    """
+    files = set(git(ctx.repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0"))
+    picked = sorted(f for f in files if f and is_test_file(ctx, f) and not f.startswith(ctx.work_rel + "/") and (
+        os.path.isfile(os.path.join(ctx.repo, f)) or os.path.islink(os.path.join(ctx.repo, f))))  # 지운 파일은 트리에 없다
+    tmp = tempfile.mkdtemp(prefix="hb-index-")
+    try:
+        env = dict(os.environ, GIT_INDEX_FILE=os.path.join(tmp, "index"))
+        for cmd, data in ((["update-index", "--add", "-z", "--stdin"], "".join(p + "\0" for p in picked)),
+                          (["write-tree"], None)):
+            r = subprocess.run(["git", *cmd], cwd=ctx.repo, input=data, capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise Stop("stop", "git 명령이 실패함: git " + cmd[0])
+        return r.stdout.strip()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def outside_files(ctx):
+    """마지막 커밋과 다른 파일 가운데 test_globs 밖인 것과 그 내용 지문. 작업 폴더는 뺀다."""
+    return {p: file_hash(ctx.repo, p) for p in changed(ctx) if not is_test_file(ctx, p)}
 
 
 # --- 보고서 읽기와 검사 실행 ---
@@ -223,12 +259,27 @@ def broken_ids(cases):
     return sorted(c[0] for c in cases if c[1] in ("failure", "error"))
 
 
+def is_load_error(case):
+    """가져오기·문법 오류인가. 메시지가 SETUP_ERRORS로 시작하거나, 테스트 파일을 통째로 불러오지 못한 항목
+    (pytest JUnit의 "collection failure", jest의 FILE_FAILED 항목)이다. 실행기마다 갈래를 두지 않는다."""
+    tid, kind, msg = case
+    return kind in ("failure", "error") and (
+        msg.startswith(SETUP_ERRORS) or msg == "collection failure" or tid.endswith("::" + FILE_FAILED))
+
+
 def now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 def report_ext(ctx):
     return {"jest": ".json", "xcodebuild": ".xcresult"}.get(ctx.contract["runner"], ".xml")
+
+
+def read_report(ctx, runner, report):
+    """보고서를 실행기에 맞는 해석기로 읽어 테스트 항목 목록을 낸다. Gradle의 보고서는 모아 둔 JUnit 한 파일이다."""
+    if runner == "xcodebuild":
+        return parse_xcresult(report, ctx.contract["timeout_seconds"])
+    return parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
 
 
 def run_check(ctx, label, args):
@@ -273,10 +324,7 @@ def run_check(ctx, label, args):
         try:
             if runner == "gradle":
                 gather_junit(ctx.report_dir, report)
-            if runner == "xcodebuild":
-                cases = parse_xcresult(report, ctx.contract["timeout_seconds"])
-            else:
-                cases = parse_jest(report, ctx.repo) if runner == "jest" else parse_junit(report)
+            cases = read_report(ctx, runner, report)
         except (FileNotFoundError, ValueError, ET.ParseError, subprocess.TimeoutExpired):
             cases = []
         if not cases:
@@ -289,6 +337,7 @@ def run_check(ctx, label, args):
         "total": len(cases), "counts": {k: sum(1 for c in cases if c[1] == k) for k in RANK},
         "broken": broken_ids(cases), "report": "logs/" + report_name, "log_sha256": log_sha,
         "head": git(ctx.repo, "rev-parse", "HEAD").strip(), "seconds": round(time.time() - start), "at": now(),
+        "cases": sorted([c[0], c[1]] for c in cases),  # 테스트 이름과 결과 목록
     }
     save_json(os.path.join(checks, name), record)
     if ran != "ran":
@@ -517,11 +566,18 @@ def check_red(ctx, state, task):
     if setup:
         raise Stop("stop", "가져오기나 문법 오류로 실패함. 준비 단계 오류는 실패 확인으로 인정하지 않음",
                    tests=setup, record=record)
-    state["tasks"][task["id"]] = {"red": {
+    old = state["tasks"].get(task["id"], {})
+    history = list(old.get("red_history") or [])
+    if old.get("red"):  # 앞 실패 확인 기록은 바꾸지 않고 끝에 옮긴다
+        history.append(old["red"])
+    new = {"red": {
         "ok": True, "head": git(ctx.repo, "rev-parse", "HEAD").strip(),
         "test_fp": test_fingerprint(ctx, task["check_args"]),
         "failed": sorted(c[0] for c in failed), "record": record, "at": now(),
-    }}
+    }, "red_history": history}
+    if "setup_fixes" in old:  # 앞 준비 데이터 정정은 기록으로만 남는다(새 실패 확인의 근거가 아님)
+        new["setup_fixes"] = old["setup_fixes"]
+    state["tasks"][task["id"]] = new
     save_json(ctx.state_path, state)
     return {"verdict": "ok", "failed": sorted(c[0] for c in failed), "record": record,
             "summary": "실패 확인 됨. 본문에서 실패한 테스트 %d개" % len(failed)}
@@ -534,8 +590,14 @@ def check_green(ctx, state, task):
         raise Stop("stop", "이 할 일은 실패 확인 기록이 없음. 실패 확인을 먼저 받아야 함")
     if git(ctx.repo, "rev-parse", "HEAD").strip() != red["head"]:
         raise Stop("stop", "실패 확인 뒤에 커밋이 생김. 커밋은 지휘만 하고, 완료 뒤에 함")
-    if test_fingerprint(ctx, task["check_args"]) != red["test_fp"]:
-        raise Stop("stop", "실패 확인 뒤에 테스트가 바뀜. 테스트 정정 규칙대로 구현을 빼 두고 실패 확인부터 다시")
+    unfinished = unfinished_fixes(entry, red)
+    fp = test_fingerprint(ctx, task["check_args"])
+    if fp != red["test_fp"]:  # 지금 실패 확인에 기댄 인정된 정정의 마지막 after 지문과 같을 때만 받는다
+        last = last_accepted_fp(entry, red)
+        if unfinished or last is None or last != fp:
+            raise Stop("stop", "실패 확인 뒤에 테스트가 바뀜. 테스트 정정 규칙대로 구현을 빼 두고 실패 확인부터 다시")
+    elif unfinished:
+        raise Stop("stop", "끝나지 않은 준비 데이터 정정(before)이 있음. after를 먼저 끝내거나 변경을 되돌려야 함")
     outside = outside_allowed(changed(ctx), task["allowed_files"])
     if outside:
         raise Stop("stop", "바꿔도 되는 파일 밖을 고침", outside=outside)
@@ -591,6 +653,214 @@ def cmd_done(ctx, args):
                 "summary": "완료로 표시함. 이 저장소는 작업 폴더가 git 제외라 올리지 않음. 그대로 커밋하면 됨"}
     return {"verdict": "ok", "add": [ctx.work_rel],
             "summary": "완료로 표시함. 작업 폴더의 기록을 올린 뒤 커밋하면 됨"}
+
+
+def current_fixes(entry, red):
+    """지금 실패 확인에 기댄 준비 데이터 정정 (setup_fixes 안의 순번, 항목) 목록.
+    앞 실패 확인에 기댄 항목은 끝났든 아니든 기록으로만 남고 판정에 쓰지 않는다."""
+    return [(i, f) for i, f in enumerate(entry.get("setup_fixes") or []) if f.get("red_record") == red["record"]]
+
+
+def unfinished_fixes(entry, red):
+    """끝나지 않은 before: 지금 실패 확인에 기댄 항목 가운데 after가 없는 것."""
+    return [(i, f) for i, f in current_fixes(entry, red) if "after" not in f]
+
+
+def last_accepted_fp(entry, red):
+    """지금 실패 확인에 기댄 인정된 정정 가운데 마지막의 after 지문. 없으면 None."""
+    accepted = [f for _, f in current_fixes(entry, red) if "after" in f]
+    return accepted[-1]["after"]["test_fingerprint"] if accepted else None
+
+
+def setup_fix_before(ctx, state, task, entry, red, select):
+    """고치기 전의 실패를 남긴다. 조건이 어긋나면 테스트를 돌리지 않거나, 돌린 뒤 멈춘다."""
+    if unfinished_fixes(entry, red):
+        raise Stop("stop", "끝나지 않은 준비 데이터 정정(before)이 있음. after를 먼저 끝내거나 변경을 되돌려야 함")
+    head = git(ctx.repo, "rev-parse", "HEAD").strip()
+    if head != red["head"]:
+        raise Stop("stop", "실패 확인 뒤에 커밋이 생김. 커밋은 지휘만 하고, 완료 뒤에 함")
+    last_fp = last_accepted_fp(entry, red) or red["test_fp"]
+    if test_fingerprint(ctx, task["check_args"]) != last_fp:
+        raise Stop("stop", "테스트 쪽 파일이 이미 바뀌어 있음. 고치기 전의 실패를 남길 수 없으므로 테스트 정정 규칙대로")
+    outside, tree = outside_files(ctx), test_tree(ctx)
+    run_args = list(select) if select else list(task["check_args"])
+    cases, record = run_check(ctx, task["id"] + "-setup-before", run_args)
+    known = set(state["baseline"]["broken"])
+    mine = [c for c in cases if c[0] not in known]  # 원래 깨져 있던 것은 세지 않는다
+    if not any(c[1] in ("failure", "error") for c in mine):
+        raise Stop("stop", "고른 테스트 가운데 실패하거나 오류가 난 것이 없음. 바로잡을 실패가 없음", record=record)
+    load = [c[0] for c in mine if is_load_error(c)]
+    if load:
+        raise Stop("stop", "가져오기나 문법 오류가 남. 준비 데이터가 아니라 코드 문제", tests=load, record=record)
+    entry.setdefault("setup_fixes", []).append({"red_record": red["record"], "before": {
+        "args": run_args, "tests": {c[0]: c[1] for c in cases}, "outside": outside, "test_tree": tree,
+        "record": record, "head": head, "at": now(),
+    }})
+    save_json(ctx.state_path, state)
+    broken = broken_ids(mine)
+    return {"verdict": "ok", "broken": broken, "record": record,
+            "summary": "고치기 전의 실패를 남김. 실패하거나 오류가 난 테스트 %d개" % len(broken)}
+
+
+def setup_fix_after(ctx, state, task, entry, red):
+    """끝나지 않은 before의 인자로 같은 테스트를 다시 돌려, 세 인정 조건을 모두 만족할 때만 인정한다."""
+    unfinished = unfinished_fixes(entry, red)
+    if not unfinished:
+        raise Stop("stop", "지금 실패 확인에 기댄 끝나지 않은 준비 데이터 정정(before)이 없음. before를 먼저 돌려야 함")
+    index, item = unfinished[-1]
+    before = item["before"]
+    if git(ctx.repo, "rev-parse", "HEAD").strip() != before["head"]:
+        raise Stop("stop", "before 뒤에 커밋이 생김")
+    outside = outside_files(ctx)
+    differ = sorted(p for p in set(outside) | set(before["outside"]) if outside.get(p) != before["outside"].get(p))
+    if differ:
+        raise Stop("stop", "before 뒤에 test_globs 밖의 파일이 바뀜. 준비 데이터만 고쳐야 함", outside=differ)
+    tree = test_tree(ctx)
+    if tree == before["test_tree"]:
+        raise Stop("stop", "before 뒤에 바뀐 테스트 쪽 파일이 없음")
+    fp = test_fingerprint(ctx, task["check_args"])
+    cases, record = run_check(ctx, task["id"] + "-setup-after", before["args"])
+    old, result = before["tests"], {c[0]: c[1] for c in cases}
+    known = set(state["baseline"]["broken"])
+    bad = {
+        "added": sorted(set(result) - set(old)),
+        "removed": sorted(set(old) - set(result)),
+        "still_failing": sorted(t for t, k in old.items() if k in ("failure", "error") and t not in known
+                                and t in result and result[t] != "passed"),
+        "regressed": sorted(t for t, k in old.items() if k == "passed" and t not in known
+                            and result.get(t) in ("failure", "error", "skipped")),
+    }
+    if any(bad.values()):
+        raise Stop("stop", "준비 데이터 정정으로 인정하지 않음 (고른 테스트 목록이 다르거나, 실패가 남았거나, 나빠진 테스트가 있음)",
+                   record=record, **bad)
+    files = sorted(p for p in git(ctx.repo, "diff", "--name-only", "-z", "--no-renames",
+                                  before["test_tree"], tree).split("\0") if p)
+    diff = "logs/%s-setup-fix-%d.diff.log" % (task["id"], index + 1)
+    r = subprocess.run(["git", "diff", "--no-color", "--no-ext-diff", "--no-renames", before["test_tree"], tree],
+                       cwd=ctx.repo, capture_output=True)
+    if r.returncode != 0:
+        raise Stop("stop", "git 명령이 실패함: git diff", record=record)
+    with open(os.path.join(ctx.work, diff), "wb") as f:  # 바이트 그대로 (UTF-8이 아닌 파일도)
+        f.write(r.stdout)
+    item["after"] = {"test_fingerprint": fp, "test_tree": tree, "record": record, "diff": diff,
+                     "changed": files, "at": now()}
+    save_json(ctx.state_path, state)
+    return {"verdict": "ok", "changed": files, "diff": diff, "record": record,
+            "summary": "준비 데이터 정정 인정. 바뀐 테스트 쪽 파일 %d개. 검토자에게 변경 기록을 보여야 함" % len(files)}
+
+
+BASELINE_DIFF = "logs/baseline-setup-fix.diff.log"
+
+
+def baseline_before_cases(ctx, base_rec):
+    """고치기 전 테스트 목록 {이름: 결과}. 바탕 검사 기록의 cases가 있으면 그것을, 없으면 그 기록의 보고서를
+    run_check와 같은 해석기로 읽는다. 읽은 수와 깨진 이름이 기록과 다르면 멈춘다."""
+    unreadable = Stop("stop", "바탕 검사 기록에서 고치기 전 테스트 목록을 읽을 수 없음")
+    if "cases" in base_rec:
+        cases = base_rec["cases"]
+        if not isinstance(cases, list) or not all(
+                isinstance(c, list) and len(c) == 2 and isinstance(c[0], str) and c[1] in RANK for c in cases):
+            raise unreadable
+        return {c[0]: c[1] for c in cases}
+    report, runner = base_rec.get("report"), base_rec.get("runner")
+    if not isinstance(report, str) or not report or runner not in RUNNERS:
+        raise unreadable
+    path = os.path.join(ctx.work, report)
+    if not os.path.exists(path):
+        raise Stop("stop", "바탕 검사 기록에 테스트 목록이 없고 그 보고서도 없음: " + report)
+    try:
+        cases = read_report(ctx, runner, path)
+    except (OSError, ValueError, ET.ParseError, subprocess.TimeoutExpired):
+        raise Stop("stop", "바탕 검사 기록의 보고서를 읽을 수 없음: " + report)
+    if len(cases) != base_rec.get("total") or broken_ids(cases) != sorted(base_rec.get("broken") or []):
+        raise Stop("stop", "바탕 검사 보고서에서 읽은 테스트 수나 깨진 이름이 기록과 다름: " + report)
+    return {c[0]: c[1] for c in cases}
+
+
+def blob_ids(ctx, head, paths):
+    """경로마다 head 커밋에서의 git blob ID. 그 커밋에 없는(지운) 파일은 None."""
+    found = {}
+    for p in paths:
+        r = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "%s:%s" % (head, p)],
+                           cwd=ctx.repo, capture_output=True, text=True)
+        found[p] = r.stdout.strip() if r.returncode == 0 else None
+    return found
+
+
+def setup_fix_baseline(ctx):
+    """바탕 검사의 준비 데이터 정정. 조건은 모두 run_check 앞에서 보고, 멈추면 state.json은 바뀌지 않는다."""
+    state = ctx.state()
+    base = state["baseline"]
+    if state.get("tasks"):
+        raise Stop("stop", "할 일 기록이 이미 있음. 바탕 검사의 정정은 할 일 기록이 없을 때만 함 (할 일의 setup-fix로)")
+    if "setup_fix" in base:
+        raise Stop("stop", "이 작업에서 바탕 검사의 준비 데이터 정정을 이미 인정받았음 (한 작업에 한 번)")
+    known = sorted(base.get("broken") or [])
+    if not known:
+        raise Stop("stop", "바탕 검사에서 원래 깨져 있던 테스트가 없음. 바로잡을 실패가 없음")
+    dirty = changed(ctx)
+    if dirty:
+        raise Stop("stop", "작업 폴더 밖에 커밋되지 않은 변경이 있음. 고친 것을 커밋한 뒤 돌려야 함", dirty=dirty)
+    head = git(ctx.repo, "rev-parse", "HEAD").strip()
+    if not is_ancestor(ctx.repo, base["head"], head):
+        raise Stop("stop", "바탕 검사 커밋이 지금 커밋의 조상이 아님 (바탕 검사 커밋에서 이어지지 않음)")
+    files = committed_since(ctx, base["head"])
+    outside = [p for p in files if not is_test_file(ctx, p)]
+    if outside:
+        raise Stop("stop", "바탕 검사 뒤에 test_globs 밖의 파일이 바뀜. 준비 데이터만 고쳐야 함", outside=outside)
+    if not files:
+        raise Stop("stop", "바탕 검사 뒤에 커밋으로 바뀐 테스트 쪽 파일이 없음")
+    base_rec = load_json(os.path.join(ctx.work, base["record"]), "바탕 검사 기록")
+    before = baseline_before_cases(ctx, base_rec)
+    if not isinstance(base_rec.get("args"), list):
+        raise Stop("stop", "바탕 검사 기록에 검사 인자(args)가 없음")
+    cases, record = run_check(ctx, "baseline-setup-fix", base_rec["args"])
+    if changed(ctx) or git(ctx.repo, "rev-parse", "HEAD").strip() != head:
+        raise Stop("stop", "검사하는 동안 파일이나 커밋이 바뀜", record=record)
+    result = {c[0]: c[1] for c in cases}
+    bad = {
+        "added": sorted(set(result) - set(before)),
+        "removed": sorted(set(before) - set(result)),
+        "still_failing": sorted(t for t in known if t in result and result[t] != "passed"),
+        "regressed": sorted(t for t, k in before.items() if t not in known and t in result
+                            and RANK[result[t]] > RANK[k]),
+    }
+    if any(bad.values()):
+        raise Stop("stop", "바탕 검사의 준비 데이터 정정으로 인정하지 않음 (테스트 목록이 다르거나, 원래 깨져 있던 것이 "
+                           "통과하지 않았거나, 나빠진 테스트가 있음)", record=record, **bad)
+    r = subprocess.run(["git", "--literal-pathspecs", "diff", "--no-color", "--no-ext-diff", "--no-renames",
+                        base["head"], head, "--", *files], cwd=ctx.repo, capture_output=True)
+    if r.returncode != 0:
+        raise Stop("stop", "git 명령이 실패함: git diff", record=record)
+    with open(os.path.join(ctx.work, BASELINE_DIFF), "wb") as f:  # 바이트 그대로 (UTF-8이 아닌 파일도)
+        f.write(r.stdout)
+    base["setup_fix"] = {"record": record, "head": head, "files": blob_ids(ctx, head, files), "fixed": known,
+                         "diff": BASELINE_DIFF, "at": now()}
+    save_json(ctx.state_path, state)
+    return {"verdict": "ok", "fixed": known, "changed": files, "diff": BASELINE_DIFF, "record": record,
+            "baseline_record": base["record"],
+            "summary": "바탕 검사 준비 데이터 정정 인정. 원래 깨져 있던 것 %d건 모두 통과, 바뀐 파일 %d개. "
+                       "검토자에게 변경 기록을 보여야 함" % (len(known), len(files))}
+
+
+def cmd_setup_fix(ctx, args):
+    """준비 데이터 정정. 멈추면 state.json은 바뀌지 않는다."""
+    if args.baseline:
+        if args.task is not None or args.phase is not None or args.select:
+            raise Stop("stop", "--baseline은 --task, --phase, 테스트 고르는 인자와 함께 줄 수 없음")
+        return setup_fix_baseline(ctx)
+    if args.task is None or args.phase is None:
+        raise Stop("stop", "setup-fix에는 --task와 --phase가 있어야 함 (바탕 검사의 정정은 --baseline)")
+    state, task = ctx.state(), ctx.task(args.task)
+    entry = state["tasks"].get(task["id"], {})
+    red = entry.get("red")
+    if not red or not red.get("ok"):
+        raise Stop("stop", "이 할 일은 실패 확인 기록이 없음. 준비 데이터 정정은 실패 확인 뒤에만 함")
+    if args.phase == "before":
+        return setup_fix_before(ctx, state, task, entry, red, args.select)
+    if args.select:
+        raise Stop("stop", "after는 테스트 고르는 인자를 받지 않음. before의 인자를 그대로 씀")
+    return setup_fix_after(ctx, state, task, entry, red)
 
 
 RECORD_FILES = ("INDEX.md", "state.json")
@@ -693,10 +963,17 @@ def main(argv=None):
     s.add_argument("--aux", action="append", default=[], help="보조검증이 쓸 경로 (여러 번 줄 수 있음)")
     s.add_argument("--deadline", default=None, help="결과를 회수해야 하는 시각 (UTC ISO 8601)")
     s.add_argument("--margin", type=int, default=120, help="검사 제한 시간에 더할 여유 초 (기본 120)")
+    s = sub.add_parser("setup-fix")
+    s.add_argument("--work", required=True, help="작업 이름")
+    s.add_argument("--baseline", action="store_true", help="바탕 검사의 준비 데이터 정정 (--task, --phase 없이)")
+    s.add_argument("--task", default=None, help="할 일 번호 (--baseline이 아니면 필수)")
+    s.add_argument("--phase", default=None, choices=("before", "after"), help="--baseline이 아니면 필수")
+    s.add_argument("select", nargs="*", help="-- 뒤에 테스트를 고르는 인자 (before만)")
     args = p.parse_args(argv)
     try:
         out = {"baseline": cmd_baseline, "check": cmd_check, "done": cmd_done,
-               "review": cmd_review, "preflight": cmd_preflight}[args.cmd](Ctx(args), args)
+               "review": cmd_review, "preflight": cmd_preflight,
+               "setup-fix": cmd_setup_fix}[args.cmd](Ctx(args), args)
     except Stop as e:
         out = e.out
     print(json.dumps(out, ensure_ascii=False))

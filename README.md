@@ -32,6 +32,12 @@ tests/test_hb_xcodebuild.py  프로그램의 테스트 (xcodebuild 쪽)
 tests/test_hb_review.py      프로그램의 테스트 (검수 검사)
 tests/test_hb_preflight.py   프로그램의 테스트 (시작 전 검증)
 tests/test_skills_preflight.py  문서의 테스트 (시작 전 검증 연계)
+tests/test_hb_red_history.py    프로그램의 테스트 (실패 확인 기록 보존, 검사 기록의 이름 목록)
+tests/test_hb_setup_fix.py      프로그램의 테스트 (할 일의 준비 데이터 정정, pytest 쪽)
+tests/test_hb_setup_fix_jest.py  프로그램의 테스트 (할 일의 준비 데이터 정정, jest 쪽)
+tests/test_hb_setup_fix_baseline.py  프로그램의 테스트 (바탕 검사의 준비 데이터 정정, pytest 쪽)
+tests/test_hb_setup_fix_baseline_jest.py  프로그램의 테스트 (바탕 검사의 준비 데이터 정정, jest 쪽)
+tests/test_skills_setup_fix.py  문서의 테스트 (준비 데이터 정정)
 ```
 
 ## 쓰는 법 (Claude Code)
@@ -46,6 +52,8 @@ claude --plugin-dir <이 폴더의 경로>
 세션 안에서 `/hb:plan`으로 계획을, `/hb:dev`로 개발을 시작합니다. 개발이 끝나면 새 창에서 `/hb:eval`로 평가를 받고, 평가 기록이 "검수로"를 내면 또 새 창에서 `/hb:review`로 검수를 받습니다. 올리기와 합치기는 사람이 합니다.
 
 개발은 바탕 검사와 각 검사 전에 `hb.py preflight --work <작업 이름> [--task <번호>]`로 시작 전 검증을 합니다. 검사를 돌리지 않고 기록도 만들지 않으며, 돌려도 완료 증거가 안 되는 경우(환경, 증거 경로, 범위, 시간)에 `stop`을 냅니다. 결과는 `product`, `environment`, `aux` 세 칸으로 따로 내고, 이 판정은 통과 증거가 아닙니다.
+
+테스트가 준비 데이터(입력 파일, 가짜 객체가 돌려주는 값, 실행 환경 설정 등) 때문에 실패하면 `hb.py setup-fix`로 준비 데이터 정정을 합니다. 준비 데이터만 고치고, 프로그램이 같은 인자로 고치기 전과 고친 뒤를 돌려 견주며, 새 검토자가 바뀐 줄에서 기대값과 검사 조건이 그대로인지 봅니다. 할 일의 실패 확인 뒤에 드러난 것(`--task <번호> --phase before`, `after`)과 바탕 검사에서 드러난 것(`--baseline`) 두 갈래가 있고, 어느 쪽이든 바탕 검사의 "원래 깨져 있던 것"과 검수의 판정은 그대로입니다.
 
 평가와 검수 창은 자동 메모를 끄고 엽니다. 앞 세션들이 남긴 메모를 읽고 시작하면 새 눈으로 보지 못하기 때문입니다(시운전에서 두 번째 평가가 앞 세션의 확인 안 된 메모를 "합의한 규율"로 인용했습니다).
 
