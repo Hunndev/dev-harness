@@ -289,6 +289,7 @@ def run_check(ctx, label, args):
         "total": len(cases), "counts": {k: sum(1 for c in cases if c[1] == k) for k in RANK},
         "broken": broken_ids(cases), "report": "logs/" + report_name, "log_sha256": log_sha,
         "head": git(ctx.repo, "rev-parse", "HEAD").strip(), "seconds": round(time.time() - start), "at": now(),
+        "cases": sorted([c[0], c[1]] for c in cases),  # 테스트 이름과 결과 목록
     }
     save_json(os.path.join(checks, name), record)
     if ran != "ran":
@@ -517,11 +518,15 @@ def check_red(ctx, state, task):
     if setup:
         raise Stop("stop", "가져오기나 문법 오류로 실패함. 준비 단계 오류는 실패 확인으로 인정하지 않음",
                    tests=setup, record=record)
+    old = state["tasks"].get(task["id"], {})
+    history = list(old.get("red_history") or [])
+    if old.get("red"):  # 앞 실패 확인 기록은 바꾸지 않고 끝에 옮긴다
+        history.append(old["red"])
     state["tasks"][task["id"]] = {"red": {
         "ok": True, "head": git(ctx.repo, "rev-parse", "HEAD").strip(),
         "test_fp": test_fingerprint(ctx, task["check_args"]),
         "failed": sorted(c[0] for c in failed), "record": record, "at": now(),
-    }}
+    }, "red_history": history}
     save_json(ctx.state_path, state)
     return {"verdict": "ok", "failed": sorted(c[0] for c in failed), "record": record,
             "summary": "실패 확인 됨. 본문에서 실패한 테스트 %d개" % len(failed)}
